@@ -11,7 +11,7 @@
     "generate-client": "openapi-ts",
     "test": "bunx playwright test",
     "test:ui": "bunx playwright test --ui",
-    "test:unit": "vitest run",
+    "test:unit": "vitest run --passWithNoTests",
     "test:unit:watch": "vitest"
   },
   "dependencies": {
@@ -33,7 +33,7 @@
     "@tanstack/react-query-devtools": "^5.101.4",
     "@tanstack/react-router": "^1.170.23",
     "@tanstack/react-router-devtools": "^1.167.1",
-    "@tanstack/react-table": "^9.1.0",
+    "@tanstack/react-table": "^8.21.3",
     "axios": "1.19.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
