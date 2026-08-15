@@ -1,0 +1,39 @@
+# typos configuration.
+#
+# The pre-commit `typos` hook does NOT read [tool.typos] from pyproject.toml.
+# Verified: rules added there had no effect on the hook, while a direct
+# `typos <file>` run honoured them. This file IS read, and it takes full
+# precedence — so the pyproject block is mirrored here in its entirety.
+# Keep the two in sync, or delete the pyproject block once nothing reads it.
+
+[files]
+extend-exclude = [
+    "img/",
+    "uv.lock",
+    "bun.lock",
+    "backend/coverage/",
+    "backend/htmlcov/",
+    "backend/app/frontend/",
+    "frontend/dist/",
+    "frontend/public/assets/images/",
+    # Design exports: ~1MB single-file JS bundles, not source.
+    "resources/*.html",
+]
+
+[default]
+extend-ignore-re = [
+    # GitHub usernames in @mentions
+    "@[a-zA-Z0-9](?:-?[a-zA-Z0-9])*",
+    # Name of the package in the PR title
+    "Bump certifi ",
+    # OpenType variable-font axis tags. Four letters by spec (Archivo[wdth,wght]),
+    # not misspellings of "width"/"weight".
+    "wdth",
+    "wght",
+    # NFL overtime, as the design renders it: "Final / OT", game status "final_ot".
+    "\\bOT\\b",
+    "final_ot",
+]
+
+[default.extend-identifiers]
+alls = "alls"
