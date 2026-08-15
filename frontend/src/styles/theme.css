@@ -7,6 +7,13 @@
  * 1.2 LIGHT ONLY. No dark block, no theme toggle. The diverging scale generates
  *     L 0.75-0.97 backgrounds, unusable on the DS's #0A0A0C dark canvas.
  *     Dark mode needs a design pass, not a token remap.
+ *     index.css keeps `@custom-variant dark (&:is(.dark *));` — deliberately.
+ *     Nothing ever adds a `.dark` class, so it binds shadcn's baked-in `dark:`
+ *     utilities to a selector that can never match, making them permanently
+ *     inert. Deleting that line does not disable dark mode, it enables it via
+ *     `@media (prefers-color-scheme: dark)`, Tailwind's default fallback —
+ *     which would be reachable by OS dark-mode visitors against a palette
+ *     that was never designed for it. Do not delete it.
  * 1.3 Canvas is --app-canvas (#FAF9F6), not --bone (#F4F1EA). Different colors.
  * 1.5 ~12 colors used by the design were absent from the DS token files;
  *     they live in tokens.app.css, not here, so re-import regenerates them.
