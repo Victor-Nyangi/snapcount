@@ -13,3 +13,6 @@ backend/app/frontend/
 # Design exports are 1MB bundled-JS artifacts, re-importable from Claude Design.
 # The authoritative source is the .dc.html in the design project, not these bundles.
 resources/*.html
+
+# Transient artifact: scripts/generate-client.sh writes it here before moving it to frontend/
+openapi.json

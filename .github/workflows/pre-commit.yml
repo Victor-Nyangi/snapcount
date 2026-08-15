@@ -62,6 +62,9 @@ jobs:
         if: steps.changes.outputs.changed == 'true'
         run: |
           echo "::error::pre-commit modified files. Run 'uv run prek run --all-files' locally and commit the result."
+          echo "--- git status --porcelain (?? = untracked) ---"
+          git status --porcelain
+          echo "--- tracked-file changes ---"
           git --no-pager diff --stat
           exit 1
       - name: Error out on pre-commit errors
