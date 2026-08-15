@@ -2,22 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { type StatColumn, StatTable } from "./stat-table"
 
-// jsdom doesn't implement ResizeObserver. Radix's Tooltip Arrow (used by
-// the DIFF column's header tooltip) measures itself with it, and the
-// tooltip opens on keyboard focus as well as hover — that's deliberate,
-// not incidental, per the a11y requirement that focus must work like a
-// mouse user's hover. This stub only fills the test-environment gap; real
-// browsers have ResizeObserver natively. Scoped to this file rather than
-// the shared vitest.setup.ts, since touching shared test infra is outside
-// this task's declared scope.
-if (typeof ResizeObserver === "undefined") {
-  global.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  }
-}
-
 type Row = { team: string; diff: number; pct: number }
 
 const rows: Row[] = [
@@ -42,6 +26,7 @@ const columns: StatColumn<Row>[] = [
     title: "Point differential",
     width: 84,
     sortable: true,
+    signed: true,
     value: (r) => r.diff,
   },
   {
@@ -152,5 +137,51 @@ describe("StatTable", () => {
     })
     const heading = screen.getByText("AFC North").closest("td")!
     expect(heading).toHaveAttribute("colspan", "3")
+  })
+
+  it("renders an unsigned numeric column without a plus sign", () => {
+    const unsignedColumns: StatColumn<Row>[] = [
+      { key: "team", label: "Team", width: 190, value: (r) => r.team },
+      { key: "diff", label: "PF", width: 84, value: (r) => r.diff },
+    ]
+    render(
+      <StatTable
+        caption="Unsigned"
+        columns={unsignedColumns}
+        rows={[{ team: "BUF", diff: 472, pct: 0 }]}
+        rowKey={(r) => r.team}
+      />,
+    )
+    expect(screen.getByText("472")).toBeInTheDocument()
+    expect(screen.queryByText("+472")).not.toBeInTheDocument()
+  })
+
+  it("signs positive values on a `signed` column, leaves negative natural, and never signs zero", () => {
+    const signedColumns: StatColumn<Row>[] = [
+      { key: "team", label: "Team", width: 190, value: (r) => r.team },
+      {
+        key: "diff",
+        label: "DIFF",
+        width: 84,
+        signed: true,
+        value: (r) => r.diff,
+      },
+    ]
+    render(
+      <StatTable
+        caption="Signed"
+        columns={signedColumns}
+        rows={[
+          { team: "BUF", diff: 131, pct: 0 },
+          { team: "CLE", diff: -185, pct: 0 },
+          { team: "KC", diff: 0, pct: 0 },
+        ]}
+        rowKey={(r) => r.team}
+      />,
+    )
+    expect(screen.getByText("+131")).toBeInTheDocument()
+    expect(screen.getByText("-185")).toBeInTheDocument()
+    expect(screen.getByText("0")).toBeInTheDocument()
+    expect(screen.queryByText("+0")).not.toBeInTheDocument()
   })
 })

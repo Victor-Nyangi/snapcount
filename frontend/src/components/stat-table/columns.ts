@@ -19,6 +19,15 @@ export interface StatColumn<Row> {
   align?: Align
   /** FIXED PER COLUMN — a cell may never choose its own. */
   precision?: number
+  /**
+   * Whether positive values get an explicit "+" prefix. Sign is a property
+   * of the QUANTITY, not of the cell — a column is signed or it is not,
+   * and no cell decides for itself, the same rule `precision` follows.
+   * Default false. Only genuinely signed quantities (a differential, a
+   * game margin, a cumulative differential, a value vs. baseline) should
+   * ever set this; a plain count (PF, PA, rank, games played) should not.
+   */
+  signed?: boolean
   sortable?: boolean
   /** First column only. */
   sticky?: boolean
@@ -87,19 +96,27 @@ export function alignClassName(align: Align): string {
 }
 
 /**
- * Formats a raw numeric value per the column's fixed `precision`.
+ * Formats a raw numeric value per the column's fixed `precision` and
+ * `signed` settings — both are properties of the column, never of a cell.
  *
  * - With `precision`: fixed-decimal, leading "0" before the point stripped
  *   (".765", not "0.765") — the app's rate/percentage convention.
- * - Without `precision`: a signed integer-style string ("+131", "-185"),
- *   mirroring `DiffCell`'s existing sign convention for the same values.
+ * - With `signed`: positive values get an explicit "+" prefix ("+131").
+ *   Zero never gets a sign, and negative values keep their natural "-"
+ *   regardless of `signed` — there is no way to suppress that.
+ * - Without `signed` (the default): positive values render plain ("472"),
+ *   which is what most numeric stat columns (PF, PA, rank, GP) want.
  */
-export function formatNumericValue(value: number, precision?: number): string {
+export function formatNumericValue(
+  value: number,
+  precision?: number,
+  signed?: boolean,
+): string {
   if (precision !== undefined) {
     const fixed = value.toFixed(precision)
     return fixed.replace(/^(-?)0\./, "$1.")
   }
-  const sign = value > 0 ? "+" : ""
+  const sign = signed && value > 0 ? "+" : ""
   return `${sign}${value}`
 }
 
@@ -111,6 +128,8 @@ export function renderCellContent<Row>(
 ): ReactNode {
   if (column.render) return column.render(row)
   const raw = cellValue(column, row)
-  if (typeof raw === "number") return formatNumericValue(raw, column.precision)
+  if (typeof raw === "number") {
+    return formatNumericValue(raw, column.precision, column.signed)
+  }
   return raw
 }
