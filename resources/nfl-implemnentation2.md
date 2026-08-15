@@ -175,23 +175,27 @@ Both the slate table and the standings table are `display:grid` with explicit `g
 
 **Decision:** `StatTable` renders a semantic `<table>` with `table-layout: fixed` and a `<colgroup>` whose widths are copied from the mockup's `grid-template-columns`. Visually identical, structurally correct. This is the one place the design and shadcn's structure genuinely conflict, and it is resolved in shadcn's favour.
 
-### 1.7 Team chips fail AA for 8 of 32 teams
+### 1.7 Team chips fail AA for 7 of 32 teams
 
-The chip is white 11px bold text on the team's primary color. Measured contrast against white:
+The chip is white 11px bold text on the team's primary color. Contrast against white, **computed** (an earlier draft of this section estimated these and got Detroit wrong):
 
-| Team | Color | Ratio | |
-|---|---|---|---|
-| CAR | `#0085CA` | 4.03 | ✗ |
-| MIA | `#008E97` | 3.95 | ✗ |
-| CIN / DEN | `#FB4F14` | 3.64 | ✗ |
-| NO | `#9F8958` | 3.39 | ✗ |
-| TEN | `#4B92DB` | 3.26 | ✗ |
-| LAC | `#0080C6` | ~4.0 | ✗ |
-| DET | `#0076B6` | ~4.2 | ✗ |
+| Team | Color | vs white | vs near-black | Ink chosen | |
+|---|---|---|---|---|---|
+| TEN | `#4B92DB` | 3.26 | 6.06 | near-black | ✗ fails on white |
+| CIN / DEN | `#FB4F14` | 3.37 | 5.87 | near-black | ✗ fails on white |
+| NO | `#9F8958` | 3.39 | 5.83 | near-black | ✗ fails on white |
+| MIA | `#008E97` | 3.95 | 5.01 | near-black | ✗ fails on white |
+| CAR | `#0085CA` | 4.03 | 4.91 | near-black | ✗ fails on white |
+| LAC | `#0080C6` | 4.28 | 4.62 | near-black | ✗ fails on white |
+| DET | `#0076B6` | **4.92** | 4.02 | **white** | ✓ passes — keeps white |
 
-All of them clear 4.5:1 comfortably against near-black instead (TEN reaches 6.0:1). The handoff sets "AA contrast on all data text, including text inside colored cells" as a quality floor, so this is fixed rather than shipped.
+Six hex values across seven teams (Cincinnati and Denver share `#FB4F14`) fail 4.5:1 against white. All six clear it comfortably against near-black instead — Tennessee reaches 6.06.
 
-**Decision:** `TeamChip` computes WCAG relative luminance from the team color at build time and picks whichever of `--white` / `--black` scores higher. Team color still owns the chip; only the ink adapts.
+**Detroit is the instructive case.** At 4.92 it passes on white, and white is genuinely its better ink. A rule that flipped every "darkish blue" to black would make Detroit *worse*. This is why the fix computes luminance per team rather than hard-coding a list.
+
+The handoff sets "AA contrast on all data text, including text inside colored cells" as a quality floor, so this is fixed rather than shipped.
+
+**Decision:** `TeamChip` computes WCAG relative luminance from the team color and picks whichever of `--white` / `--black` scores higher. Team color still owns the chip; only the ink adapts.
 
 ### 1.8 Featured-matchup banners use team color as a large surface
 
