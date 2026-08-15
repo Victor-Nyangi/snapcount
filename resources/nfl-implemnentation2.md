@@ -834,11 +834,19 @@ git commit -m "feat(design): map design tokens into shadcn's semantic layer (lig
 **Files:**
 - Create: `frontend/src/components/ui/*.tsx`
 
-- [ ] **Step 1: Install the primitives the seven screens need**
+- [ ] **Step 1: Install only what is actually missing**
+
+**The template already ships 10 of the 12.** Verified on disk in `frontend/src/components/ui/`: `table`, `select`, `tabs`, `badge`, `button`, `card`, `checkbox`, `separator`, `skeleton`, `tooltip` — plus `alert`, `avatar`, `button-group`, `dialog`, `dropdown-menu`, `form`, `input`, `label`, `loading-button`, `pagination`, `password-input`, `sheet`, `sidebar`, `sonner`.
+
+Only two are absent:
 
 ```bash
-cd frontend && bunx --bun shadcn@latest add table select tabs badge button card checkbox separator scroll-area skeleton tooltip toggle-group
+cd frontend && bunx --bun shadcn@latest add scroll-area toggle-group
 ```
+
+`@radix-ui/react-scroll-area` is already a dependency; `toggle-group` will pull in `@radix-ui/react-toggle-group` and `@radix-ui/react-toggle`.
+
+**Do not re-add the other ten.** The CLI would overwrite them with stock versions, discarding the template's own edits and anything Step 2 below has already fixed. This task is mostly an *audit* of primitives that already exist, not a bulk install.
 
 Each maps to something concrete in the design:
 
