@@ -123,6 +123,10 @@ The design also deviates from the DS type scale: page `h1` is **44px** (token sa
 
 The page canvas is `#FAF9F6` on white cards. **No screen was designed dark, and the DS dark shell cannot be mechanically applied**, because the diverging differential scale (§1.4) generates backgrounds in the lightness range **L 0.75 → 0.97**. Those are unusable on a `#0A0A0C` canvas; the scale would need re-deriving, not re-mapping, and re-deriving it is a design decision, not an implementation one.
 
+**One trap, learned the hard way.** Tailwind v4's `dark:` variant defaults to `@media (prefers-color-scheme: dark)`. The template rebinds it with `@custom-variant dark (&:is(.dark *));`, and shadcn's primitives ship `dark:*` utilities baked in — 10 component files carry them.
+
+**Keep that line.** Because nothing ever applies the `.dark` class, binding the variant to it makes `dark:` permanently inert. Deleting the line does not disable dark mode — it *enables* it via the OS media query, applying dark utilities against a palette with no dark values. The custom variant is the off switch, not the on switch.
+
 **Decision, per the handoff's own rule ("If the design only defines one, say so instead of deriving the other"):** ship light-only. **The app shell does not get a theme toggle** in this plan, and this is a deliberate deviation from the original handoff §5.3. `theme.css` defines only the light `:root` block; the dark block is left out rather than guessed. Reopening dark mode requires a design pass on the diverging scale first.
 
 ### 1.3 `#FAF9F6` is a new value, not `--bone`
