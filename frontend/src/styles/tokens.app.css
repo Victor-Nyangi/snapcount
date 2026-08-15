@@ -1,0 +1,42 @@
+/* GENERATED from `NFL Analysis Platform.dc.html`.
+   These are values the design uses inline that the DS token files never declared.
+   REGENERATED ON RE-IMPORT. Never hand-edit. */
+:root {
+  /* families — the design overrides the DS (see theme.css §1.1) */
+  --font-display: "Archivo", sans-serif;
+  --font-body: "IBM Plex Sans", -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* type sizes the design deviates on */
+  --text-h1-app: 44px; /* DS --text-h1 is 36px */
+  --text-h2-app: 28px; /* DS --text-h2 is 26px */
+  --tracking-h1: -0.02em;
+  --stretch-display: 125%;
+
+  /* surfaces */
+  --app-canvas: #faf9f6; /* NOT --bone (#F4F1EA) */
+  --app-row-zebra: oklch(0.99 0.002 90); /* lighter than --gray-50 */
+
+  /* orchid ramp at hue 300 (note: --orchid itself is hue ~310) */
+  --orchid-900: oklch(0.24 0.1 300);
+  --orchid-700: oklch(0.35 0.13 300);
+  --orchid-600: oklch(0.45 0.12 300);
+  --orchid-tint: oklch(0.95 0.06 300);
+
+  /* emerald tints */
+  --emerald-tint: oklch(0.95 0.05 155);
+  --emerald-tint-strong: oklch(0.96 0.03 155);
+  --emerald-tint-border: oklch(0.86 0.06 155);
+
+  /* negative ink ramp */
+  --ink-negative: oklch(0.5 0.17 25);
+  --ink-negative-mid: oklch(0.45 0.17 25);
+  --ink-negative-strong: #3a0b08;
+
+  /* chart & row accents (§1.5 / §1.10) — not in the Step 2 illustration but
+     listed in §1.5's table and required by Task 1.4+ */
+  --chart-rule: #d8d6d0; /* trend chart zero line */
+  --row-highlight: oklch(
+    0.97 0.03 155
+  ); /* most-recent-season row, player page */
+}

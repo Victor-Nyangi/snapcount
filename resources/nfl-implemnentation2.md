@@ -123,6 +123,10 @@ The design also deviates from the DS type scale: page `h1` is **44px** (token sa
 
 The page canvas is `#FAF9F6` on white cards. **No screen was designed dark, and the DS dark shell cannot be mechanically applied**, because the diverging differential scale (§1.4) generates backgrounds in the lightness range **L 0.75 → 0.97**. Those are unusable on a `#0A0A0C` canvas; the scale would need re-deriving, not re-mapping, and re-deriving it is a design decision, not an implementation one.
 
+**One trap, learned the hard way.** Tailwind v4's `dark:` variant defaults to `@media (prefers-color-scheme: dark)`. The template rebinds it with `@custom-variant dark (&:is(.dark *));`, and shadcn's primitives ship `dark:*` utilities baked in — 10 component files carry them.
+
+**Keep that line.** Because nothing ever applies the `.dark` class, binding the variant to it makes `dark:` permanently inert. Deleting the line does not disable dark mode — it *enables* it via the OS media query, applying dark utilities against a palette with no dark values. The custom variant is the off switch, not the on switch.
+
 **Decision, per the handoff's own rule ("If the design only defines one, say so instead of deriving the other"):** ship light-only. **The app shell does not get a theme toggle** in this plan, and this is a deliberate deviation from the original handoff §5.3. `theme.css` defines only the light `:root` block; the dark block is left out rather than guessed. Reopening dark mode requires a design pass on the diverging scale first.
 
 ### 1.3 `#FAF9F6` is a new value, not `--bone`
@@ -171,23 +175,27 @@ Both the slate table and the standings table are `display:grid` with explicit `g
 
 **Decision:** `StatTable` renders a semantic `<table>` with `table-layout: fixed` and a `<colgroup>` whose widths are copied from the mockup's `grid-template-columns`. Visually identical, structurally correct. This is the one place the design and shadcn's structure genuinely conflict, and it is resolved in shadcn's favour.
 
-### 1.7 Team chips fail AA for 8 of 32 teams
+### 1.7 Team chips fail AA for 7 of 32 teams
 
-The chip is white 11px bold text on the team's primary color. Measured contrast against white:
+The chip is white 11px bold text on the team's primary color. Contrast against white, **computed** (an earlier draft of this section estimated these and got Detroit wrong):
 
-| Team | Color | Ratio | |
-|---|---|---|---|
-| CAR | `#0085CA` | 4.03 | ✗ |
-| MIA | `#008E97` | 3.95 | ✗ |
-| CIN / DEN | `#FB4F14` | 3.64 | ✗ |
-| NO | `#9F8958` | 3.39 | ✗ |
-| TEN | `#4B92DB` | 3.26 | ✗ |
-| LAC | `#0080C6` | ~4.0 | ✗ |
-| DET | `#0076B6` | ~4.2 | ✗ |
+| Team | Color | vs white | vs near-black | Ink chosen | |
+|---|---|---|---|---|---|
+| TEN | `#4B92DB` | 3.26 | 6.06 | near-black | ✗ fails on white |
+| CIN / DEN | `#FB4F14` | 3.37 | 5.87 | near-black | ✗ fails on white |
+| NO | `#9F8958` | 3.39 | 5.83 | near-black | ✗ fails on white |
+| MIA | `#008E97` | 3.95 | 5.01 | near-black | ✗ fails on white |
+| CAR | `#0085CA` | 4.03 | 4.91 | near-black | ✗ fails on white |
+| LAC | `#0080C6` | 4.28 | 4.62 | near-black | ✗ fails on white |
+| DET | `#0076B6` | **4.92** | 4.02 | **white** | ✓ passes — keeps white |
 
-All of them clear 4.5:1 comfortably against near-black instead (TEN reaches 6.0:1). The handoff sets "AA contrast on all data text, including text inside colored cells" as a quality floor, so this is fixed rather than shipped.
+Six hex values across seven teams (Cincinnati and Denver share `#FB4F14`) fail 4.5:1 against white. All six clear it comfortably against near-black instead — Tennessee reaches 6.06.
 
-**Decision:** `TeamChip` computes WCAG relative luminance from the team color at build time and picks whichever of `--white` / `--black` scores higher. Team color still owns the chip; only the ink adapts.
+**Detroit is the instructive case.** At 4.92 it passes on white, and white is genuinely its better ink. A rule that flipped every "darkish blue" to black would make Detroit *worse*. This is why the fix computes luminance per team rather than hard-coding a list.
+
+The handoff sets "AA contrast on all data text, including text inside colored cells" as a quality floor, so this is fixed rather than shipped.
+
+**Decision:** `TeamChip` computes WCAG relative luminance from the team color and picks whichever of `--white` / `--black` scores higher. Team color still owns the chip; only the ink adapts.
 
 ### 1.8 Featured-matchup banners use team color as a large surface
 
@@ -830,11 +838,19 @@ git commit -m "feat(design): map design tokens into shadcn's semantic layer (lig
 **Files:**
 - Create: `frontend/src/components/ui/*.tsx`
 
-- [ ] **Step 1: Install the primitives the seven screens need**
+- [ ] **Step 1: Install only what is actually missing**
+
+**The template already ships 10 of the 12.** Verified on disk in `frontend/src/components/ui/`: `table`, `select`, `tabs`, `badge`, `button`, `card`, `checkbox`, `separator`, `skeleton`, `tooltip` — plus `alert`, `avatar`, `button-group`, `dialog`, `dropdown-menu`, `form`, `input`, `label`, `loading-button`, `pagination`, `password-input`, `sheet`, `sidebar`, `sonner`.
+
+Only two are absent:
 
 ```bash
-cd frontend && bunx --bun shadcn@latest add table select tabs badge button card checkbox separator scroll-area skeleton tooltip toggle-group
+cd frontend && bunx --bun shadcn@latest add scroll-area toggle-group
 ```
+
+`@radix-ui/react-scroll-area` is already a dependency; `toggle-group` will pull in `@radix-ui/react-toggle-group` and `@radix-ui/react-toggle`.
+
+**Do not re-add the other ten.** The CLI would overwrite them with stock versions, discarding the template's own edits and anything Step 2 below has already fixed. This task is mostly an *audit* of primitives that already exist, not a bulk install.
 
 Each maps to something concrete in the design:
 
