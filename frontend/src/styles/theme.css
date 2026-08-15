@@ -1,0 +1,101 @@
+/* HAND-MAINTAINED. Assigns shadcn's semantic variables from the design's tokens.
+   The design's tokens are the source of truth; shadcn's names are the interface.
+ *
+ * DECISIONS (full rationale in resources/nfl-implemnentation2.md §1):
+ * 1.1 Design overrides DS fonts: Archivo / IBM Plex Sans / IBM Plex Mono.
+ *     Playfair Display, Manrope, JetBrains Mono are never loaded.
+ * 1.2 LIGHT ONLY. No dark block, no theme toggle. The diverging scale generates
+ *     L 0.75-0.97 backgrounds, unusable on the DS's #0A0A0C dark canvas.
+ *     Dark mode needs a design pass, not a token remap.
+ * 1.3 Canvas is --app-canvas (#FAF9F6), not --bone (#F4F1EA). Different colors.
+ * 1.5 ~12 colors used by the design were absent from the DS token files;
+ *     they live in tokens.app.css, not here, so re-import regenerates them.
+ * --destructive maps to --danger, which the DS README flags as an addition the
+ *     original source never defined. It appears in no NFL screen.
+ * --chart-1..5 are assigned for shadcn compatibility only. Real chart series use
+ *     team colors or the diverging scale from lib/diverging.ts — never these.
+ */
+:root {
+  --background: var(--app-canvas);
+  --foreground: var(--text-primary-light);
+  --card: var(--surface-card-light);
+  --card-foreground: var(--text-primary-light);
+  --popover: var(--surface-card-light);
+  --popover-foreground: var(--text-primary-light);
+
+  --primary: var(--orchid-900); /* active tab bg in the design */
+  --primary-foreground: var(--accent-secondary-ink);
+  --secondary: var(--gray-100);
+  --secondary-foreground: var(--text-secondary-light);
+
+  --muted: var(--gray-100);
+  --muted-foreground: var(--gray-500); /* the design's ubiquitous label gray */
+  --accent: var(--emerald);
+  --accent-foreground: var(--accent-primary-ink);
+
+  --destructive: var(--danger);
+  --destructive-foreground: var(--white);
+
+  --border: var(--gray-200);
+  --input: var(--gray-300); /* the design's select/button borders */
+  --ring: var(--orchid); /* focus ring is #6B21A8 in the design */
+
+  --radius: var(--radius-md);
+
+  --chart-1: var(--emerald);
+  --chart-2: var(--orchid);
+  --chart-3: var(--gray-500);
+  --chart-4: var(--emerald-dark);
+  --chart-5: var(--orchid-light);
+
+  /* Not in the brief's snippet or §1.5 — the scaffold's AppSidebar
+   * (components/Sidebar/) still reads shadcn's --sidebar-* set, and index.css's
+   * pre-existing @theme inline block maps --color-sidebar-* onto them, so
+   * leaving them undefined would silently break that component's styling.
+   * No design token exists for a sidebar (§1.13's nav is a top rail, not a
+   * sidebar) so there is no design equivalent to map from. Judgment call:
+   * alias to the surface/semantic vars already derived above rather than
+   * inventing new values. Revisit when the app shell (Task 2.3) settles
+   * whether AppSidebar survives at all.
+   */
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--card-foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+html,
+body {
+  background: var(--app-canvas);
+  color: var(--text-primary-light);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+} /* §1.9: no slashed-zero */
+
+h1,
+h2,
+[data-display] {
+  font-family: var(--font-display);
+  font-stretch: var(--stretch-display);
+  font-weight: 700;
+}
+
+:where(button, [tabindex], a, input, select):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none;
+    transition: none;
+  }
+}
