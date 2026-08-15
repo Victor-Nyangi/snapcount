@@ -34,9 +34,12 @@ export function ThemeProvider({
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme,
-  )
+  // Snapcount is light-only: the diverging differential scale generates
+  // oklch backgrounds at L 0.75-0.97, which are unreadable on a dark canvas.
+  // Re-enabling dark mode is a design decision, not a config change.
+  // See nfl-implemnentation2.md §1.2.
+  const [theme, setTheme] = useState<Theme>(defaultTheme)
+  void storageKey
 
   const getResolvedTheme = useCallback((theme: Theme): "dark" | "light" => {
     if (theme === "system") {
