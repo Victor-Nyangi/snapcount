@@ -68,6 +68,13 @@ keep-runtime-typing = true
 [tool.coverage.run]
 source = ["app"]
 dynamic_context = "test_function"
+# Entrypoint scripts: run by the container at startup, never imported by a test.
+# Counting them drags the ratio down without measuring anything real.
+omit = [
+    "app/initial_data.py",
+    "app/backend_pre_start.py",
+    "app/tests_pre_start.py",
+]
 
 [tool.coverage.report]
 show_missing = true
