@@ -166,18 +166,31 @@ function SkeletonRows<Row>({
 }) {
   return (
     <>
-      {Array.from({ length: count }, (_, rowIndex) => (
-        <TableRow
-          key={`skeleton-${rowIndex}`}
-          data-testid="stat-table-skeleton-row"
-        >
-          {columns.map((column) => (
-            <td key={column.key} className={bodyCellBaseClass}>
-              <Skeleton className="h-4 w-4/5" />
-            </td>
-          ))}
-        </TableRow>
-      ))}
+      {Array.from({ length: count }, (_, rowIndex) => {
+        const isLastRow = rowIndex === count - 1
+        const zebraBackground =
+          rowIndex % 2 === 0 ? "var(--card)" : "var(--app-row-zebra)"
+        return (
+          <TableRow
+            key={`skeleton-${rowIndex}`}
+            data-testid="stat-table-skeleton-row"
+            style={{ background: zebraBackground }}
+          >
+            {columns.map((column) => (
+              // Same styling path as a real body cell — a loading table's
+              // sticky column must stay pinned too, or it slides under the
+              // header/first column the moment someone scrolls it.
+              <td
+                key={column.key}
+                className={bodyCellBaseClass}
+                style={bodyCellStyle(column, isLastRow)}
+              >
+                <Skeleton className="h-4 w-4/5" />
+              </td>
+            ))}
+          </TableRow>
+        )
+      })}
     </>
   )
 }
@@ -215,6 +228,16 @@ export function StatTable<Row>({
   // focus imperatively without re-deriving DOM position from the event.
   const cellRefs = useRef<Map<string, HTMLTableCellElement>>(new Map())
   const [active, setActive] = useState({ row: 0, col: 0 })
+
+  // `active` can go stale the instant `rows` (or `columns`) shrinks after
+  // the user has arrowed/tabbed further in than the new size allows — e.g.
+  // Standings' conference/division filters narrowing 32 rows down to 4
+  // while focus sits on row 20. Clamping here, at render time rather than
+  // in an effect, means there's never a paint where zero cells are tab
+  // stops: whenever there's at least one data row, exactly one rendered
+  // cell's (rowIndex, colIndex) will equal this pair.
+  const activeRow = rows.length > 0 ? Math.min(active.row, rows.length - 1) : 0
+  const activeCol = columnCount > 0 ? Math.min(active.col, columnCount - 1) : 0
 
   const registerCell =
     (rowIndex: number, colIndex: number) =>
@@ -340,10 +363,10 @@ export function StatTable<Row>({
           }
         >
           {columns.map((column, colIndex) => {
-            const align = resolveAlign(column, rows)
+            const align = resolveAlign(column)
             const isDefaultNumericCell =
               !column.render && typeof cellValue(column, row) === "number"
-            const isFocused = active.row === rowIndex && active.col === colIndex
+            const isFocused = rowIndex === activeRow && colIndex === activeCol
 
             return (
               <td
@@ -390,7 +413,7 @@ export function StatTable<Row>({
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             {columns.map((column) => {
-              const align = resolveAlign(column, rows)
+              const align = resolveAlign(column)
               const ariaSort = column.sortable
                 ? ariaSortFor(sort, column.key)
                 : undefined

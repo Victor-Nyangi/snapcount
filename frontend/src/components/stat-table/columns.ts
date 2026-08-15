@@ -15,7 +15,14 @@ export interface StatColumn<Row> {
   title?: string
   /** From the mockup's `grid-template-columns`. */
   width: number | string
-  /** Default: 'right' for numeric columns, 'left' for text. */
+  /**
+   * Default: 'right' when `precision` or `signed` is set, 'left' otherwise.
+   * Alignment is a property of the COLUMN, never the data — it must render
+   * identically whether `rows` is `[]` (loading/empty) or populated, so a
+   * numeric column with neither `precision` nor `signed` (a plain count:
+   * PF, PA, rank, GP) must set this explicitly rather than rely on
+   * inference from row values.
+   */
   align?: Align
   /** FIXED PER COLUMN — a cell may never choose its own. */
   precision?: number
@@ -67,21 +74,20 @@ export function cellValue<Row>(
 
 /**
  * Whether a column should be treated as numeric for default alignment.
- * A column with `precision` is always numeric; otherwise inferred from the
- * first row's resolved value.
+ * Resolved from the column definition ALONE — `precision` and `signed`
+ * are both concepts that only make sense for numbers, so either one is
+ * proof enough. Deliberately does not look at row data: alignment must
+ * not flip when `rows` goes from `[]` (loading/empty) to populated, which
+ * is exactly the layout jump the fixed-width skeleton exists to prevent.
+ * A plain numeric column with neither must set `align: 'right'` itself.
  */
-export function isNumericColumn<Row>(
-  column: StatColumn<Row>,
-  rows: Row[],
-): boolean {
-  if (column.precision !== undefined) return true
-  if (rows.length === 0) return false
-  return typeof cellValue(column, rows[0]) === "number"
+export function isNumericColumn<Row>(column: StatColumn<Row>): boolean {
+  return column.precision !== undefined || column.signed === true
 }
 
-export function resolveAlign<Row>(column: StatColumn<Row>, rows: Row[]): Align {
+export function resolveAlign<Row>(column: StatColumn<Row>): Align {
   if (column.align) return column.align
-  return isNumericColumn(column, rows) ? "right" : "left"
+  return isNumericColumn(column) ? "right" : "left"
 }
 
 export function alignClassName(align: Align): string {
@@ -97,13 +103,20 @@ export function alignClassName(align: Align): string {
 
 /**
  * Formats a raw numeric value per the column's fixed `precision` and
- * `signed` settings — both are properties of the column, never of a cell.
+ * `signed` settings — both are properties of the column, never of a cell,
+ * and `signed` applies whether or not `precision` is also set (a "+7.9"
+ * differential-per-game column needs both at once).
  *
- * - With `precision`: fixed-decimal, leading "0" before the point stripped
- *   (".765", not "0.765") — the app's rate/percentage convention.
- * - With `signed`: positive values get an explicit "+" prefix ("+131").
- *   Zero never gets a sign, and negative values keep their natural "-"
- *   regardless of `signed` — there is no way to suppress that.
+ * - With `precision`, unsigned: fixed-decimal, leading "0" before the
+ *   point stripped (".765", not "0.765") — the app's rate/percentage
+ *   convention, for values that are always a fraction under 1.
+ * - With `precision`, signed: fixed-decimal WITHOUT the leading-zero
+ *   strip ("0.0", "2.3", "-2.3") — a signed quantity is a differential,
+ *   not a fraction, and can cross whole numbers, so ".0" would read as a
+ *   typo, not a value.
+ * - `signed`: positive values (in either branch above) get an explicit
+ *   "+" prefix. Zero never gets a sign, and negative values keep their
+ *   natural "-" regardless — there is no way to suppress that.
  * - Without `signed` (the default): positive values render plain ("472"),
  *   which is what most numeric stat columns (PF, PA, rank, GP) want.
  */
@@ -112,11 +125,14 @@ export function formatNumericValue(
   precision?: number,
   signed?: boolean,
 ): string {
+  const sign = signed && value > 0 ? "+" : ""
+
   if (precision !== undefined) {
     const fixed = value.toFixed(precision)
-    return fixed.replace(/^(-?)0\./, "$1.")
+    const body = signed ? fixed : fixed.replace(/^(-?)0\./, "$1.")
+    return `${sign}${body}`
   }
-  const sign = signed && value > 0 ? "+" : ""
+
   return `${sign}${value}`
 }
 
