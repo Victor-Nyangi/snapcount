@@ -10,6 +10,14 @@ import { inkFor } from "@/lib/contrast"
  * Team color is data arriving at runtime from the API, so it cannot resolve
  * through a static token: this is one of the two places (with `DiffCell`'s
  * background) where inline `style` is correct.
+ *
+ * `role="img"` + `aria-label` are only emitted together, and only when
+ * `name` is supplied. With a name, AT announces the full team name. Without
+ * one, the span stays roleless and its text content (the abbreviation) is
+ * what AT announces — never an unlabelled image. This also keeps Biome's
+ * `useAriaPropsSupportedByRole` happy: a bare `<span>` (role `generic`)
+ * doesn't support `aria-label`, so the two attributes must appear as a pair
+ * or not at all.
  */
 export function TeamChip({
   abbr,
@@ -22,10 +30,11 @@ export function TeamChip({
   name?: string
   size?: number
 }) {
+  const a11y = name ? { role: "img" as const, "aria-label": name } : {}
+
   return (
     <span
-      role="img"
-      aria-label={name}
+      {...a11y}
       title={name}
       style={{
         width: size,
