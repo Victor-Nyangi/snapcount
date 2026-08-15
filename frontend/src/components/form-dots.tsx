@@ -25,7 +25,7 @@ export function FormDots({ form }: { form: string }) {
             fontSize: 9,
             fontWeight: 800,
             background: ch === "W" ? "var(--emerald)" : "var(--gray-300)",
-            color: ch === "W" ? "#FFFFFF" : "var(--gray-700)",
+            color: ch === "W" ? "var(--white)" : "var(--gray-700)",
           }}
         >
           {ch}
