@@ -511,30 +511,67 @@ git commit -m "chore(frontend): add vitest and Testing Library for unit tests"
 
 - [ ] **Step 1: Fetch and subset the fonts**
 
-Archivo must be the **variable** build — the design uses `font-stretch: 125%`, which a static instance cannot do.
+Archivo must be the **variable** build — the design uses `font-stretch: 125%`, which a static instance cannot do. All sources below were verified reachable (HTTP 200) on 2026-08-15 and are OFL licensed, so redistribution in `public/` is fine.
+
+Six files total: two variable, four static.
+
+| Family | Source file in `google/fonts` | Kind |
+|---|---|---|
+| Archivo | `ofl/archivo/Archivo[wdth,wght].ttf` | variable, wdth + wght |
+| IBM Plex Sans | `ofl/ibmplexsans/IBMPlexSans[wdth,wght].ttf` | variable, wdth + wght |
+| IBM Plex Mono | `ofl/ibmplexmono/IBMPlexMono-{Regular,Medium,SemiBold,Bold}.ttf` | static ×4 |
+
+**IBM Plex Mono has no variable build in that repo** — the directory holds statics only. Regular/Medium/SemiBold/Bold map to the design's 400/500/600/700.
 
 ```bash
-cd frontend
-mkdir -p public/fonts
-# Archivo variable (wght 100-900, wdth 62-125) and IBM Plex families,
-# from the Google Fonts GitHub repos (OFL licensed, redistributable):
-curl -L -o public/fonts/archivo-var.ttf \
-  "https://github.com/google/fonts/raw/main/ofl/archivo/Archivo%5Bwdth,wght%5D.ttf"
+cd frontend && mkdir -p public/fonts
+BASE="https://github.com/google/fonts/raw/main/ofl"
+
+curl -fsSL -o /tmp/archivo-var.ttf   "$BASE/archivo/Archivo%5Bwdth,wght%5D.ttf"
+curl -fsSL -o /tmp/plexsans-var.ttf  "$BASE/ibmplexsans/IBMPlexSans%5Bwdth,wght%5D.ttf"
+for w in Regular Medium SemiBold Bold; do
+  curl -fsSL -o "/tmp/plexmono-$w.ttf" "$BASE/ibmplexmono/IBMPlexMono-$w.ttf"
+done
 ```
 
-Subset to Latin and convert with `fonttools`:
+Subset to Latin and convert with `fonttools`. The unicode range covers Latin-1, general punctuation (which carries the en dash `U+2013` the design uses in scores like `24–31`), the true minus `U+2212` used by signed differentials, and `U+00D7`:
 
 ```bash
-uvx --from fonttools pyftsubset public/fonts/archivo-var.ttf \
-  --output-file=public/fonts/archivo-var.woff2 --flavor=woff2 \
-  --layout-features='*' --unicodes="U+0000-00FF,U+2000-206F,U+2212,U+00D7" \
-  --name-IDs='*' --drop-tables+=DSIG
-rm public/fonts/archivo-var.ttf
+SUB="U+0000-00FF,U+2000-206F,U+2212,U+00D7"
+
+sub() {  # sub <in.ttf> <out.woff2>
+  uvx --from "fonttools[woff]" pyftsubset "$1" --output-file="$2" --flavor=woff2 \
+    --layout-features='*' --unicodes="$SUB" --name-IDs='*' --drop-tables+=DSIG
+}
+
+sub /tmp/archivo-var.ttf  public/fonts/archivo-var.woff2
+sub /tmp/plexsans-var.ttf public/fonts/ibm-plex-sans-var.woff2
+sub /tmp/plexmono-Regular.ttf  public/fonts/ibm-plex-mono-400.woff2
+sub /tmp/plexmono-Medium.ttf   public/fonts/ibm-plex-mono-500.woff2
+sub /tmp/plexmono-SemiBold.ttf public/fonts/ibm-plex-mono-600.woff2
+sub /tmp/plexmono-Bold.ttf     public/fonts/ibm-plex-mono-700.woff2
 ```
 
-Repeat for IBM Plex Sans (400, 500, 600, 700) and IBM Plex Mono (400, 500, 600, 700) from `github.com/IBM/plex`. Eight static weights plus one variable file.
+**Critical for the variable files:** `pyftsubset` must preserve the `fvar`/`gvar` axes. Do **not** pass `--instantiate` or a `--variations` pin. Verify after subsetting:
 
-Include `U+2212` (minus) and `U+2013` (en dash) in the mono subsets — the design renders scores as `24–31` and differentials as `−185`.
+```bash
+uvx --from "fonttools[woff]" python -c "
+from fontTools.ttLib import TTFont
+for f in ('archivo-var','ibm-plex-sans-var'):
+    t = TTFont('public/fonts/%s.woff2' % f)
+    axes = [(a.axisTag, a.minValue, a.maxValue) for a in t['fvar'].axes]
+    print(f, axes)
+"
+```
+
+Expected, per family:
+
+- **Archivo** — `wdth` spanning at least 62–125, `wght` at least 100–900. The 125 is the load-bearing number: Archivo is the only family the design ever stretches.
+- **IBM Plex Sans** — `wdth` about 75–100, `wght` 100–700. Topping out at width 100 is correct; nothing ever asks Plex Sans for 125%.
+
+**If `fvar` is missing from either file, the subset destroyed the variable axes and `font-stretch: 125%` will silently do nothing.**
+
+`pyftsubset` needs a Brotli encoder to emit woff2 and the bare package does not carry one — hence `fonttools[woff]` above, not `fonttools`.
 
 - [ ] **Step 2: Write the `@font-face` declarations**
 
@@ -550,19 +587,28 @@ Include `U+2212` (minus) and `U+2013` (en dash) in the mono subsets — the desi
 }
 @font-face {
   font-family: 'IBM Plex Sans';
-  src: url('/fonts/ibm-plex-sans-400.woff2') format('woff2');
+  src: url('/fonts/ibm-plex-sans-var.woff2') format('woff2-variations');
+  font-weight: 400 700;
+  font-stretch: 85% 100%;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/ibm-plex-mono-400.woff2') format('woff2');
   font-weight: 400; font-display: swap;
 }
-/* …500, 600, 700 for Sans; 400, 500, 600, 700 for 'IBM Plex Mono' */
+/* …repeat the Mono block for 500, 600, 700 */
 ```
 
-- [ ] **Step 3: Verify no network font requests remain**
+Note the two variable families declare a `font-weight` *range* and use `format('woff2-variations')`; Mono declares four separate blocks with single weights. Getting this backwards is the usual cause of a variable font rendering at only one weight.
 
-Run `bun run dev`, open DevTools → Network, filter `font`. Expected: only same-origin `/fonts/*.woff2`. Zero requests to `fonts.googleapis.com` or `fonts.gstatic.com`.
+- [ ] **Step 3: Wire it in and confirm no network font requests remain**
+
+Import `fonts.css` first in the CSS chain (Task 1.2 Step 4 sets the full order). Then run `bun run --filter frontend dev`, open DevTools → Network, filter `font`, and hard-reload. Expected: only same-origin `/fonts/*.woff2`. Zero requests to `fonts.googleapis.com` or `fonts.gstatic.com`.
 
 - [ ] **Step 4: Verify the variable width axis actually works**
 
-Add a scratch element with `font-family:Archivo; font-stretch:125%; font-weight:700` beside one at `font-stretch:100%`. Expected: visibly wider glyphs. If identical, the woff2 lost its variation axes — re-subset with `--layout-features='*'` and confirm `--flavor=woff2` (not `woff2-variations`-incompatible tooling).
+The `fvar` check in Step 1 proves the axes survived subsetting; this proves the browser applies them. Add a scratch element with `font-family:Archivo; font-stretch:125%; font-weight:700` beside one at `font-stretch:100%`. Expected: visibly wider glyphs, and `getComputedStyle(el).fontStretch === '125%'`. If the two render identically, the `@font-face` block is missing its `font-stretch` range — a variable axis is only reachable if the descriptor advertises it.
 
 - [ ] **Step 5: Commit**
 
@@ -582,7 +628,17 @@ git commit -m "feat(design): self-host Archivo variable, IBM Plex Sans and Mono 
 
 - [ ] **Step 1: Copy the DS tokens verbatim into `tokens.ds.css`**
 
-Concatenate `tokens/colors.css`, `tokens/typography.css`, `tokens/spacing.css` from the design project — **values unchanged, names unchanged**. Omit `tokens/fonts.css` entirely (it is the Google Fonts `@import`, replaced by Task 1.1) and omit `styles.css` (it is only `@import` plumbing).
+The three source files were exported from the Claude Design project and are on disk at:
+
+```
+.superpowers/sdd/nfl-implemnentation2/design-tokens/colors.css
+.superpowers/sdd/nfl-implemnentation2/design-tokens/typography.css
+.superpowers/sdd/nfl-implemnentation2/design-tokens/spacing.css
+```
+
+Concatenate them into `frontend/src/styles/tokens.ds.css` — **values unchanged, names unchanged, not reformatted, not reordered, not converted between color spaces.** The `oklch()` values in particular must be copied character for character; "tidying" `oklch(0.98 0.002 90)` into a hex equivalent silently changes the color and defeats the point of this file.
+
+`tokens/fonts.css` is deliberately absent from that directory — it was only the Google Fonts `@import`, replaced by Task 1.1. `styles.css` is likewise omitted; it was nothing but `@import` plumbing.
 
 Head the file with:
 
@@ -1113,7 +1169,7 @@ Expected: PASS, 3 tests.
 
 - [ ] **Step 6: Verify the marks against the mockup**
 
-Open `design.html` beside `bun run dev` at the same zoom. Compare chip size, corner radius, form-dot spacing, and bar heights. Expected: no visible difference at 100%.
+Open `resources/design-v2-seven-screens.html` beside `bun run dev` at the same zoom. Compare chip size, corner radius, form-dot spacing, and bar heights. Expected: no visible difference at 100%.
 
 - [ ] **Step 7: Commit**
 
@@ -2299,7 +2355,7 @@ Sort and filters read and write search params; `useQuery` refetches on `season` 
 
 - [ ] **Step 6: Verify against the mockup and at 375px**
 
-Side-by-side with `design.html` at 1360px: column widths, zebra striping, chip size, diverging cell colors, group headings. Then at 375px: the card scrolls horizontally inside itself, the page body does not.
+Side-by-side with `resources/design-v2-seven-screens.html` at 1360px: column widths, zebra striping, chip size, diverging cell colors, group headings. Then at 375px: the card scrolls horizontally inside itself, the page body does not.
 
 - [ ] **Step 7: Commit**
 

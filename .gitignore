@@ -9,3 +9,7 @@ backend/app/frontend/
 
 # Local secrets — never commit. Copy .env.example to .env and fill in.
 .env
+
+# Design exports are 1MB bundled-JS artifacts, re-importable from Claude Design.
+# The authoritative source is the .dc.html in the design project, not these bundles.
+resources/*.html
