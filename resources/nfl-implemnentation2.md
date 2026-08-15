@@ -1216,6 +1216,11 @@ export interface StatColumn<Row> {
   width: number | string               // from the mockup's grid-template-columns
   align?: Align                        // default 'right' for numeric, 'left' for text
   precision?: number                   // FIXED PER COLUMN — never per cell
+  signed?: boolean                     // ALSO fixed per column. Sign is a property of the
+                                       // quantity, not the cell. Default false: only genuinely
+                                       // signed values (differential, margin, cumulative,
+                                       // vs-baseline) carry a '+'. Without this, PF renders
+                                       // '+472' and rank renders '+1'.
   sortable?: boolean
   sticky?: boolean                     // first column only
   value?: (row: Row) => number | string        // sort key
@@ -1313,7 +1318,7 @@ describe('StatTable', () => {
     const first = screen.getByText('BUF').closest('td')!
     first.focus()
     fireEvent.keyDown(first, { key: 'ArrowRight' })
-    expect(document.activeElement).toHaveTextContent('+131')
+    expect(document.activeElement).toHaveTextContent('+131') // diff column sets signed: true
   })
 
   it('renders skeleton rows while loading and no data rows', () => {
