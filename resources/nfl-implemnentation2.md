@@ -1169,7 +1169,7 @@ Expected: PASS, 3 tests.
 
 - [ ] **Step 6: Verify the marks against the mockup**
 
-Open `design.html` beside `bun run dev` at the same zoom. Compare chip size, corner radius, form-dot spacing, and bar heights. Expected: no visible difference at 100%.
+Open `resources/design-v2-seven-screens.html` beside `bun run dev` at the same zoom. Compare chip size, corner radius, form-dot spacing, and bar heights. Expected: no visible difference at 100%.
 
 - [ ] **Step 7: Commit**
 
@@ -2355,7 +2355,7 @@ Sort and filters read and write search params; `useQuery` refetches on `season` 
 
 - [ ] **Step 6: Verify against the mockup and at 375px**
 
-Side-by-side with `design.html` at 1360px: column widths, zebra striping, chip size, diverging cell colors, group headings. Then at 375px: the card scrolls horizontally inside itself, the page body does not.
+Side-by-side with `resources/design-v2-seven-screens.html` at 1360px: column widths, zebra striping, chip size, diverging cell colors, group headings. Then at 375px: the card scrolls horizontally inside itself, the page body does not.
 
 - [ ] **Step 7: Commit**
 
