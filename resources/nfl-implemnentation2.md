@@ -1214,7 +1214,12 @@ export interface StatColumn<Row> {
   label: string
   title?: string                       // tooltip text; the mockup's `title` attr
   width: number | string               // from the mockup's grid-template-columns
-  align?: Align                        // default 'right' for numeric, 'left' for text
+  align?: Align                        // Resolved from the COLUMN ALONE, never from the data —
+                                       // otherwise a numeric header left-aligns on the empty first
+                                       // render and snaps right when data arrives.
+                                       // Right by default only when `precision` or `signed` is set.
+                                       // A PLAIN COUNT COLUMN (rank, G, PF, PA, TD) HAS NEITHER, SO
+                                       // IT MUST DECLARE align: 'right' EXPLICITLY or it renders left.
   precision?: number                   // FIXED PER COLUMN — never per cell
   signed?: boolean                     // ALSO fixed per column. Sign is a property of the
                                        // quantity, not the cell. Default false: only genuinely
