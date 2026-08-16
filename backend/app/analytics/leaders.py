@@ -35,7 +35,13 @@ _QUALIFIER_THRESHOLD_BY_POSITION = {
 }
 
 _YARDS_SUFFIX = "yards"
-_TDS_SUFFIX = "tds"
+_TD_SUFFIX = "tds"  # PlayerSeasonStat's own column suffix is plural; the
+# metric *key* below (the API/frontend contract) is singular "td".
+
+# The four metric keys the API and frontend search schema agree on
+# (`z.enum(['epa', 'yds', 'td', 'rate'])`). Keep this in sync with that
+# enum — it is what stops the two drifting apart again.
+SUPPORTED_METRICS = frozenset({"epa", "yds", "td", "rate"})
 
 
 def metric_value(stat: PlayerSeasonStat, metric: str) -> float:
@@ -43,27 +49,36 @@ def metric_value(stat: PlayerSeasonStat, metric: str) -> float:
     matches the player's position (QB -> passing_*, RB -> rushing_*,
     WR/TE -> receiving_*).
 
-    EPA is per play, not a season total: it is the position's total EPA
-    divided by its volume stat (attempts/carries/targets). A player with
-    zero volume has no rate to compute, so EPA is 0.0 rather than a
-    division-by-zero error.
+    `metric` is one of `SUPPORTED_METRICS`: "epa", "yds", "td", "rate".
+
+    EPA and rate are both per play, not season totals: EPA is the
+    position's total EPA divided by its volume stat (attempts/carries/
+    targets); rate is yards divided by that same volume stat (yards per
+    attempt/carry/target). A player with zero volume has no rate to
+    compute, so both are 0.0 rather than a division-by-zero error.
     """
     prefix = _PREFIX_BY_POSITION.get(stat.position)
     if prefix is None:
         raise ValueError(f"unknown position: {stat.position!r}")
 
     if metric == "epa":
-        attempts_field = _ATTEMPTS_FIELD_BY_POSITION[stat.position]
-        attempts = getattr(stat, attempts_field)
+        attempts = getattr(stat, _ATTEMPTS_FIELD_BY_POSITION[stat.position])
         if not attempts:
             return 0.0
         total_epa: float = getattr(stat, f"{prefix}_epa")
         return total_epa / attempts
 
+    if metric == "rate":
+        attempts = getattr(stat, _ATTEMPTS_FIELD_BY_POSITION[stat.position])
+        if not attempts:
+            return 0.0
+        yards = getattr(stat, f"{prefix}_{_YARDS_SUFFIX}")
+        return yards / attempts
+
     if metric == "yds":
         return float(getattr(stat, f"{prefix}_{_YARDS_SUFFIX}"))
-    if metric == "tds":
-        return float(getattr(stat, f"{prefix}_{_TDS_SUFFIX}"))
+    if metric == "td":
+        return float(getattr(stat, f"{prefix}_{_TD_SUFFIX}"))
 
     raise ValueError(f"unknown metric: {metric!r}")
 

@@ -1,6 +1,11 @@
 import pytest
 
-from app.analytics.leaders import baseline, is_qualified, metric_value
+from app.analytics.leaders import (
+    SUPPORTED_METRICS,
+    baseline,
+    is_qualified,
+    metric_value,
+)
 from app.models import PlayerSeasonStat
 
 
@@ -43,6 +48,42 @@ def test_metric_source_column_depends_on_position():
     assert metric_value(wr_stat, "yds") == wr_stat.receiving_yards
     assert metric_value(rb_stat, "yds") == rb_stat.rushing_yards
     assert metric_value(qb_stat, "yds") == qb_stat.passing_yards
+
+
+def test_metric_value_reads_the_position_appropriate_touchdown_count():
+    # proves the prefix switch works for "td" the same way it does for "yds"
+    qb_stat = stat_with("QB", passing_tds=35)
+    rb_stat = stat_with("RB", rushing_tds=12)
+    wr_stat = stat_with("WR", receiving_tds=9)
+    assert metric_value(qb_stat, "td") == qb_stat.passing_tds
+    assert metric_value(rb_stat, "td") == rb_stat.rushing_tds
+    assert metric_value(wr_stat, "td") == wr_stat.receiving_tds
+
+
+def test_metric_value_derives_rate_as_yards_per_volume():
+    # QB: yards/attempt, RB: yards/carry, WR/TE: yards/target
+    qb_stat = stat_with("QB", attempts=500, passing_yards=4000)
+    rb_stat = stat_with("RB", carries=250, rushing_yards=1250)
+    wr_stat = stat_with("WR", targets=100, receiving_yards=1400)
+    assert metric_value(qb_stat, "rate") == pytest.approx(8.0)
+    assert metric_value(rb_stat, "rate") == pytest.approx(5.0)
+    assert metric_value(wr_stat, "rate") == pytest.approx(14.0)
+
+
+def test_metric_value_returns_zero_rate_when_a_player_has_no_volume():
+    stat = stat_with("QB", attempts=0, passing_yards=0)
+    assert metric_value(stat, "rate") == 0.0
+
+
+def test_metric_value_raises_on_an_unknown_metric():
+    with pytest.raises(ValueError, match="unknown metric"):
+        metric_value(stat_with("QB"), "not-a-real-metric")
+
+
+def test_supported_metrics_matches_the_frontend_enum():
+    # keeps app.analytics.leaders from drifting from the frontend search
+    # schema's z.enum(['epa', 'yds', 'td', 'rate'])
+    assert SUPPORTED_METRICS == {"epa", "yds", "td", "rate"}
 
 
 def test_baseline_is_the_mean_across_qualified_players_only():
