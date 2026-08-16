@@ -61,6 +61,18 @@ def _ensure_season(session: Session, season: int, rows: list[dict[str, Any]]) ->
     numbers 19-22 in the feed, which would push `current_week` past
     `week_count` (18) for a completed season — a nonsensical reading for
     what's meant to be a "how far into the season are we" indicator.
+
+    The schedule is the ONLY authoritative source for how far a season has
+    progressed — this function must never be called with rows from any
+    other endpoint. `players.py` needs the `Season` row to exist too (for
+    its own foreign key), but must not influence `current_week`; it uses
+    `ensure_season_exists` below instead, which is deliberately a
+    different, narrower function rather than a configurable filter key on
+    this one — sharing one function across two callers, only one of which
+    should ever write `current_week`, is exactly how this got clobbered
+    the first time (`player_stats` rows have no `game_type` column at all,
+    so filtering them here silently produced an empty list and reset
+    every season back to week 1 on every run).
     """
     existing = session.get(Season, season)
     reg_weeks = [row["week"] for row in rows if row.get("game_type") == "REG"]
@@ -71,6 +83,20 @@ def _ensure_season(session: Session, season: int, rows: list[dict[str, Any]]) ->
     else:
         existing.current_week = max_week
     session.flush()
+    return existing
+
+
+def ensure_season_exists(session: Session, season: int) -> Season:
+    """Get-or-create the `Season` row without touching `current_week` — for
+    callers that only need the foreign-key target to exist and have no
+    business informing how far the season has progressed (players.py).
+    Only `_ensure_season` above, driven by schedule data, may write
+    `current_week`."""
+    existing = session.get(Season, season)
+    if existing is None:
+        existing = Season(year=season, current_week=1)
+        session.add(existing)
+        session.flush()
     return existing
 
 

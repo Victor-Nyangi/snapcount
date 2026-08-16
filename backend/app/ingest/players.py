@@ -29,7 +29,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from app.ingest.games import _ensure_season
+from app.ingest.games import ensure_season_exists
 from app.ingest.source import NflverseSource
 from app.models import Player, PlayerSeasonStat
 
@@ -70,7 +70,14 @@ def ingest_players(session: Session, season: int, source: NflverseSource) -> int
         for row in source.player_stats(season)
         if row.get("player_id") is not None and row.get("season_type") == "REG"
     ]
-    _ensure_season(session, season, rows)
+    # Only ensures the Season row exists (the FK target) - deliberately
+    # does NOT touch current_week. player_stats rows have no game_type
+    # column at all (they have season_type instead), so this module has
+    # no data current_week could correctly be derived from; only the
+    # schedule (games.py) is authoritative for that. See games.py's
+    # ensure_season_exists docstring for the incident that made this a
+    # hard rule rather than a shared, configurable helper.
+    ensure_season_exists(session, season)
 
     by_player: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
@@ -83,6 +90,24 @@ def ingest_players(session: Session, season: int, source: NflverseSource) -> int
             select(PlayerSeasonStat).where(PlayerSeasonStat.season == season)
         ).all()
     }
+
+    # How many seasons of stats we've ingested for each of this batch's
+    # players, prior to `season` - one query for the whole batch instead
+    # of one per player (a decade backfill runs this ingest ~2,000 times
+    # per season; per-player queries would be ~20,000 extra round trips).
+    prior_seasons_by_player: dict[str, set[int]] = defaultdict(set)
+    if by_player:
+        prior_stats = session.exec(
+            select(PlayerSeasonStat)
+            # SQLModel ships no mypy plugin here, so `.in_()` isn't
+            # recognized on any field (confirmed project-wide - the same
+            # false positive fires on Game.id/Team.abbr/etc.); real
+            # SQLAlchemy Column at runtime, verified by the passing tests.
+            .where(PlayerSeasonStat.player_id.in_(list(by_player.keys())))  # type: ignore[attr-defined]
+            .where(PlayerSeasonStat.season < season)
+        ).all()
+        for prior_stat in prior_stats:
+            prior_seasons_by_player[prior_stat.player_id].add(prior_stat.season)
 
     for player_id, weeks in by_player.items():
         latest = max(weeks, key=lambda r: r["week"])
@@ -108,13 +133,7 @@ def ingest_players(session: Session, season: int, source: NflverseSource) -> int
         # length — a player whose career started before our earliest
         # backfilled season will read as having fewer seasons than they
         # actually have.
-        prior_seasons = session.exec(
-            select(PlayerSeasonStat.season)
-            .where(PlayerSeasonStat.player_id == player_id)
-            .where(PlayerSeasonStat.season < season)
-            .distinct()
-        ).all()
-        seasons_played = len(set(prior_seasons)) + 1
+        seasons_played = len(prior_seasons_by_player[player_id]) + 1
 
         totals = _season_totals(weeks)
 

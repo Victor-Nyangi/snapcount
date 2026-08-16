@@ -3,7 +3,7 @@ from sqlmodel import Session, delete, select
 from app.ingest.aggregate import aggregate_team_seasons
 from app.ingest.games import ingest_games
 from app.ingest.runner import _season_range, ingest_season, parse_args
-from app.models import Game, IngestRun, PlayerSeasonStat, Season, TeamSeasonStat
+from app.models import Game, IngestRun, Player, PlayerSeasonStat, Season, TeamSeasonStat
 from tests.ingest.test_games import _SEASON as _GAMES_FAKE_SEASON
 from tests.ingest.test_games import FakeSource
 
@@ -12,6 +12,7 @@ from tests.ingest.test_games import FakeSource
 _AGG_SEASON = 2098
 _OK_SEASON = 2097
 _FAIL_SEASON = 2096
+_CURRENT_WEEK_SEASON = 2095
 
 
 class _AggFakeSource(FakeSource):
@@ -91,6 +92,73 @@ class _FailingPlayerStatsSource:
         raise RuntimeError("boom: the feed fell over")
 
 
+class _CurrentWeekSource:
+    """Regression fixture for a real bug: `ingest_players`'s Season
+    get-or-create clobbered `current_week` back to 1 on every run, because
+    the shared `_ensure_season` it called filtered rows by `game_type` — a
+    column schedules rows have and player_stats rows do NOT (they have
+    `season_type` instead). Filtering player_stats rows by `game_type`
+    silently produced an empty list every time, so `max_week` fell back to
+    its default of 1 and overwrote whatever the preceding `ingest_games`
+    call had just written correctly.
+
+    `_OkSource` above can't catch this: its schedule is a single REG week,
+    so the correct value (1) and the bug's fallback (also 1) agree by
+    coincidence. This fixture spans 5 REG weeks specifically so a clobber
+    to 1 is unambiguous, and gives player_stats a non-empty row so the
+    buggy code path actually runs (an empty list, like _OkSource's, would
+    never have executed the filter that broke).
+    """
+
+    def schedules(self, season):
+        return [
+            {
+                "game_id": f"{season}_{week:02d}_KC_BAL",
+                "season": season,
+                "week": week,
+                "game_type": "REG",
+                "gameday": "2095-09-07",
+                "gametime": "13:00",
+                "away_team": "KC",
+                "home_team": "BAL",
+                "away_score": 24,
+                "home_score": 17,
+                "spread_line": 2.5,
+                "total_line": 45.0,
+                "overtime": 0,
+            }
+            for week in (1, 2, 3, 4, 5)
+        ]
+
+    def player_stats(self, season):
+        return [
+            {
+                "player_id": "00-CWFAKE",
+                "player_name": "C.Week",
+                "player_display_name": "Current Week",
+                "position": "QB",
+                "team": "KC",
+                "week": 1,
+                "season": season,
+                "season_type": "REG",
+                "game_id": f"{season}_01_KC_BAL",
+                "attempts": 10,
+                "carries": 0,
+                "targets": 0,
+                "receptions": 0,
+                "passing_yards": 100,
+                "passing_tds": 1,
+                "passing_epa": 1.0,
+                "rushing_yards": 0,
+                "rushing_tds": 0,
+                "rushing_epa": 0.0,
+                "receiving_yards": 0,
+                "receiving_tds": 0,
+                "receiving_epa": 0.0,
+            }
+        ]
+
+
 def test_aggregate_team_seasons_derives_bal_record_from_played_games(
     isolated_db: Session,
 ) -> None:
@@ -167,6 +235,26 @@ def test_ingest_season_failure_leaves_status_failed_and_no_partial_rows(
         assert games == []  # the game inserted before the failure rolled back
     finally:
         _purge_season(db, _FAIL_SEASON)
+
+
+def test_ingest_season_current_week_reflects_the_schedule_not_player_stats(
+    db: Session,
+) -> None:
+    """The regression that matters most here: assert current_week AFTER a
+    full ingest_season run (games -> players -> aggregate), not after
+    ingest_games alone — the bug was specifically that the LATER
+    ingest_players call clobbered what ingest_games had just set."""
+    try:
+        run = ingest_season(db, _CURRENT_WEEK_SEASON, _CurrentWeekSource())
+        assert run.status == "ok"
+
+        season = db.get(Season, _CURRENT_WEEK_SEASON)
+        assert season is not None
+        assert season.current_week == 5  # the REG maximum, not 1
+    finally:
+        _purge_season(db, _CURRENT_WEEK_SEASON)
+        db.exec(delete(Player).where(Player.id == "00-CWFAKE"))
+        db.commit()
 
 
 def test_parse_args_reads_a_single_season() -> None:
