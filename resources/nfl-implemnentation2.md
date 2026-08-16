@@ -2058,7 +2058,17 @@ with Session(engine) as s:
 
 Expected: 320 rows, 32 per season for each of 2016–2025. A season short of 32 means a franchise relocation or rename the abbreviation mapping missed — **fix the mapping, do not pad the table.** (OAK→LV in 2020, SD→LAC in 2017, and STL→LAR in 2016 all fall inside this window and are the likely culprits.)
 
-Then sanity-check one cell against public record: 2023 SF should show a differential near +186, and 2020 JAX near −180.
+Then sanity-check against public record. These are exact, not approximate — verified against the
+ingested data on 2026-08-16:
+
+| Season | Team | Record | PF | PA | Differential |
+|---|---|---|---|---|---|
+| 2023 | SF | 12-5 | 491 | 298 | **+193** |
+| 2020 | JAX | 1-15 | 306 | 492 | **−186** |
+| 2024 | DET | 15-2 | 564 | 342 | **+222** |
+
+If a value is off by a handful of points, suspect the game-type filter before suspecting the feed —
+a stray postseason game inflates both PF and PA.
 
 - [ ] **Step 11: Commit**
 
