@@ -9,11 +9,14 @@ export type FreshnessStatus = "live" | "final" | "stale"
  * (`GET /meta/freshness`, Task 4.1), never hard-coded here.
  *
  * The mockup only ever renders the `final`/`live` (emerald) styling — it has
- * no `stale` markup to copy from. `--warning`/`--warning-ink` exist in the
- * token set but nothing in the design system defines a "warning tint"
- * background/border pair, so `stale` swaps only the dot fill and label ink
- * to those two tokens (exactly what the brief specifies) and keeps the
- * emerald-tint pill container. Inventing a new tint token was out of scope.
+ * no `stale` markup to copy from. The design system had no "warning tint"
+ * background/border pair, so `theme.css` now derives one (§1.9a): the same
+ * lightness/chroma formula the emerald tint pair uses, applied at
+ * `--warning`'s hue instead of emerald's. `stale` swaps the container to
+ * `--warning-tint-strong`/`--warning-tint-border` alongside the `--warning`
+ * dot and `--warning-ink` label, so all three states are internally
+ * consistent pill+dot+label triples rather than a green pill with orange
+ * contents.
  *
  * The `live` dot's pulse is applied via a *class*, not an inline `animation`
  * style, and suppressed for `prefers-reduced-motion` in this component's own
@@ -37,6 +40,12 @@ export function FreshnessPill({
   const isStale = status === "stale"
   const dotColor = isStale ? "var(--warning)" : "var(--emerald)"
   const inkColor = isStale ? "var(--warning-ink)" : "var(--emerald-dark)"
+  const bgColor = isStale
+    ? "var(--warning-tint-strong)"
+    : "var(--emerald-tint-strong)"
+  const borderColor = isStale
+    ? "var(--warning-tint-border)"
+    : "var(--emerald-tint-border)"
 
   return (
     <div
@@ -47,8 +56,14 @@ export function FreshnessPill({
         gap: 7,
         padding: "6px 11px",
         borderRadius: "var(--radius-pill)",
-        background: "var(--emerald-tint-strong)",
-        border: "1px solid var(--emerald-tint-border)",
+        background: bgColor,
+        // Longhand rather than the `border` shorthand: jsdom's CSS parser
+        // (used by the test suite) fails to parse a `var()` reference inside
+        // a compound shorthand value, even though real browsers handle it
+        // fine. Longhand keeps this both correct and testable.
+        borderWidth: 1,
+        borderStyle: "solid",
+        borderColor,
       }}
     >
       <style>{`

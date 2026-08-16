@@ -21,8 +21,16 @@
  *     original source never defined. It appears in no NFL screen.
  * --chart-1..5 are assigned for shadcn compatibility only. Real chart series use
  *     team colors or the diverging scale from lib/diverging.ts — never these.
+ * 1.9a --warning-tint-strong/--warning-tint-border: the design has no warning
+ *     tint pair because the mockup never renders a stale freshness pill. The
+ *     emerald tint pair is a fixed lightness/chroma formula at the emerald
+ *     hue (oklch(0.96 0.03 155) / oklch(0.86 0.06 155)); these are that same
+ *     formula applied at --warning's hue (82), not an invented color.
  */
 :root {
+  --warning-tint-strong: oklch(0.96 0.03 82);
+  --warning-tint-border: oklch(0.86 0.06 82);
+
   --background: var(--app-canvas);
   --foreground: var(--text-primary-light);
   --card: var(--surface-card-light);
