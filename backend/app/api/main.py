@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import login, meta, private, standings, users, utils
+from app.api.routes import login, meta, private, standings, users, utils, weeks
 from app.core.config import settings
 
 api_router = APIRouter()
@@ -9,6 +9,7 @@ api_router.include_router(users.router)
 api_router.include_router(utils.router)
 api_router.include_router(meta.router)
 api_router.include_router(standings.router)
+api_router.include_router(weeks.router)
 
 
 if settings.FASTAPI_ENV == "development":
