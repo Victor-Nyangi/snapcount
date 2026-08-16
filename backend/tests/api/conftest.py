@@ -33,6 +33,8 @@ from app.models import Game, Season, TeamSeasonStat
 FUTURE_SEASON = 2081
 STALE_SEASON = 2082
 TEAM_SCHEDULE_SEASON = 2084
+EXPLORER_PRESENT_SEASON = 2086
+EXPLORER_MISSING_SEASON = 2087
 
 
 @pytest.fixture
@@ -124,6 +126,44 @@ def teams_partial_schedule(db: Session) -> Generator[None]:
         )
         db.commit()
         db.exec(delete(Season).where(Season.year == TEAM_SCHEDULE_SEASON))
+        db.commit()
+
+
+@pytest.fixture
+def explorer_partial_range(db: Session) -> Generator[None]:
+    """LV has a real (zero) differential in `EXPLORER_PRESENT_SEASON` and no
+    team-season row at all in `EXPLORER_MISSING_SEASON` — proves the explorer
+    response tells a genuine zero apart from an absent season, rather than
+    the test just asserting a falsy value either way."""
+    season = Season(year=EXPLORER_PRESENT_SEASON, current_week=1, week_count=18)
+    db.add(season)
+    db.commit()
+
+    stat = TeamSeasonStat(
+        season=EXPLORER_PRESENT_SEASON,
+        team="LV",
+        wins=8,
+        losses=8,
+        ties=0,
+        points_for=300,
+        points_against=300,  # differential 0, a real value — not absent
+        sos=0.5,
+        streak="L1",
+        form="W",
+        power=50.0,
+    )
+    db.add(stat)
+    db.commit()
+    try:
+        yield
+    finally:
+        db.exec(
+            delete(TeamSeasonStat).where(
+                TeamSeasonStat.season == EXPLORER_PRESENT_SEASON
+            )
+        )
+        db.commit()
+        db.exec(delete(Season).where(Season.year == EXPLORER_PRESENT_SEASON))
         db.commit()
 
 
