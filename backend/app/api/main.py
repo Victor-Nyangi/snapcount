@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     explorer,
+    history,
     leaders,
     login,
     meta,
@@ -26,6 +27,7 @@ api_router.include_router(leaders.router)
 api_router.include_router(teams.router)
 api_router.include_router(players.router)
 api_router.include_router(explorer.router)
+api_router.include_router(history.router)
 
 
 if settings.FASTAPI_ENV == "development":
