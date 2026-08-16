@@ -52,12 +52,19 @@ def _status(
 
 def _ensure_season(session: Session, season: int, rows: list[dict[str, Any]]) -> Season:
     """Get-or-create the `Season` row `Game.season` foreign-keys into, and
-    keep `current_week` in step with the furthest week this ingest saw.
-    Static reference fields (`week_count`) are left alone once created —
-    only `current_week` is refreshed on every run, since that is the one
-    value that's supposed to move as a season progresses."""
+    keep `current_week` in step with the furthest *regular-season* week
+    this ingest saw. Static reference fields (`week_count`) are left alone
+    once created — only `current_week` is refreshed on every run, since
+    that is the one value that's supposed to move as a season progresses.
+
+    Deliberately REG-only: postseason rounds (WC/DIV/CON/SB) carry week
+    numbers 19-22 in the feed, which would push `current_week` past
+    `week_count` (18) for a completed season — a nonsensical reading for
+    what's meant to be a "how far into the season are we" indicator.
+    """
     existing = session.get(Season, season)
-    max_week = max((row["week"] for row in rows), default=1)
+    reg_weeks = [row["week"] for row in rows if row.get("game_type") == "REG"]
+    max_week = max(reg_weeks, default=1)
     if existing is None:
         existing = Season(year=season, current_week=max_week)
         session.add(existing)
