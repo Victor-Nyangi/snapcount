@@ -1,5 +1,7 @@
 from collections import Counter
 
+import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.ingest.history import seed_history
@@ -48,3 +50,28 @@ def test_seed_history_is_idempotent(db: Session) -> None:
     seed_history(db)
     seed_history(db)
     assert len(db.exec(select(Champion)).all()) == 25
+
+
+def test_dynastyrun_team_uniqueness_is_enforced_by_the_db(db: Session) -> None:
+    """seed_history's upsert keys DynastyRun on `team`, assuming one run per
+    franchise. Nothing in the upsert loop itself would stop a second row for
+    the same team from being inserted — it's the DB constraint that must
+    catch it. Use a SAVEPOINT (begin_nested) so the failed insert doesn't
+    poison the session-scoped `db` fixture for later tests."""
+    seed_teams(db)
+    seed_history(db)
+
+    with pytest.raises(IntegrityError):
+        with db.begin_nested():
+            db.add(
+                DynastyRun(
+                    team="NE",
+                    label="New England, a second era",
+                    titles=1,
+                    note="should never persist",
+                )
+            )
+            db.flush()
+
+    # The legitimate four rows are untouched.
+    assert len(db.exec(select(DynastyRun)).all()) == 4

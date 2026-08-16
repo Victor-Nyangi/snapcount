@@ -61,14 +61,24 @@ class Champion(SQLModel, table=True):
 
     season: int = Field(primary_key=True)  # the season, not the calendar year played
     team: str = Field(foreign_key="team.abbr")
-    result: str  # "40-22 over Kansas City"
+    result: str  # "40–22 over Kansas City"
 
 
 class DynastyRun(SQLModel, table=True):
-    """Editorial. Seeded from dynasties.json; see plan §2."""
+    """Editorial. Seeded from dynasties.json; see plan §2.
+
+    `team` is unique: one run per franchise within the 2000-2024 window
+    this app covers. The history screen renders a flat list of dynasty
+    cards, and app/ingest/history.py's upsert keys on `team` — a second
+    row for the same team would silently orphan one of them on re-seed.
+    A second era for a given team is a product decision (how to render
+    two cards for one franchise), not just a schema change, so the
+    constraint is deliberate and should be removed consciously, not
+    worked around.
+    """
 
     id: int | None = Field(default=None, primary_key=True)
-    team: str = Field(foreign_key="team.abbr")
-    label: str  # "New England, 2001-2018"
+    team: str = Field(foreign_key="team.abbr", unique=True)
+    label: str  # "New England, 2001–2018"
     titles: int
     note: str
