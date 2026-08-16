@@ -35,6 +35,215 @@ export type Body_login_login_access_token = {
 };
 
 /**
+ * ChampionRow
+ */
+export type ChampionRow = {
+    /**
+     * Season
+     */
+    season: number;
+    team: ChampionTeam;
+    /**
+     * Result
+     */
+    result: string;
+};
+
+/**
+ * ChampionTeam
+ */
+export type ChampionTeam = {
+    /**
+     * Abbr
+     */
+    abbr: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Nickname
+     */
+    nickname: string;
+    /**
+     * Color
+     */
+    color: string;
+};
+
+/**
+ * Conference
+ */
+export type Conference = 'AFC' | 'NFC';
+
+/**
+ * DepthGroup
+ */
+export type DepthGroup = {
+    /**
+     * Group
+     */
+    group: string;
+    /**
+     * Slots
+     */
+    slots: Array<string>;
+};
+
+/**
+ * DynastyRow
+ */
+export type DynastyRow = {
+    team: DynastyTeam;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Titles
+     */
+    titles: number;
+    /**
+     * Note
+     */
+    note: string;
+};
+
+/**
+ * DynastyTeam
+ */
+export type DynastyTeam = {
+    /**
+     * Abbr
+     */
+    abbr: string;
+    /**
+     * Color
+     */
+    color: string;
+};
+
+/**
+ * ExplorerResponse
+ */
+export type ExplorerResponse = {
+    /**
+     * Seasons
+     */
+    seasons: Array<number>;
+    /**
+     * Domain
+     */
+    domain: number;
+    /**
+     * Rows
+     */
+    rows: Array<ExplorerRow>;
+};
+
+/**
+ * ExplorerRow
+ */
+export type ExplorerRow = {
+    team: ExplorerTeam;
+    /**
+     * Values
+     */
+    values: Array<number | null>;
+    /**
+     * Total
+     */
+    total: number;
+};
+
+/**
+ * ExplorerTeam
+ */
+export type ExplorerTeam = {
+    /**
+     * Abbr
+     */
+    abbr: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Color
+     */
+    color: string;
+};
+
+/**
+ * FeaturedGame
+ */
+export type FeaturedGame = {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Eyebrow
+     */
+    eyebrow: string;
+    /**
+     * Away Abbr
+     */
+    away_abbr: string;
+    /**
+     * Home Abbr
+     */
+    home_abbr: string;
+    /**
+     * Score Label
+     */
+    score_label: string;
+    /**
+     * Banner Color
+     */
+    banner_color: string;
+    /**
+     * Stats
+     */
+    stats: Array<FeaturedStat>;
+};
+
+/**
+ * FeaturedStat
+ */
+export type FeaturedStat = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Value
+     */
+    value: string;
+};
+
+/**
+ * FreshnessResponse
+ *
+ * `GET /meta/freshness?season=`. `label` is fully formed server-side —
+ * the freshness pill renders it verbatim.
+ */
+export type FreshnessResponse = {
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Last Ingested At
+     */
+    last_ingested_at: string | null;
+};
+
+/**
  * HTTPValidationError
  */
 export type HTTPValidationError = {
@@ -42,6 +251,136 @@ export type HTTPValidationError = {
      * Detail
      */
     detail?: Array<ValidationError>;
+};
+
+/**
+ * HistoryResponse
+ */
+export type HistoryResponse = {
+    /**
+     * Champions
+     */
+    champions: Array<ChampionRow>;
+    /**
+     * Most Titles
+     */
+    most_titles: Array<TitleCount>;
+    /**
+     * Dynasties
+     */
+    dynasties: Array<DynastyRow>;
+};
+
+/**
+ * LeaderMetric
+ */
+export type LeaderMetric = 'epa' | 'yds' | 'td' | 'rate';
+
+/**
+ * LeaderPlayer
+ */
+export type LeaderPlayer = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Team Abbr
+     */
+    team_abbr: string;
+    /**
+     * Team Color
+     */
+    team_color: string;
+    /**
+     * Meta
+     */
+    meta: string;
+};
+
+/**
+ * LeaderPosition
+ */
+export type LeaderPosition = 'QB' | 'RB' | 'WR' | 'TE';
+
+/**
+ * LeaderRow
+ */
+export type LeaderRow = {
+    /**
+     * Rank
+     */
+    rank: number;
+    player: LeaderPlayer;
+    /**
+     * Value
+     */
+    value: number;
+    secondary: LeaderSecondary;
+    /**
+     * Vs Baseline
+     */
+    vs_baseline: number;
+};
+
+/**
+ * LeaderSecondary
+ */
+export type LeaderSecondary = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Value
+     */
+    value: number;
+};
+
+/**
+ * LeadersResponse
+ */
+export type LeadersResponse = {
+    /**
+     * Season
+     */
+    season: number;
+    /**
+     * Position
+     */
+    position: string;
+    /**
+     * Metric
+     */
+    metric: string;
+    /**
+     * Metric Label
+     */
+    metric_label: string;
+    /**
+     * Unit
+     */
+    unit: string;
+    /**
+     * Precision
+     */
+    precision: number;
+    /**
+     * Baseline
+     */
+    baseline: number;
+    /**
+     * Qualifier Label
+     */
+    qualifier_label: string;
+    /**
+     * Rows
+     */
+    rows: Array<LeaderRow>;
 };
 
 /**
@@ -69,6 +408,111 @@ export type NewPassword = {
 };
 
 /**
+ * PlayerListRow
+ */
+export type PlayerListRow = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Team Abbr
+     */
+    team_abbr: string;
+};
+
+/**
+ * PlayerPageResponse
+ */
+export type PlayerPageResponse = {
+    player: PlayerRef;
+    /**
+     * Rate Cards
+     */
+    rate_cards: Array<RateCard>;
+    /**
+     * Seasons
+     */
+    seasons: Array<PlayerSeasonRow>;
+};
+
+/**
+ * PlayerRef
+ */
+export type PlayerRef = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Position
+     */
+    position: string;
+    /**
+     * Team Abbr
+     */
+    team_abbr: string;
+    /**
+     * Team Color
+     */
+    team_color: string;
+    /**
+     * Meta
+     */
+    meta: string;
+};
+
+/**
+ * PlayerSeasonRow
+ */
+export type PlayerSeasonRow = {
+    /**
+     * Season
+     */
+    season: number;
+    /**
+     * Team Abbr
+     */
+    team_abbr: string;
+    /**
+     * Team Color
+     */
+    team_color: string;
+    /**
+     * Games
+     */
+    games: number;
+    /**
+     * Yards
+     */
+    yards: number;
+    /**
+     * Tds
+     */
+    tds: number;
+    /**
+     * Rate
+     */
+    rate: number;
+    /**
+     * Epa
+     */
+    epa: number;
+    /**
+     * Is Latest
+     */
+    is_latest: boolean;
+};
+
+/**
  * PrivateUserCreate
  */
 export type PrivateUserCreate = {
@@ -88,6 +532,328 @@ export type PrivateUserCreate = {
      * Is Verified
      */
     is_verified?: boolean;
+};
+
+/**
+ * RateCard
+ */
+export type RateCard = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Precision
+     */
+    precision: number;
+    /**
+     * Value
+     */
+    value: number;
+    /**
+     * Baseline
+     */
+    baseline: number;
+    /**
+     * Delta
+     */
+    delta: number;
+    /**
+     * Scale Max
+     */
+    scale_max: number;
+};
+
+/**
+ * ScheduleOpponent
+ */
+export type ScheduleOpponent = {
+    /**
+     * Abbr
+     */
+    abbr: string;
+    /**
+     * Nickname
+     */
+    nickname: string;
+    /**
+     * Color
+     */
+    color: string;
+};
+
+/**
+ * ScheduleRowOut
+ */
+export type ScheduleRowOut = {
+    /**
+     * Week
+     */
+    week: number;
+    /**
+     * Week Label
+     */
+    week_label: string;
+    opponent: ScheduleOpponent;
+    /**
+     * Is Home
+     */
+    is_home: boolean;
+    /**
+     * Result
+     */
+    result: string | null;
+    /**
+     * Score Label
+     */
+    score_label: string | null;
+    /**
+     * Margin
+     */
+    margin: number | null;
+    /**
+     * Cumulative
+     */
+    cumulative: number | null;
+};
+
+/**
+ * SeasonSummary
+ *
+ * One row of `GET /meta/seasons` — populates the season selector.
+ */
+export type SeasonSummary = {
+    /**
+     * Year
+     */
+    year: number;
+    /**
+     * Current Week
+     */
+    current_week: number;
+    /**
+     * Week Count
+     */
+    week_count: number;
+    /**
+     * Last Ingested At
+     */
+    last_ingested_at: string | null;
+};
+
+/**
+ * StandingsResponse
+ */
+export type StandingsResponse = {
+    /**
+     * Season
+     */
+    season: number;
+    /**
+     * Formula Label
+     */
+    formula_label: string;
+    /**
+     * Rows
+     */
+    rows: Array<StandingsRow>;
+};
+
+/**
+ * StandingsRow
+ */
+export type StandingsRow = {
+    /**
+     * Rank
+     */
+    rank: number;
+    team: StandingsTeam;
+    /**
+     * Wins
+     */
+    wins: number;
+    /**
+     * Losses
+     */
+    losses: number;
+    /**
+     * Ties
+     */
+    ties: number;
+    /**
+     * Record Label
+     */
+    record_label: string;
+    /**
+     * Pct
+     */
+    pct: number;
+    /**
+     * Points For
+     */
+    points_for: number;
+    /**
+     * Points Against
+     */
+    points_against: number;
+    /**
+     * Differential
+     */
+    differential: number;
+    /**
+     * Sos
+     */
+    sos: number;
+    /**
+     * Streak
+     */
+    streak: string;
+    /**
+     * Form
+     */
+    form: string;
+    /**
+     * Playoff Seed
+     */
+    playoff_seed: number | null;
+    /**
+     * Power
+     */
+    power: number;
+};
+
+/**
+ * StandingsTeam
+ */
+export type StandingsTeam = {
+    /**
+     * Abbr
+     */
+    abbr: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Nickname
+     */
+    nickname: string;
+    /**
+     * Conference
+     */
+    conference: string;
+    /**
+     * Division
+     */
+    division: string;
+    /**
+     * Color
+     */
+    color: string;
+};
+
+/**
+ * TeamPageResponse
+ */
+export type TeamPageResponse = {
+    team: TeamRef;
+    /**
+     * Record Label
+     */
+    record_label: string;
+    /**
+     * Conference Label
+     */
+    conference_label: string;
+    /**
+     * Stats
+     */
+    stats: Array<TeamStat>;
+    /**
+     * Schedule
+     */
+    schedule: Array<ScheduleRowOut>;
+    /**
+     * Depth Groups
+     */
+    depth_groups: Array<DepthGroup>;
+};
+
+/**
+ * TeamRef
+ */
+export type TeamRef = {
+    /**
+     * Abbr
+     */
+    abbr: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Nickname
+     */
+    nickname: string;
+    /**
+     * Conference
+     */
+    conference: string;
+    /**
+     * Division
+     */
+    division: string;
+    /**
+     * Color
+     */
+    color: string;
+};
+
+/**
+ * TeamStat
+ */
+export type TeamStat = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Value
+     */
+    value: string;
+};
+
+/**
+ * TitleCount
+ */
+export type TitleCount = {
+    team: TitleCountTeam;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
+ * TitleCountTeam
+ */
+export type TitleCountTeam = {
+    /**
+     * Abbr
+     */
+    abbr: string;
+    /**
+     * Nickname
+     */
+    nickname: string;
+    /**
+     * Color
+     */
+    color: string;
 };
 
 /**
@@ -272,6 +1038,101 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * WeekGame
+ */
+export type WeekGame = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Kickoff At
+     */
+    kickoff_at: string;
+    /**
+     * Kickoff Label
+     */
+    kickoff_label: string;
+    /**
+     * Status
+     */
+    status: string;
+    away: WeekTeamSide;
+    home: WeekTeamSide;
+    /**
+     * Spread Line
+     */
+    spread_line: number | null;
+    /**
+     * Line Label
+     */
+    line_label: string | null;
+    /**
+     * Margin
+     */
+    margin: number | null;
+    /**
+     * Recap
+     */
+    recap: string | null;
+};
+
+/**
+ * WeekResponse
+ */
+export type WeekResponse = {
+    /**
+     * Season
+     */
+    season: number;
+    /**
+     * Week
+     */
+    week: number;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Games
+     */
+    games: Array<WeekGame>;
+    /**
+     * Featured
+     */
+    featured: Array<FeaturedGame>;
+};
+
+/**
+ * WeekTeamSide
+ *
+ * One side (away or home) of a `WeekGame`. `score` is `None` for an
+ * unplayed game — never coerced to 0.
+ */
+export type WeekTeamSide = {
+    /**
+     * Abbr
+     */
+    abbr: string;
+    /**
+     * Nickname
+     */
+    nickname: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Color
+     */
+    color: string;
+    /**
+     * Score
+     */
+    score: number | null;
 };
 
 export type loginLoginAccessTokenData = {
@@ -703,6 +1564,307 @@ export type utilsHealthCheckResponses = {
 };
 
 export type utilsHealthCheckResponse = utilsHealthCheckResponses[keyof utilsHealthCheckResponses];
+
+export type metaListSeasonsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/meta/seasons';
+};
+
+export type metaListSeasonsResponses = {
+    /**
+     * Response Meta-List Seasons
+     *
+     * Successful Response
+     */
+    200: Array<SeasonSummary>;
+};
+
+export type metaListSeasonsResponse = metaListSeasonsResponses[keyof metaListSeasonsResponses];
+
+export type metaFreshnessData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Season
+         */
+        season: number;
+    };
+    url: '/api/v1/meta/freshness';
+};
+
+export type metaFreshnessErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type metaFreshnessError = metaFreshnessErrors[keyof metaFreshnessErrors];
+
+export type metaFreshnessResponses = {
+    /**
+     * Successful Response
+     */
+    200: FreshnessResponse;
+};
+
+export type metaFreshnessResponse = metaFreshnessResponses[keyof metaFreshnessResponses];
+
+export type standingsStandingsData = {
+    body?: never;
+    path: {
+        /**
+         * Season
+         */
+        season: number;
+    };
+    query?: {
+        /**
+         * Conference
+         */
+        conference?: Conference | null;
+    };
+    url: '/api/v1/standings/{season}';
+};
+
+export type standingsStandingsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type standingsStandingsError = standingsStandingsErrors[keyof standingsStandingsErrors];
+
+export type standingsStandingsResponses = {
+    /**
+     * Successful Response
+     */
+    200: StandingsResponse;
+};
+
+export type standingsStandingsResponse = standingsStandingsResponses[keyof standingsStandingsResponses];
+
+export type weeksWeekData = {
+    body?: never;
+    path: {
+        /**
+         * Season
+         */
+        season: number;
+        /**
+         * Week
+         */
+        week: number;
+    };
+    query?: never;
+    url: '/api/v1/weeks/{season}/{week}';
+};
+
+export type weeksWeekErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type weeksWeekError = weeksWeekErrors[keyof weeksWeekErrors];
+
+export type weeksWeekResponses = {
+    /**
+     * Successful Response
+     */
+    200: WeekResponse;
+};
+
+export type weeksWeekResponse = weeksWeekResponses[keyof weeksWeekResponses];
+
+export type leadersLeadersData = {
+    body?: never;
+    path: {
+        /**
+         * Season
+         */
+        season: number;
+    };
+    query: {
+        position: LeaderPosition;
+        metric: LeaderMetric;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/leaders/{season}';
+};
+
+export type leadersLeadersErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type leadersLeadersError = leadersLeadersErrors[keyof leadersLeadersErrors];
+
+export type leadersLeadersResponses = {
+    /**
+     * Successful Response
+     */
+    200: LeadersResponse;
+};
+
+export type leadersLeadersResponse = leadersLeadersResponses[keyof leadersLeadersResponses];
+
+export type teamsTeamPageData = {
+    body?: never;
+    path: {
+        /**
+         * Season
+         */
+        season: number;
+        /**
+         * Abbr
+         */
+        abbr: string;
+    };
+    query?: never;
+    url: '/api/v1/teams/{season}/{abbr}';
+};
+
+export type teamsTeamPageErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type teamsTeamPageError = teamsTeamPageErrors[keyof teamsTeamPageErrors];
+
+export type teamsTeamPageResponses = {
+    /**
+     * Successful Response
+     */
+    200: TeamPageResponse;
+};
+
+export type teamsTeamPageResponse = teamsTeamPageResponses[keyof teamsTeamPageResponses];
+
+export type playersListPlayersData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Season
+         */
+        season: number;
+        position: LeaderPosition;
+    };
+    url: '/api/v1/players';
+};
+
+export type playersListPlayersErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type playersListPlayersError = playersListPlayersErrors[keyof playersListPlayersErrors];
+
+export type playersListPlayersResponses = {
+    /**
+     * Response Players-List Players
+     *
+     * Successful Response
+     */
+    200: Array<PlayerListRow>;
+};
+
+export type playersListPlayersResponse = playersListPlayersResponses[keyof playersListPlayersResponses];
+
+export type playersPlayerPageData = {
+    body?: never;
+    path: {
+        /**
+         * Player Id
+         */
+        player_id: string;
+    };
+    query?: never;
+    url: '/api/v1/players/{player_id}';
+};
+
+export type playersPlayerPageErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type playersPlayerPageError = playersPlayerPageErrors[keyof playersPlayerPageErrors];
+
+export type playersPlayerPageResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlayerPageResponse;
+};
+
+export type playersPlayerPageResponse = playersPlayerPageResponses[keyof playersPlayerPageResponses];
+
+export type explorerDifferentialsData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * From
+         */
+        from: number;
+        /**
+         * To
+         */
+        to: number;
+    };
+    url: '/api/v1/explorer/differentials';
+};
+
+export type explorerDifferentialsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type explorerDifferentialsError = explorerDifferentialsErrors[keyof explorerDifferentialsErrors];
+
+export type explorerDifferentialsResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExplorerResponse;
+};
+
+export type explorerDifferentialsResponse = explorerDifferentialsResponses[keyof explorerDifferentialsResponses];
+
+export type historyChampionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/history/champions';
+};
+
+export type historyChampionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: HistoryResponse;
+};
+
+export type historyChampionsResponse = historyChampionsResponses[keyof historyChampionsResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;
