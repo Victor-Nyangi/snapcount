@@ -205,6 +205,23 @@ The handoff sets "AA contrast on all data text, including text inside colored ce
 
 The mockup uses `font-variant-numeric: tabular-nums` everywhere; the handoff asks for `tabular-nums slashed-zero`. IBM Plex Mono's slashed zero is a stylistic set, and enabling it changes the mockup's rendering. **Decision:** `.tabular` applies `tabular-nums` only, matching the design. Revisit if 0/O confusion shows up in practice.
 
+### 1.9a The stale freshness pill needs a warning tint the design never drew
+
+The freshness pill has three states. The mockup only ever renders `final`, so there is no `stale` markup to copy. The design system defines `--warning` and `--warning-ink` but no warning *tint* — the container background and border that the emerald states use.
+
+Rendering `stale` with the emerald tint container and amber dot/label gives a green pill with orange contents, which reads as a bug rather than a state.
+
+**Decision — derive, do not invent.** The design's own tint formula is visible in the emerald set: a fixed lightness/chroma pair at the family's hue.
+
+| | tint-strong | tint-border |
+|---|---|---|
+| emerald (hue 155) | `oklch(0.96 0.03 155)` | `oklch(0.86 0.06 155)` |
+| **warning (hue 82)** | `oklch(0.96 0.03 82)` | `oklch(0.86 0.06 82)` |
+
+Same lightness, same chroma, warning's hue. That is applying the design's rule at a new hue rather than picking a colour, which is why this is recorded as a judgment call rather than flagged as a blocker.
+
+These two live in **`theme.css`**, not `tokens.app.css` — the app-token file is regenerated from the design export and holds only values the design actually uses. A derived value belongs with the other hand-maintained decisions.
+
 ### 1.10 There is exactly one chart in the entire design, and it defines the chart conventions
 
 The team page's cumulative point-differential trend is the only chart across all seven screens. Everything else is a table, a card, or a bar mark. So the "chart conventions sheet" the design brief §5.3 asked for exists only as this one instance — and it is deliberately minimal:
