@@ -5,6 +5,7 @@ import {
   redirect,
   useLocation,
 } from "@tanstack/react-router"
+import { ChevronDown, LogOut, Settings, Shield, User } from "lucide-react"
 import { useEffect, useRef } from "react"
 
 import { Footer } from "@/components/Common/Footer"
@@ -14,7 +15,15 @@ import {
   SeasonWeekPicker,
   seasonWeekSearchSchema,
 } from "@/components/season-week-picker"
-import { isLoggedIn } from "@/hooks/useAuth"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 
 // §1.13 of the design plan: the design has no sidebar — a single sticky top
 // nav with seven items replaces the template's AppSidebar. AppSidebar /
@@ -55,6 +64,75 @@ const NAV_ITEMS: { to: string; label: string }[] = [
 // (see the matching comment in season-week-picker.tsx for why a bare
 // `Link`/`useNavigate` fails to typecheck here).
 const routeApi = getRouteApi("/_layout")
+
+// The sidebar's footer (components/Sidebar/User.tsx) was the app's only
+// logout control and its only link to /settings and /admin. Removing
+// AppSidebar removed all three. Not reused as-is: User.tsx calls
+// `useSidebar()` and renders `SidebarMenuButton`, which throws outside a
+// `SidebarProvider` — reintroducing that provider just to reuse the
+// component would put the sidebar back for a menu, which is the tail
+// wagging the dog (the design has no sidebar, §1.13). This is the top-nav
+// equivalent, built on the same shadcn `dropdown-menu` primitive.
+export function UserMenu() {
+  const { user, logout } = useAuth()
+  const Link = routeApi.Link
+
+  if (!user) return null
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          data-testid="user-menu"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 10px",
+            borderRadius: 10,
+            border: "1px solid var(--gray-200)",
+            background: "var(--white)",
+            fontFamily: "var(--font-body)",
+            fontSize: 13,
+            fontWeight: 600,
+            color: "var(--gray-600)",
+            maxWidth: 160,
+          }}
+        >
+          <User aria-hidden="true" className="size-4 shrink-0" />
+          <span className="truncate">{user.full_name || user.email}</span>
+          <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={8} className="min-w-48">
+        <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
+          {user.email}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/settings" search={(prev) => prev}>
+            <Settings />
+            Settings
+          </Link>
+        </DropdownMenuItem>
+        {user.is_superuser && (
+          <DropdownMenuItem asChild>
+            <Link to="/admin" search={(prev) => prev}>
+              <Shield />
+              Admin
+            </Link>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => logout()}>
+          <LogOut />
+          Log out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 function prefersReducedMotion() {
   return (
@@ -172,6 +250,7 @@ function Layout() {
                 and label are both props, never hard-coded downstream of
                 this call site. */}
             <FreshnessPill status="final" label="Final · updated Feb 9" />
+            <UserMenu />
           </div>
         </div>
       </header>
