@@ -11,10 +11,17 @@ never call `session.commit()` themselves (that's `ingest_season`'s job), so
 whatever *any later* test in the shared session commits — any
 seed_teams/seed_history call, or the session fixture's own final commit —
 durably writes these fake rows into the real dev database. Left unchecked,
-they accumulate across separate `pytest` invocations and silently break
-test_games.py's exact-count assertions (`len(db.exec(select(Game)).all())
-== 3`) on the second and later runs, since that assertion counts the whole
-table, not season-2025 rows specifically.
+they accumulate across separate `pytest` invocations.
+
+Note there are two distinct hazards this package's tests guard against:
+(1) fake data leaking between test runs (this fixture), and (2) a fake
+fixture's *season number* colliding with the real 2016-2025 backfill this
+same database holds — the reason every ingestion test fixture uses a
+sentinel season (2099) instead of a real-range one; see test_games.py's
+`_SEASON` comment for the incident that made that the rule. Player-table
+count assertions additionally can't be scoped by season at all (Player has
+no `season` column — it's a cross-season entity), so they filter by the
+fixture's own known IDs instead of counting the whole table.
 
 `isolated_db` wraps a test in a SAVEPOINT and rolls it back once the test
 finishes, so its writes vanish regardless of what any later test commits.

@@ -3,9 +3,15 @@ from sqlmodel import Session, select
 from app.ingest.players import ingest_players
 from app.models import Player, PlayerSeasonStat
 
-# A season far outside the real 2016-2025 backfill window, so these
-# fabricated rows can never collide with a real nflverse game/player.
+# Sentinel season - never a real one. Tests write into the same real dev
+# database `ingest_season` backfills for real (2016-2025), so a fixture
+# using a real-range year can collide with and corrupt real data (this
+# happened twice with test_games.py's original season=2025 fixture - see
+# tests/ingest/conftest.py). 2099 is deliberately not a "nearby-looking"
+# year like 1999: it must stay implausible to backfill even if the window
+# widens someday. Do not "tidy" this back to a realistic-looking year.
 _SEASON = 2099
+_FAKE_PLAYER_IDS = ("00-FAKE001", "00-FAKE002")
 
 
 def _row(**overrides):
@@ -141,7 +147,14 @@ def test_weekly_rows_are_summed_to_season_totals_regular_season_only(
 
 def test_rows_with_no_player_id_are_dropped(isolated_db: Session) -> None:
     ingest_players(isolated_db, _SEASON, FakeSource())
-    assert len(isolated_db.exec(select(Player)).all()) == 2
+    # Player has no `season` column (it's a cross-season entity, unlike
+    # Game/TeamSeasonStat/PlayerSeasonStat) - a bare `select(Player)`
+    # count would include every real backfilled player too, so scope this
+    # by the fixture's own known IDs instead.
+    fake_players = isolated_db.exec(
+        select(Player).where(Player.id.in_(_FAKE_PLAYER_IDS))
+    ).all()
+    assert len(fake_players) == 2
 
 
 def test_a_traded_player_is_credited_to_their_season_ending_team(
@@ -160,7 +173,10 @@ def test_a_traded_player_is_credited_to_their_season_ending_team(
 def test_ingest_players_is_idempotent(isolated_db: Session) -> None:
     ingest_players(isolated_db, _SEASON, FakeSource())
     ingest_players(isolated_db, _SEASON, FakeSource())
-    assert len(isolated_db.exec(select(Player)).all()) == 2
+    fake_players = isolated_db.exec(
+        select(Player).where(Player.id.in_(_FAKE_PLAYER_IDS))
+    ).all()
+    assert len(fake_players) == 2
     assert (
         len(
             isolated_db.exec(

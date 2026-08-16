@@ -4,6 +4,7 @@ from app.ingest.aggregate import aggregate_team_seasons
 from app.ingest.games import ingest_games
 from app.ingest.runner import _season_range, ingest_season, parse_args
 from app.models import Game, IngestRun, PlayerSeasonStat, Season, TeamSeasonStat
+from tests.ingest.test_games import _SEASON as _GAMES_FAKE_SEASON
 from tests.ingest.test_games import FakeSource
 
 # Seasons far outside the real 2016-2025 backfill window, so nothing here
@@ -20,22 +21,24 @@ class _AggFakeSource(FakeSource):
 
     def schedules(self, season):
         # Rewrite every row's season/game_id onto _AGG_SEASON so this
-        # fixture never collides with test_games.py's own 2025 rows.
+        # fixture never collides with test_games.py's own sentinel rows.
         out = []
         for row in super().schedules(season):
             row = dict(row)
             row["season"] = _AGG_SEASON
-            row["game_id"] = row["game_id"].replace("2025", str(_AGG_SEASON))
+            row["game_id"] = row["game_id"].replace(
+                str(_GAMES_FAKE_SEASON), str(_AGG_SEASON)
+            )
             out.append(row)
         return out
 
 
 class _OkSource:
-    """Unlike test_games.py's FakeSource (which hardcodes season=2025 into
-    every row regardless of the `season` argument — fine for its own
-    single-season tests, but a duplicate-key trap if reused against a
-    different season), this fixture echoes `season` into every row so it
-    is safe to ingest under any season number."""
+    """Unlike test_games.py's FakeSource (which hardcodes its sentinel
+    season into every row regardless of the `season` argument — fine for
+    its own single-season tests, but a duplicate-key trap if reused
+    against a different season), this fixture echoes `season` into every
+    row so it is safe to ingest under any season number."""
 
     def schedules(self, season):
         return [
