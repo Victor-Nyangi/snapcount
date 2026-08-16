@@ -6,7 +6,7 @@ import {
   useLocation,
 } from "@tanstack/react-router"
 import { ChevronDown, LogOut, Settings, Shield, User } from "lucide-react"
-import { useEffect, useRef } from "react"
+import { type CSSProperties, useEffect, useRef } from "react"
 
 import { Footer } from "@/components/Common/Footer"
 import { RailScrollbarStyle } from "@/components/card-rail"
@@ -214,29 +214,44 @@ function Layout() {
           >
             {NAV_ITEMS.map((item) => {
               const isActive = pathname === item.to
+              const navLinkStyle: CSSProperties = {
+                fontFamily: "var(--font-body)",
+                fontSize: 14,
+                fontWeight: isActive ? 800 : 600,
+                padding: "9px 15px",
+                borderRadius: 10,
+                border: `1px solid ${isActive ? "transparent" : "var(--gray-200)"}`,
+                background: isActive ? "var(--orchid-900)" : "var(--white)",
+                color: isActive
+                  ? "var(--accent-secondary-ink)"
+                  : "var(--gray-600)",
+                whiteSpace: "nowrap",
+              }
+              // /standings exists as a real route (Task 5.1) and typechecks
+              // without a cast. The other five nav targets don't exist yet
+              // (later tasks add them); casting `to` past the router's
+              // typed route union is the deliberate way to link ahead of a
+              // route's file existing rather than inventing a placeholder.
+              if (item.to === "/standings") {
+                return (
+                  <Link
+                    key={item.to}
+                    to="/standings"
+                    search={(prev) => prev}
+                    aria-current={isActive ? "page" : undefined}
+                    style={navLinkStyle}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              }
               return (
                 <Link
                   key={item.to}
-                  // These six routes don't exist yet (later tasks add
-                  // them); casting `to` past the router's typed route union
-                  // is the deliberate way to link ahead of a route's file
-                  // existing rather than inventing a placeholder route.
                   to={item.to as any}
                   search={(prev) => prev}
                   aria-current={isActive ? "page" : undefined}
-                  style={{
-                    fontFamily: "var(--font-body)",
-                    fontSize: 14,
-                    fontWeight: isActive ? 800 : 600,
-                    padding: "9px 15px",
-                    borderRadius: 10,
-                    border: `1px solid ${isActive ? "transparent" : "var(--gray-200)"}`,
-                    background: isActive ? "var(--orchid-900)" : "var(--white)",
-                    color: isActive
-                      ? "var(--accent-secondary-ink)"
-                      : "var(--gray-600)",
-                    whiteSpace: "nowrap",
-                  }}
+                  style={navLinkStyle}
                 >
                   {item.label}
                 </Link>

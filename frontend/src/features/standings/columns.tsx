@@ -213,7 +213,14 @@ export function getStandingsColumns({
       sortable: true,
       value: (row) => row.pct,
       render: (row) => (
-        <span className="tabular" style={{ ...monoCellStyle, fontWeight: 400, color: "var(--gray-600)" }}>
+        <span
+          className="tabular"
+          style={{
+            ...monoCellStyle,
+            fontWeight: 400,
+            color: "var(--gray-600)",
+          }}
+        >
           {formatPct(row.pct)}
         </span>
       ),
@@ -262,7 +269,14 @@ export function getStandingsColumns({
       sortable: true,
       value: (row) => row.sos,
       render: (row) => (
-        <span className="tabular" style={{ ...monoCellStyle, fontWeight: 400, color: "var(--gray-600)" }}>
+        <span
+          className="tabular"
+          style={{
+            ...monoCellStyle,
+            fontWeight: 400,
+            color: "var(--gray-600)",
+          }}
+        >
           {formatPct(row.sos)}
         </span>
       ),

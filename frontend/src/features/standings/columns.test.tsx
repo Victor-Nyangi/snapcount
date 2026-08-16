@@ -82,7 +82,9 @@ describe("sortStandingsRows", () => {
       row({ team: { ...row().team, abbr: "X" }, pct: 0.5 }),
       row({ team: { ...row().team, abbr: "Y" }, pct: 0.9 }),
     ]
-    expect(sortStandingsRows(recordRows, "record", "desc").map((r) => r.team.abbr)).toEqual(
+    expect(
+      sortStandingsRows(recordRows, "record", "desc").map((r) => r.team.abbr),
+    ).toEqual(
       sortStandingsRows(recordRows, "pct", "desc").map((r) => r.team.abbr),
     )
   })
@@ -92,19 +94,42 @@ describe("sortStandingsRows", () => {
       row({ team: { ...row().team, abbr: "X" }, rank: 5 }),
       row({ team: { ...row().team, abbr: "Y" }, rank: 1 }),
     ]
-    expect(sortStandingsRows(rankRows, "rank", "asc").map((r) => r.team.abbr)).toEqual([
-      "Y",
-      "X",
-    ])
+    expect(
+      sortStandingsRows(rankRows, "rank", "asc").map((r) => r.team.abbr),
+    ).toEqual(["Y", "X"])
   })
 })
 
 describe("groupByDivision", () => {
   it("clusters rows by conference+division without disturbing intra-group order", () => {
     const rows = [
-      row({ team: { ...row().team, abbr: "AFC-N-2", conference: "AFC", division: "North" }, power: 60 }),
-      row({ team: { ...row().team, abbr: "NFC-E-1", conference: "NFC", division: "East" }, power: 90 }),
-      row({ team: { ...row().team, abbr: "AFC-N-1", conference: "AFC", division: "North" }, power: 80 }),
+      row({
+        team: {
+          ...row().team,
+          abbr: "AFC-N-2",
+          conference: "AFC",
+          division: "North",
+        },
+        power: 60,
+      }),
+      row({
+        team: {
+          ...row().team,
+          abbr: "NFC-E-1",
+          conference: "NFC",
+          division: "East",
+        },
+        power: 90,
+      }),
+      row({
+        team: {
+          ...row().team,
+          abbr: "AFC-N-1",
+          conference: "AFC",
+          division: "North",
+        },
+        power: 80,
+      }),
     ]
     // Pre-sorted by power desc, as the screen would do before grouping.
     const preSorted = sortStandingsRows(rows, "power", "desc")
@@ -180,48 +205,61 @@ describe("getStandingsColumns", () => {
   })
 
   it("marks every other column sortable", () => {
-    for (const key of ["rank", "name", "record", "pct", "pf", "pa", "diff", "sos", "streak", "power"]) {
+    for (const key of [
+      "rank",
+      "name",
+      "record",
+      "pct",
+      "pf",
+      "pa",
+      "diff",
+      "sos",
+      "streak",
+      "power",
+    ]) {
       expect(byKey[key].sortable).toBe(true)
     }
   })
 
   it("renders pct with the leading zero stripped", () => {
     const [display] = withDisplayRank([row({ pct: 0.7647058823529411 })])
-    render(<>{byKey.pct.render?.(display)}</>)
+    render(byKey.pct.render?.(display))
     expect(screen.getByText(".765")).toBeInTheDocument()
   })
 
   it("renders sos with the leading zero stripped", () => {
     const [display] = withDisplayRank([row({ sos: 0.1764705882352941 })])
-    render(<>{byKey.sos.render?.(display)}</>)
+    render(byKey.sos.render?.(display))
     expect(screen.getByText(".176")).toBeInTheDocument()
   })
 
   it("renders diff through DiffCell with the U+2212 minus sign", () => {
     const [display] = withDisplayRank([row({ differential: -185 })])
-    render(<>{byKey.diff.render?.(display)}</>)
+    render(byKey.diff.render?.(display))
     expect(screen.getByText("−185")).toBeInTheDocument()
   })
 
   it("renders a positive differential with a plus sign", () => {
     const [display] = withDisplayRank([row({ differential: 222 })])
-    render(<>{byKey.diff.render?.(display)}</>)
+    render(byKey.diff.render?.(display))
     expect(screen.getByText("+222")).toBeInTheDocument()
   })
 
   it("colors a losing streak differently from a winning streak", () => {
     const [win] = withDisplayRank([row({ streak: "W3" })])
     const [loss] = withDisplayRank([row({ streak: "L2" })])
-    const { container: winContainer } = render(<>{byKey.streak.render?.(win)}</>)
-    const { container: lossContainer } = render(<>{byKey.streak.render?.(loss)}</>)
-    const winColor = (winContainer.querySelector("span") as HTMLElement).style.color
-    const lossColor = (lossContainer.querySelector("span") as HTMLElement).style.color
+    const { container: winContainer } = render(byKey.streak.render?.(win))
+    const { container: lossContainer } = render(byKey.streak.render?.(loss))
+    const winColor = (winContainer.querySelector("span") as HTMLElement).style
+      .color
+    const lossColor = (lossContainer.querySelector("span") as HTMLElement).style
+      .color
     expect(winColor).not.toBe(lossColor)
   })
 
   it("renders the power numeral to one decimal place alongside the bar", () => {
     const [display] = withDisplayRank([row({ power: 72.8 })])
-    render(<>{byKey.power.render?.(display)}</>)
+    render(byKey.power.render?.(display))
     expect(screen.getByText("72.8")).toBeInTheDocument()
   })
 
@@ -232,19 +270,19 @@ describe("getStandingsColumns", () => {
 
   it("shows a playoff seed badge when playoff_seed is present", () => {
     const [seeded] = withDisplayRank([row({ playoff_seed: 3 })])
-    render(<>{byKey.name.render?.(seeded)}</>)
+    render(byKey.name.render?.(seeded))
     expect(screen.getByText("Seed 3")).toBeInTheDocument()
   })
 
   it("shows no seed badge when playoff_seed is null", () => {
     const [unseeded] = withDisplayRank([row({ playoff_seed: null })])
-    render(<>{byKey.name.render?.(unseeded)}</>)
+    render(byKey.name.render?.(unseeded))
     expect(screen.queryByText(/Seed/)).not.toBeInTheDocument()
   })
 
   it("labels the #1 seed 'Bye · 1'", () => {
     const [display] = withDisplayRank([row({ playoff_seed: 1 })])
-    render(<>{byKey.name.render?.(display)}</>)
+    render(byKey.name.render?.(display))
     expect(screen.getByText("Bye · 1")).toBeInTheDocument()
   })
 })
