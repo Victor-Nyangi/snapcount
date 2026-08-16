@@ -27,7 +27,13 @@ def test_player_rate_cards_carry_their_own_precision_and_scale(
 ) -> None:
     body = client.get(f"/api/v1/players/{_QB_ID}").json()
     cards = {c["key"]: c for c in body["rate_cards"]}
-    assert set(cards) == {"epa", "yds", "td", "rate"}
+    # Exactly three — epa, rate, td — matching the design mockup's own
+    # `rateCards` list verbatim. `yds` is deliberately excluded: a raw
+    # volume stat compared against a positional baseline mostly restates
+    # games played, and the design's 3-card grid is sized for three.
+    # Asserting the set (not just the count) so a future swap of one key
+    # for another doesn't slip through unnoticed.
+    assert set(cards) == {"epa", "rate", "td"}
     assert cards["epa"]["precision"] == 3
     assert cards["td"]["precision"] == 0
     assert cards["rate"]["precision"] == 1

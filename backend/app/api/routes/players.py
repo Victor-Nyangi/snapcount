@@ -17,7 +17,19 @@ from app.schemas.players import (
 
 router = APIRouter(prefix="/players", tags=["players"])
 
-_METRICS = ("epa", "yds", "td", "rate")
+# The player page's rate cards, verbatim order from the design mockup's
+# own `rateCards` list (`resources/design-v2-seven-screens.html`):
+# `[['epa','EPA per play',3],['rate','Yards per attempt',1],['td','Touchdowns',0]]`.
+# Deliberately excludes `yds` — every card is "value vs. positional
+# baseline," which is informative for a true rate (epa, rate) and
+# defensible for a season count (td), but a raw yardage total mostly
+# restates games played: a backup with 4 starts reads "below baseline" for
+# reasons that say nothing about how well he played. `yds` stays a valid
+# `SUPPORTED_METRICS` entry for the leaderboard (sorting by total yards is
+# fine there) — only the player page's baseline-comparison cards drop it.
+# The design's 3-card grid (`repeat(auto-fit, minmax(280px,1fr))`) is also
+# sized for exactly three.
+_RATE_CARD_METRICS = ("epa", "rate", "td")
 # `PlayerSeasonStat` holds every position; `metric_value` raises for
 # anything outside this set (see `app.analytics.leaders`). The player page
 # itself only has a design for these four — its position selector offers
@@ -86,7 +98,7 @@ def player_page(session: SessionDep, player_id: str) -> PlayerPageResponse:
     ).all()
 
     rate_cards = []
-    for metric in _METRICS:
+    for metric in _RATE_CARD_METRICS:
         value = metric_value(latest, metric)
         line_baseline = baseline(position_pool, metric)
         # Unfiltered max (not qualified-only) so the bar's own player can
