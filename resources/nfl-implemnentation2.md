@@ -2105,7 +2105,7 @@ GET /api/v1/standings/{season}?conference=AFC|NFC
 
 GET /api/v1/leaders/{season}?position=QB&metric=epa&limit=5
     -> { season, position, metric, metric_label: "EPA per play", unit: "EPA",
-         precision: 3, baseline, qualifier_label: "QB 14+ starts",
+         precision: 3, baseline, qualifier_label: "QB 14+ games",
          rows: [{ rank, player: { id, name, team_abbr, team_color, meta: "6th season · 17 g" },
                   value, secondary: { key: "YDS", value: 4712 }, vs_baseline }] }
 
@@ -2151,6 +2151,12 @@ Four notes on the new shapes:
 Three shape decisions worth stating, since they are what keep the constraint "the browser formats; it does not calculate" true:
 
 - **Display labels are server-side.** `kickoff_label`, `line_label`, `record_label`, `metric_label`, `qualifier_label`, `formula_label` all come down formed. The client never rebuilds a string from parts.
+- **The QB qualifier measures games, not starts.** The design's mockup says "QB 14+ starts", but
+  `PlayerSeasonStat` has no `starts` column — nflverse seasonal player stats expose appearances, and
+  deriving true starts needs snap-count or depth-chart data we do not ingest. The threshold is
+  therefore applied to `games`. **Say so in the label**: a backup QB with 15 mop-up appearances and 2
+  starts qualifies under this rule, so a label reading "starts" would be false. Revisit if snap
+  counts are ever ingested.
 - **`precision` rides on the leaders response.** Fixed precision is per column, and the metric changes which column that is — so the server names it.
 - **Team color rides on every team reference.** It is data, and denormalising it saves the client a lookup table that would drift from the seed.
 
