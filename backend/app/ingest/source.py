@@ -105,7 +105,7 @@ class NflreadpySource:
         import polars as pl
 
         frame = nfl.load_schedules().filter(pl.col("season") == season)
-        rows = frame.to_dicts()
+        rows: list[dict[str, Any]] = frame.to_dicts()
         for row in rows:
             row["away_team"] = _canonical_abbr(row["away_team"])
             row["home_team"] = _canonical_abbr(row["home_team"])
@@ -115,7 +115,7 @@ class NflreadpySource:
         import nflreadpy as nfl
 
         frame = nfl.load_player_stats(seasons=[season])
-        rows = frame.to_dicts()
+        rows: list[dict[str, Any]] = frame.to_dicts()
         for row in rows:
             row["team"] = _canonical_abbr(row["team"])
         return rows

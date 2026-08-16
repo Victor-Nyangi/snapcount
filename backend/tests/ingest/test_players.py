@@ -116,20 +116,20 @@ class FakeSource:
 
 
 def test_ingest_players_maps_the_feed_onto_player_and_season_stat(
-    db: Session,
+    isolated_db: Session,
 ) -> None:
-    ingest_players(db, _SEASON, FakeSource())
-    player = db.get(Player, "00-FAKE001")
+    ingest_players(isolated_db, _SEASON, FakeSource())
+    player = isolated_db.get(Player, "00-FAKE001")
     assert player.name == "Pat Fakemann"
     assert player.position == "QB"
     assert player.team == "KC"
 
 
 def test_weekly_rows_are_summed_to_season_totals_regular_season_only(
-    db: Session,
+    isolated_db: Session,
 ) -> None:
-    ingest_players(db, _SEASON, FakeSource())
-    stat = db.get(PlayerSeasonStat, (_SEASON, "00-FAKE001"))
+    ingest_players(isolated_db, _SEASON, FakeSource())
+    stat = isolated_db.get(PlayerSeasonStat, (_SEASON, "00-FAKE001"))
     assert stat.games == 2  # POST week excluded
     assert stat.attempts == 58  # 30 + 28, not +999
     assert stat.passing_yards == 550  # 250 + 300, not +9999
@@ -139,31 +139,31 @@ def test_weekly_rows_are_summed_to_season_totals_regular_season_only(
     assert stat.rushing_tds == 1
 
 
-def test_rows_with_no_player_id_are_dropped(db: Session) -> None:
-    ingest_players(db, _SEASON, FakeSource())
-    assert len(db.exec(select(Player)).all()) == 2
+def test_rows_with_no_player_id_are_dropped(isolated_db: Session) -> None:
+    ingest_players(isolated_db, _SEASON, FakeSource())
+    assert len(isolated_db.exec(select(Player)).all()) == 2
 
 
 def test_a_traded_player_is_credited_to_their_season_ending_team(
-    db: Session,
+    isolated_db: Session,
 ) -> None:
-    ingest_players(db, _SEASON, FakeSource())
-    player = db.get(Player, "00-FAKE002")
+    ingest_players(isolated_db, _SEASON, FakeSource())
+    player = isolated_db.get(Player, "00-FAKE002")
     assert player.team == "BAL"
-    stat = db.get(PlayerSeasonStat, (_SEASON, "00-FAKE002"))
+    stat = isolated_db.get(PlayerSeasonStat, (_SEASON, "00-FAKE002"))
     assert stat.team == "BAL"
     assert stat.games == 2
     assert stat.targets == 12
     assert stat.receiving_yards == 120
 
 
-def test_ingest_players_is_idempotent(db: Session) -> None:
-    ingest_players(db, _SEASON, FakeSource())
-    ingest_players(db, _SEASON, FakeSource())
-    assert len(db.exec(select(Player)).all()) == 2
+def test_ingest_players_is_idempotent(isolated_db: Session) -> None:
+    ingest_players(isolated_db, _SEASON, FakeSource())
+    ingest_players(isolated_db, _SEASON, FakeSource())
+    assert len(isolated_db.exec(select(Player)).all()) == 2
     assert (
         len(
-            db.exec(
+            isolated_db.exec(
                 select(PlayerSeasonStat).where(PlayerSeasonStat.season == _SEASON)
             ).all()
         )
@@ -172,21 +172,18 @@ def test_ingest_players_is_idempotent(db: Session) -> None:
 
 
 def test_seasons_played_counts_prior_ingested_seasons_for_the_player(
-    db: Session,
+    isolated_db: Session,
 ) -> None:
-    ingest_players(db, _SEASON, FakeSource())
-    db.commit()
-    first = db.get(PlayerSeasonStat, (_SEASON, "00-FAKE001"))
+    ingest_players(isolated_db, _SEASON, FakeSource())
+    first = isolated_db.get(PlayerSeasonStat, (_SEASON, "00-FAKE001"))
     assert first.seasons_played == 1
 
     next_season_source = FakeSource()
 
     def player_stats(season):
-        return [
-            _row(season=season, week=1, attempts=20, passing_yards=200)
-        ]
+        return [_row(season=season, week=1, attempts=20, passing_yards=200)]
 
     next_season_source.player_stats = player_stats  # type: ignore[method-assign]
-    ingest_players(db, _SEASON + 1, next_season_source)
-    second = db.get(PlayerSeasonStat, (_SEASON + 1, "00-FAKE001"))
+    ingest_players(isolated_db, _SEASON + 1, next_season_source)
+    second = isolated_db.get(PlayerSeasonStat, (_SEASON + 1, "00-FAKE001"))
     assert second.seasons_played == 2

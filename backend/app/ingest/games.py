@@ -18,6 +18,7 @@ mode called out in the task brief:
 from __future__ import annotations
 
 from datetime import date, datetime, time
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from sqlmodel import Session, select
@@ -49,7 +50,7 @@ def _status(
     return "final_ot" if overtime else "final"
 
 
-def _ensure_season(session: Session, season: int, rows: list[dict]) -> Season:
+def _ensure_season(session: Session, season: int, rows: list[dict[str, Any]]) -> Season:
     """Get-or-create the `Season` row `Game.season` foreign-keys into, and
     keep `current_week` in step with the furthest week this ingest saw.
     Static reference fields (`week_count`) are left alone once created —

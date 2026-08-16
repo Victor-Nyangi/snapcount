@@ -51,8 +51,8 @@ _FLOAT_FIELDS = ("passing_epa", "rushing_epa", "receiving_epa")
 
 
 def _season_totals(weeks: Sequence[dict[str, Any]]) -> dict[str, int | float]:
-    totals: dict[str, int | float] = {field: 0 for field in _INT_FIELDS}
-    totals.update({field: 0.0 for field in _FLOAT_FIELDS})
+    totals: dict[str, int | float] = dict.fromkeys(_INT_FIELDS, 0)
+    totals.update(dict.fromkeys(_FLOAT_FIELDS, 0.0))
     for row in weeks:
         for field in _INT_FIELDS:
             totals[field] += int(row.get(field) or 0)
@@ -87,9 +87,7 @@ def ingest_players(session: Session, season: int, source: NflverseSource) -> int
     for player_id, weeks in by_player.items():
         latest = max(weeks, key=lambda r: r["week"])
         name = (
-            latest.get("player_display_name")
-            or latest.get("player_name")
-            or player_id
+            latest.get("player_display_name") or latest.get("player_name") or player_id
         )
         position = latest["position"]
         team = latest["team"]
