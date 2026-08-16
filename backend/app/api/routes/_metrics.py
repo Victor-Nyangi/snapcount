@@ -11,6 +11,8 @@ are presentation data, not analytics, so they live here rather than in
 
 from __future__ import annotations
 
+from app.analytics.leaders import QUALIFIER_THRESHOLD_BY_POSITION
+
 # position -> metric -> label, e.g. QB's "epa" reads "EPA per play" but
 # RB's reads "EPA per rush".
 METRIC_LABELS: dict[str, dict[str, str]] = {
@@ -45,11 +47,15 @@ UNITS = {"epa": "EPA", "yds": "YDS", "td": "TD", "rate": "Y/A"}
 # Fixed per metric — precision is a column property, not a per-cell choice.
 PRECISION = {"epa": 3, "yds": 0, "td": 0, "rate": 1}
 
-# Qualifier thresholds and the noun each position's threshold counts,
-# stated verbatim on the leaders label. QB reads "games", not "starts" —
-# `PlayerSeasonStat` has no `starts` column (see plan §"QB qualifier").
+# The noun each position's qualifier threshold counts, stated verbatim on
+# the leaders label. QB reads "games", not "starts" — `PlayerSeasonStat`
+# has no `starts` column (see plan §"QB qualifier"). The threshold values
+# themselves are NOT redeclared here — they're imported from
+# `app.analytics.leaders`, the one place that actually applies them
+# (`is_qualified`), so a changed threshold can't silently desync from the
+# label describing it.
 QUALIFIER_NOUN = {"QB": "games", "RB": "carries", "WR": "targets", "TE": "targets"}
-QUALIFIER_THRESHOLD = {"QB": 14, "RB": 120, "WR": 50, "TE": 50}
+QUALIFIER_THRESHOLD = QUALIFIER_THRESHOLD_BY_POSITION
 
 
 def qualifier_label(position: str) -> str:

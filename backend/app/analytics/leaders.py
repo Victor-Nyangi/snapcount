@@ -27,7 +27,11 @@ _QUALIFIER_FIELD_BY_POSITION = {
     "WR": "targets",
     "TE": "targets",
 }
-_QUALIFIER_THRESHOLD_BY_POSITION = {
+# Public (no leading underscore): `app.api.routes._metrics` imports this
+# directly for `qualifier_label` rather than redeclaring it — one dict, one
+# owner, so the served label can never silently stop describing the actual
+# filter this module applies.
+QUALIFIER_THRESHOLD_BY_POSITION = {
     "QB": 14,
     "RB": 120,
     "WR": 50,
@@ -88,7 +92,7 @@ def is_qualified(stat: PlayerSeasonStat) -> bool:
     field_name = _QUALIFIER_FIELD_BY_POSITION.get(stat.position)
     if field_name is None:
         return False
-    threshold = _QUALIFIER_THRESHOLD_BY_POSITION[stat.position]
+    threshold = QUALIFIER_THRESHOLD_BY_POSITION[stat.position]
     return getattr(stat, field_name) >= threshold
 
 

@@ -18,6 +18,13 @@ from app.schemas.players import (
 router = APIRouter(prefix="/players", tags=["players"])
 
 _METRICS = ("epa", "yds", "td", "rate")
+# `PlayerSeasonStat` holds every position; `metric_value` raises for
+# anything outside this set (see `app.analytics.leaders`). The player page
+# itself only has a design for these four — its position selector offers
+# exactly QB/RB/WR/TE, and its rate cards are defined in terms of passing/
+# rushing/receiving volume, so a kicker or lineman has no meaningful value
+# for any of them.
+_SUPPORTED_POSITIONS = frozenset({"QB", "RB", "WR", "TE"})
 
 
 @router.get("")
@@ -51,6 +58,15 @@ def player_page(session: SessionDep, player_id: str) -> PlayerPageResponse:
         raise HTTPException(status_code=404, detail="Player not found")
 
     latest = stats[-1]
+
+    if latest.position not in _SUPPORTED_POSITIONS:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No player page for position {latest.position!r} — "
+                "Snapcount's player view covers QB, RB, WR and TE."
+            ),
+        )
 
     abbrs = {s.team for s in stats}
     teams = {
