@@ -43,7 +43,10 @@ test("Log in with valid email and password ", async ({ page }) => {
   await fillForm(page, firstSuperuser, firstSuperuserPassword)
   await page.getByRole("button", { name: "Log In" }).click()
 
-  await page.waitForURL("/")
+  // Routes under `_layout` carry a `validateSearch`-defaulted season/week
+  // query string (Task 2.3), so the post-login URL is "/?season=...&week=...",
+  // never a bare "/". Match on pathname, not the exact URL string.
+  await page.waitForURL((url) => url.pathname === "/")
 
   await expect(
     page.getByText("Welcome back, nice to see you again!"),
@@ -75,7 +78,10 @@ test("Successful log out", async ({ page }) => {
   await fillForm(page, firstSuperuser, firstSuperuserPassword)
   await page.getByRole("button", { name: "Log In" }).click()
 
-  await page.waitForURL("/")
+  // Routes under `_layout` carry a `validateSearch`-defaulted season/week
+  // query string (Task 2.3), so the post-login URL is "/?season=...&week=...",
+  // never a bare "/". Match on pathname, not the exact URL string.
+  await page.waitForURL((url) => url.pathname === "/")
 
   await expect(
     page.getByText("Welcome back, nice to see you again!"),
@@ -92,7 +98,10 @@ test("Logged-out user cannot access protected routes", async ({ page }) => {
   await fillForm(page, firstSuperuser, firstSuperuserPassword)
   await page.getByRole("button", { name: "Log In" }).click()
 
-  await page.waitForURL("/")
+  // Routes under `_layout` carry a `validateSearch`-defaulted season/week
+  // query string (Task 2.3), so the post-login URL is "/?season=...&week=...",
+  // never a bare "/". Match on pathname, not the exact URL string.
+  await page.waitForURL((url) => url.pathname === "/")
 
   await expect(
     page.getByText("Welcome back, nice to see you again!"),

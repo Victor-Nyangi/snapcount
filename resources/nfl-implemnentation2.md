@@ -205,6 +205,23 @@ The handoff sets "AA contrast on all data text, including text inside colored ce
 
 The mockup uses `font-variant-numeric: tabular-nums` everywhere; the handoff asks for `tabular-nums slashed-zero`. IBM Plex Mono's slashed zero is a stylistic set, and enabling it changes the mockup's rendering. **Decision:** `.tabular` applies `tabular-nums` only, matching the design. Revisit if 0/O confusion shows up in practice.
 
+### 1.9a The stale freshness pill needs a warning tint the design never drew
+
+The freshness pill has three states. The mockup only ever renders `final`, so there is no `stale` markup to copy. The design system defines `--warning` and `--warning-ink` but no warning *tint* — the container background and border that the emerald states use.
+
+Rendering `stale` with the emerald tint container and amber dot/label gives a green pill with orange contents, which reads as a bug rather than a state.
+
+**Decision — derive, do not invent.** The design's own tint formula is visible in the emerald set: a fixed lightness/chroma pair at the family's hue.
+
+| | tint-strong | tint-border |
+|---|---|---|
+| emerald (hue 155) | `oklch(0.96 0.03 155)` | `oklch(0.86 0.06 155)` |
+| **warning (hue 82)** | `oklch(0.96 0.03 82)` | `oklch(0.86 0.06 82)` |
+
+Same lightness, same chroma, warning's hue. That is applying the design's rule at a new hue rather than picking a colour, which is why this is recorded as a judgment call rather than flagged as a blocker.
+
+These two live in **`theme.css`**, not `tokens.app.css` — the app-token file is regenerated from the design export and holds only values the design actually uses. A derived value belongs with the other hand-maintained decisions.
+
 ### 1.10 There is exactly one chart in the entire design, and it defines the chart conventions
 
 The team page's cumulative point-differential trend is the only chart across all seven screens. Everything else is a table, a card, or a bar mark. So the "chart conventions sheet" the design brief §5.3 asked for exists only as this one instance — and it is deliberately minimal:
@@ -266,6 +283,7 @@ All seven screens now have mockups, so this list is short. What remains is the w
 | **Storyline cards** ("Biggest mover", "Upset", "Streak") | The prose is editorial. No dataset produces it. | An authoring surface, or a decision to drop them. |
 | **Per-game "what happened" recaps** | Same — a written sentence per game. | `game.recap` ships as a nullable column with an em-dash empty state; populate it later. |
 | **Dynasty run notes** | Same again: four hand-written paragraphs on the history screen. | Seeded as static editorial content alongside the champions table (Task 3.4) — they are stable historical claims, not per-season data. |
+| **The featured card's editorial stat trio** | The mockup shows `921 total yards`, `8.1 yards / play (DET)`, `0 DET punts, 2nd half`. All three need **play-by-play** data, which we do not ingest — `load_schedules` gives one row per game, not per play. Substituted with stats derivable from the schedule row: total points, margin, and the closing line. Flagged by the Task 4.1 implementer rather than invented. | Ingesting nflverse play-by-play, which is a far larger dataset than the whole current backfill. |
 | **Formation / personnel data** | Requires charted play data, absent from the free feeds. | Paid data. **The design already handles this correctly** — the team page ships a position-groups panel with named slots and em-dash values, captioned "Personnel and formation data needs charted plays — that view is deliberately deferred rather than faked." Build the panel exactly as designed, including the caption. |
 | **Playoff seeding by NFL tiebreakers** | Full tiebreaker logic is a project of its own. | Ingested from nflverse where available; `null` otherwise, badge hidden. |
 | **Player career history before the ingested window** | The player page's season table shows five seasons; our ingest window is ten. A career longer than the window renders short. | Widening the ingest window, which is a one-line change in `ingest_season`'s caller. |
@@ -1214,8 +1232,18 @@ export interface StatColumn<Row> {
   label: string
   title?: string                       // tooltip text; the mockup's `title` attr
   width: number | string               // from the mockup's grid-template-columns
-  align?: Align                        // default 'right' for numeric, 'left' for text
+  align?: Align                        // Resolved from the COLUMN ALONE, never from the data —
+                                       // otherwise a numeric header left-aligns on the empty first
+                                       // render and snaps right when data arrives.
+                                       // Right by default only when `precision` or `signed` is set.
+                                       // A PLAIN COUNT COLUMN (rank, G, PF, PA, TD) HAS NEITHER, SO
+                                       // IT MUST DECLARE align: 'right' EXPLICITLY or it renders left.
   precision?: number                   // FIXED PER COLUMN — never per cell
+  signed?: boolean                     // ALSO fixed per column. Sign is a property of the
+                                       // quantity, not the cell. Default false: only genuinely
+                                       // signed values (differential, margin, cumulative,
+                                       // vs-baseline) carry a '+'. Without this, PF renders
+                                       // '+472' and rank renders '+1'.
   sortable?: boolean
   sticky?: boolean                     // first column only
   value?: (row: Row) => number | string        // sort key
@@ -1313,7 +1341,7 @@ describe('StatTable', () => {
     const first = screen.getByText('BUF').closest('td')!
     first.focus()
     fireEvent.keyDown(first, { key: 'ArrowRight' })
-    expect(document.activeElement).toHaveTextContent('+131')
+    expect(document.activeElement).toHaveTextContent('+131') // diff column sets signed: true
   })
 
   it('renders skeleton rows while loading and no data rows', () => {
@@ -2031,7 +2059,17 @@ with Session(engine) as s:
 
 Expected: 320 rows, 32 per season for each of 2016–2025. A season short of 32 means a franchise relocation or rename the abbreviation mapping missed — **fix the mapping, do not pad the table.** (OAK→LV in 2020, SD→LAC in 2017, and STL→LAR in 2016 all fall inside this window and are the likely culprits.)
 
-Then sanity-check one cell against public record: 2023 SF should show a differential near +186, and 2020 JAX near −180.
+Then sanity-check against public record. These are exact, not approximate — verified against the
+ingested data on 2026-08-16:
+
+| Season | Team | Record | PF | PA | Differential |
+|---|---|---|---|---|---|
+| 2023 | SF | 12-5 | 491 | 298 | **+193** |
+| 2020 | JAX | 1-15 | 306 | 492 | **−186** |
+| 2024 | DET | 15-2 | 564 | 342 | **+222** |
+
+If a value is off by a handful of points, suspect the game-type filter before suspecting the feed —
+a stray postseason game inflates both PF and PA.
 
 - [ ] **Step 11: Commit**
 
@@ -2078,7 +2116,7 @@ GET /api/v1/standings/{season}?conference=AFC|NFC
 
 GET /api/v1/leaders/{season}?position=QB&metric=epa&limit=5
     -> { season, position, metric, metric_label: "EPA per play", unit: "EPA",
-         precision: 3, baseline, qualifier_label: "QB 14+ starts",
+         precision: 3, baseline, qualifier_label: "QB 14+ games",
          rows: [{ rank, player: { id, name, team_abbr, team_color, meta: "6th season · 17 g" },
                   value, secondary: { key: "YDS", value: 4712 }, vs_baseline }] }
 
@@ -2124,6 +2162,12 @@ Four notes on the new shapes:
 Three shape decisions worth stating, since they are what keep the constraint "the browser formats; it does not calculate" true:
 
 - **Display labels are server-side.** `kickoff_label`, `line_label`, `record_label`, `metric_label`, `qualifier_label`, `formula_label` all come down formed. The client never rebuilds a string from parts.
+- **The QB qualifier measures games, not starts.** The design's mockup says "QB 14+ starts", but
+  `PlayerSeasonStat` has no `starts` column — nflverse seasonal player stats expose appearances, and
+  deriving true starts needs snap-count or depth-chart data we do not ingest. The threshold is
+  therefore applied to `games`. **Say so in the label**: a backup QB with 15 mop-up appearances and 2
+  starts qualifies under this rule, so a label reading "starts" would be false. Revisit if snap
+  counts are ever ingested.
 - **`precision` rides on the leaders response.** Fixed precision is per column, and the metric changes which column that is — so the server names it.
 - **Team color rides on every team reference.** It is data, and denormalising it saves the client a lookup table that would drift from the seed.
 

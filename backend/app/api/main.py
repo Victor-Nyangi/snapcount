@@ -1,12 +1,33 @@
 from fastapi import APIRouter
 
-from app.api.routes import login, private, users, utils
+from app.api.routes import (
+    explorer,
+    history,
+    leaders,
+    login,
+    meta,
+    players,
+    private,
+    standings,
+    teams,
+    users,
+    utils,
+    weeks,
+)
 from app.core.config import settings
 
 api_router = APIRouter()
 api_router.include_router(login.router)
 api_router.include_router(users.router)
 api_router.include_router(utils.router)
+api_router.include_router(meta.router)
+api_router.include_router(standings.router)
+api_router.include_router(weeks.router)
+api_router.include_router(leaders.router)
+api_router.include_router(teams.router)
+api_router.include_router(players.router)
+api_router.include_router(explorer.router)
+api_router.include_router(history.router)
 
 
 if settings.FASTAPI_ENV == "development":

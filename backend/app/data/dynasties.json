@@ -1,0 +1,26 @@
+[
+  {
+    "team": "NE",
+    "label": "New England, 2001–2018",
+    "titles": 6,
+    "note": "Six titles in eighteen seasons, nine Super Bowl appearances. No other run in the salary-cap era is close."
+  },
+  {
+    "team": "KC",
+    "label": "Kansas City, 2019–2023",
+    "titles": 3,
+    "note": "Three championships in five seasons, four appearances, six straight conference title games."
+  },
+  {
+    "team": "PIT",
+    "label": "Pittsburgh, 2005–2010",
+    "titles": 2,
+    "note": "Two titles and a third appearance in six seasons, built on defense rather than offensive scheme."
+  },
+  {
+    "team": "NYG",
+    "label": "New York, 2007–2011",
+    "titles": 2,
+    "note": "Two titles as an underdog, both over the same opponent, neither team a top seed."
+  }
+]

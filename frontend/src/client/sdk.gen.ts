@@ -2,7 +2,7 @@
 
 import { type Client, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses } from './types.gen';
+import type { explorerDifferentialsData, explorerDifferentialsErrors, explorerDifferentialsResponses, historyChampionsData, historyChampionsResponses, leadersLeadersData, leadersLeadersErrors, leadersLeadersResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, metaFreshnessData, metaFreshnessErrors, metaFreshnessResponses, metaListSeasonsData, metaListSeasonsResponses, playersListPlayersData, playersListPlayersErrors, playersListPlayersResponses, playersPlayerPageData, playersPlayerPageErrors, playersPlayerPageResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, standingsStandingsData, standingsStandingsErrors, standingsStandingsResponses, teamsTeamPageData, teamsTeamPageErrors, teamsTeamPageResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, weeksWeekData, weeksWeekErrors, weeksWeekResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -279,6 +279,132 @@ export class UtilsService {
         return (options?.client ?? client).get<utilsHealthCheckResponses, unknown, ThrowOnError>({
             responseType: 'json',
             url: '/api/v1/utils/health-check/',
+            ...options
+        });
+    }
+}
+
+export class MetaService {
+    /**
+     * List Seasons
+     */
+    public static listSeasons<ThrowOnError extends boolean = true>(options?: Options<metaListSeasonsData, ThrowOnError>) {
+        return (options?.client ?? client).get<metaListSeasonsResponses, unknown, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/meta/seasons',
+            ...options
+        });
+    }
+    
+    /**
+     * Freshness
+     */
+    public static freshness<ThrowOnError extends boolean = true>(options: Options<metaFreshnessData, ThrowOnError>) {
+        return (options.client ?? client).get<metaFreshnessResponses, metaFreshnessErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/meta/freshness',
+            ...options
+        });
+    }
+}
+
+export class StandingsService {
+    /**
+     * Standings
+     */
+    public static standings<ThrowOnError extends boolean = true>(options: Options<standingsStandingsData, ThrowOnError>) {
+        return (options.client ?? client).get<standingsStandingsResponses, standingsStandingsErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/standings/{season}',
+            ...options
+        });
+    }
+}
+
+export class WeeksService {
+    /**
+     * Week
+     */
+    public static week<ThrowOnError extends boolean = true>(options: Options<weeksWeekData, ThrowOnError>) {
+        return (options.client ?? client).get<weeksWeekResponses, weeksWeekErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/weeks/{season}/{week}',
+            ...options
+        });
+    }
+}
+
+export class LeadersService {
+    /**
+     * Leaders
+     */
+    public static leaders<ThrowOnError extends boolean = true>(options: Options<leadersLeadersData, ThrowOnError>) {
+        return (options.client ?? client).get<leadersLeadersResponses, leadersLeadersErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/leaders/{season}',
+            ...options
+        });
+    }
+}
+
+export class TeamsService {
+    /**
+     * Team Page
+     */
+    public static teamPage<ThrowOnError extends boolean = true>(options: Options<teamsTeamPageData, ThrowOnError>) {
+        return (options.client ?? client).get<teamsTeamPageResponses, teamsTeamPageErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/teams/{season}/{abbr}',
+            ...options
+        });
+    }
+}
+
+export class PlayersService {
+    /**
+     * List Players
+     */
+    public static listPlayers<ThrowOnError extends boolean = true>(options: Options<playersListPlayersData, ThrowOnError>) {
+        return (options.client ?? client).get<playersListPlayersResponses, playersListPlayersErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/players',
+            ...options
+        });
+    }
+    
+    /**
+     * Player Page
+     */
+    public static playerPage<ThrowOnError extends boolean = true>(options: Options<playersPlayerPageData, ThrowOnError>) {
+        return (options.client ?? client).get<playersPlayerPageResponses, playersPlayerPageErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/players/{player_id}',
+            ...options
+        });
+    }
+}
+
+export class ExplorerService {
+    /**
+     * Differentials
+     */
+    public static differentials<ThrowOnError extends boolean = true>(options: Options<explorerDifferentialsData, ThrowOnError>) {
+        return (options.client ?? client).get<explorerDifferentialsResponses, explorerDifferentialsErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/explorer/differentials',
+            ...options
+        });
+    }
+}
+
+export class HistoryService {
+    /**
+     * Champions
+     */
+    public static champions<ThrowOnError extends boolean = true>(options?: Options<historyChampionsData, ThrowOnError>) {
+        return (options?.client ?? client).get<historyChampionsResponses, unknown, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/history/champions',
             ...options
         });
     }

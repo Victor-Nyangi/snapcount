@@ -22,7 +22,10 @@ export async function logInUser(page: Page, email: string, password: string) {
   await page.getByTestId("email-input").fill(email)
   await page.getByTestId("password-input").fill(password)
   await page.getByRole("button", { name: "Log In" }).click()
-  await page.waitForURL("/")
+  // Routes under `_layout` carry a `validateSearch`-defaulted season/week
+  // query string (Task 2.3), so the post-login URL is "/?season=...&week=...",
+  // never a bare "/". Match on pathname, not the exact URL string.
+  await page.waitForURL((url) => url.pathname === "/")
   await expect(
     page.getByText("Welcome back, nice to see you again!"),
   ).toBeVisible()

@@ -33,6 +33,9 @@ extend-ignore-re = [
     # NFL overtime, as the design renders it: "Final / OT", game status "final_ot".
     "\\bOT\\b",
     "final_ot",
+    # English ordinal suffixes as quoted literals, per `_format.ordinal`:
+    # {1: "st", 2: "nd", 3: "rd"}. "nd" is the suffix in "2nd", not "and".
+    "\"(st|nd|rd|th)\"",
 ]
 
 [default.extend-identifiers]
