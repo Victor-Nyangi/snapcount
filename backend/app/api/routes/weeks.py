@@ -62,6 +62,7 @@ def _featured_games(
                 home_abbr=home.abbr,
                 score_label=score_label(g.away_score, g.home_score),
                 banner_color=home.color,
+                note=g.recap,
                 stats=[
                     FeaturedStat(key="total points", value=str(total)),
                     FeaturedStat(key="margin", value=str(margin)),

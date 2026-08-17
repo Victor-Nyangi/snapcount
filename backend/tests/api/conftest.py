@@ -35,6 +35,7 @@ from app.models import Game, Season, TeamSeasonStat
 FUTURE_SEASON = 2081
 STALE_SEASON = 2082
 FRESH_SEASON = 2083
+FEATURED_SEASON = 2085
 TEAM_SCHEDULE_SEASON = 2084
 EXPLORER_PRESENT_SEASON = 2086
 EXPLORER_MISSING_SEASON = 2087
@@ -167,6 +168,53 @@ def explorer_partial_range(db: Session) -> Generator[None]:
         )
         db.commit()
         db.exec(delete(Season).where(Season.year == EXPLORER_PRESENT_SEASON))
+        db.commit()
+
+
+@pytest.fixture
+def featured_with_recap(db: Session) -> Generator[None]:
+    """Two played games in a sentinel week, the higher-scoring one carrying
+    a recap. `recap` is the one column no feed writes, so it is null for
+    every game in the real backfill — the only way to prove the featured
+    card's `note` actually plumbs through to it is to write one."""
+    season = Season(year=FEATURED_SEASON, current_week=1, week_count=18)
+    db.add(season)
+    db.commit()
+
+    shootout = Game(
+        id=f"{FEATURED_SEASON}_01_KC_LV",
+        season=FEATURED_SEASON,
+        week=1,
+        game_type="REG",
+        kickoff_at=datetime(FEATURED_SEASON, 9, 7, 17, 0, tzinfo=UTC),
+        away_team="KC",
+        home_team="LV",
+        away_score=38,
+        home_score=35,
+        status="final",
+        recap="Las Vegas fell short on a two-point try with nine seconds left.",
+    )
+    quiet = Game(
+        id=f"{FEATURED_SEASON}_01_DEN_LAC",
+        season=FEATURED_SEASON,
+        week=1,
+        game_type="REG",
+        kickoff_at=datetime(FEATURED_SEASON, 9, 7, 20, 0, tzinfo=UTC),
+        away_team="DEN",
+        home_team="LAC",
+        away_score=10,
+        home_score=6,
+        status="final",
+        recap=None,
+    )
+    db.add_all([shootout, quiet])
+    db.commit()
+    try:
+        yield
+    finally:
+        db.exec(delete(Game).where(Game.season == FEATURED_SEASON))
+        db.commit()
+        db.exec(delete(Season).where(Season.year == FEATURED_SEASON))
         db.commit()
 
 

@@ -203,6 +203,10 @@ export type FeaturedGame = {
      */
     banner_color: string;
     /**
+     * Note
+     */
+    note: string | null;
+    /**
      * Stats
      */
     stats: Array<FeaturedStat>;

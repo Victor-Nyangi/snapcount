@@ -39,6 +39,11 @@ class FeaturedGame(SQLModel):
     home_abbr: str
     score_label: str
     banner_color: str
+    # The featured card's body paragraph. Plan §2 defines it as the game's
+    # own `recap`, which no feed owns and which is null for every game in
+    # the backfill today — the card simply omits the paragraph until one is
+    # written. It is NOT editorial copy generated here.
+    note: str | None
     stats: list[FeaturedStat]
 
 
