@@ -1,6 +1,6 @@
 # Snapcount — session handover
 
-**Written:** 2026-08-17 · **Branch:** `feat/design-system-and-screens` · **Head:** `60a2546` (5.2 reviewed + fixed, route tests added) · **PR #7 was `CLEAN` at `e349349`; the three commits since are unpushed**
+**Written:** 2026-08-17 · **Branch:** `feat/m5-screens-leaders` (off `main`; PR #7 squash-merged as `f8d0fa1`, old branch deleted) · **Head:** `4a5e237` (Task 5.3, unreviewed)
 
 Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~900 lines — the authoritative record). The plan is `resources/nfl-implemnentation2.md`.
 
@@ -15,10 +15,10 @@ Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger,
 | M2 Shared components | ✅ | 5 marks, `StatTable`, `CardRail`, app shell with URL-backed season/week |
 | M3 Data model + ingestion | ✅ | 9 models, analytics, 25 champions, **real 2016–2025 backfill** |
 | M4 API | ✅ | 8 route modules, typed TS client generated |
-| **M5 Screens** | **2 of 8** | 5.1 Standings (done, reviewed, fixed); 5.2 Week (done, reviewed, **3 defects fixed** in `7c2314e`); 5.3–5.8 remain |
+| **M5 Screens** | **3 of 8** | 5.1 Standings (done, reviewed, fixed); 5.2 Week (done, reviewed, 3 defects fixed); 5.3 Leaders (done, **unreviewed**, `4a5e237`); 5.4–5.8 remain |
 | M6 Finishing | ⬜ | 4 tasks; 6.3 partially done (freshness logic landed early in 4.1) |
 
-**Tests:** 149 backend + 156 frontend (17 of them route-level, new). The backend suite passes **from an empty database**, not just a backfilled one — see §2.
+**Tests:** 149 backend + 190 frontend (29 of them route-level). The backend suite passes **from an empty database**, not just a backfilled one — see §2.
 
 **Data:** 2,764 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
 
@@ -61,11 +61,13 @@ cd backend && uv run python -m tests.fixtures.generate
 
 1. ~~Review Task 5.2~~ — **done** (range `8a25ab7..e349349`). Three defects found and fixed in `7c2314e`: the inverted spread sign in the upset filter (§4①), the slate table's two-way `won` boolean greying out both teams on a tie or an unplayed game, and the game card dimming both scores on a tie. Verified correct and unchanged: all seven slate widths and their order against the mockup's `grid-template-columns`, `align` declared on every column, `inkFor` driving all four banner text layers, the featured card's `border-left` on every stat cell (the mockup does the same), and the pill labels (the mockup carries no counts on `close`/`upset` either). `filterPillStyle` also *restored* a `transition` that 5.1's local `pillStyle` had dropped from the mockup's `pill(on)`.
 2. ~~Resolve the open calls in §4~~ — **done, all three answered by the user.** ① keep the "favourite lost" divergence, ② keep the recap surfaces as built, ③ close the route-test gap now (done, `60a2546`).
-3. **Continue M5**: 5.3 Leaders → 5.4 `TrendLine` → 5.5 Team → 5.6 Player → 5.7 Explorer → 5.8 History. **Nothing is blocking 5.3.** Two standing requirements now apply to every remaining screen: it lands with route-level tests of its own (§4③), and a filter/label means what it says on real data (§4①).
+3. ~~5.3 Leaders~~ — **done** (`4a5e237`, pushed on `feat/m5-screens-leaders`), **unreviewed**. It fixed a real `LeaderBar` defect and skipped a dead requirement; both are in §5 below and in the ledger. **Review range `f8d0fa1..4a5e237`.**
+4. **Answer §4④** — the `Y/A` unit is wrong for three of the four positions. It is a one-line backend change but it also feeds Task 5.6's rate cards, so decide before 5.6.
+5. **Continue M5**: 5.4 `TrendLine` → 5.5 Team → 5.6 Player → 5.7 Explorer → 5.8 History. Two standing requirements apply to every remaining screen: it lands with route-level tests of its own (§4③), and a filter/label means what it says on real data (§4①).
 
 ---
 
-## 4. Decisions — all resolved 2026-08-17
+## 4. Decisions (①–③ resolved 2026-08-17; ④ open)
 
 **① The upset filter diverges from its brief, deliberately — CONFIRMED, keep it.** Task 5.2's brief defines `upset` as "games the road team won" (copying the mockup's `g[2] > g[4]`); the pill is labelled **"Underdog won"**. On invented data those coincide. On the real backfill they do not — 2024 week 15 had **11 road wins but only 4 upsets**, because **7 of those road wins were by the favourite** (led by Ravens at NYG -16.5). Labelling those "Underdog won" states something false, so `filterSlate` asks whether the **closing favourite lost**. `spread_line` is home-relative and populated on all 2,764 games. **The plan's §1 should record this as a corrected brief**, and 5.3–5.8 should assume the same standard: a filter means what its label says, not what the mockup's sample data made convenient.
 
@@ -75,11 +77,13 @@ cd backend && uv run python -m tests.fixtures.generate
 
 **~~③ Neither screen has route-level tests.~~ — CLOSED (`60a2546`).** 17 route-level tests now cover both screens through the **real generated route tree**: the sort→ungroup rule, Team opening A→Z, URL round-trips in both directions, the query keys (season/conference refetch; sort, grouping and slate do not), `powerMin`/`powerMax` being sourced pre-sort, and the slate filter over a fixture built from real 2024 wk15 rows including BAL at NYG -16.5. The harness is `routes/-route-harness.tsx`; **5.3–5.8 should each add route tests as they land** rather than deferring again. Note `vitest.setup.ts` now stubs `Element.scrollIntoView` — jsdom has none, and `_layout` calls it on every route change, so without the stub any route-level test gets the error boundary instead of the page.
 
+**④ NEW, OPEN — the rank-metric unit says `Y/A` for all four positions.** `_metrics.py` serves `UNITS` as one global map (`rate: "Y/A"`), so a leader card's biggest readout is labelled "Y/A (rank metric)" while the metric dropdown right above it says **"Yards per carry"** for a back and **"Yards per target"** for a receiver or tight end. Only QB is right. The mockup has the same global `UNITS`, so this is a faithful port of a mockup shortcut — and the same lying-label class as the `qualifier_label` defect already fixed once. Fixing means making `UNITS` per-position like `METRIC_LABELS` beside it. **Note it also feeds Task 5.6's player rate cards**, so it is cheaper to settle before 5.6 than after.
+
 ~~`playoff_seed`~~ — **decided:** badge dropped (`f2cc899`). The API keeps the nullable column; nothing renders it.
 
-**Five `to={... as any}` casts remain** in `frontend/src/routes/_layout.tsx` — leaders, team, player, explorer, history. Seven nav items, two real routes. Remove each as its screen lands; an `as any` that outlives its reason hides a real typo.
+**Four `to={... as any}` casts remain** in `frontend/src/routes/_layout.tsx` — team, player, explorer, history. Seven nav items, three real routes. Remove each as its screen lands; an `as any` that outlives its reason hides a real typo.
 
-**Task 6.2's browser backlog.** A dozen items deferred since Task 1.1 because no browser is available: `font-stretch: 125%` actually rendering, sticky-column diagonal scroll, `position: sticky` + `border-collapse` (historic Safari issue), the 375px nav collapse, reduced-motion suppression, Radix `Select` pointer UX, and now the game card's `hover:-translate-y-[3px]` lift. All tagged `CARRY TO 6.2` in the ledger.
+**Task 6.2's browser backlog.** A dozen items deferred since Task 1.1 because no browser is available: `font-stretch: 125%` actually rendering, sticky-column diagonal scroll, `position: sticky` + `border-collapse` (historic Safari issue), the 375px nav collapse, reduced-motion suppression, Radix `Select` pointer UX, the game card's `hover:-translate-y-[3px]` lift, and now `LeaderBar`'s baseline marker sitting flush at 0% whenever the baseline is negative (true — everyone shown beat it — but visually flush against the rounded left edge). All tagged `CARRY TO 6.2` in the ledger.
 
 ---
 
@@ -94,7 +98,8 @@ Each cost at least one fix round. Expect them again.
 5. **Container swaps dropping affordances.** Replacing `AppSidebar` with the top nav silently removed the only logout control. Two code reviews passed; only e2e caught it. **When replacing a container, enumerate what it *provided*, not what it looked like.**
 6. **Autogenerated migrations being wrong.** Twice: naive timestamps, and `None` constraint names that would have broken `downgrade()`. **Always read the migration before applying it.**
 7. **A sign convention assumed rather than looked up.** `favouriteLost` guessed that a negative `spread_line` meant the home team was favoured; the backend's `line_label` two files away documents the opposite and the data proves it. Because both sides of a `!==` were flipped consistently, every test passed, the reviewer's own SQL reproduced the same wrong answer, and the ledger recorded four genuine upsets as their exact opposite. **When a field carries a sign or a direction, find the code that already interprets it and agree with that, and sanity-check the result against an aggregate** — "home teams win 67% of the games where this is positive" settles it in one query; a unit test written from the same assumption as the code settles nothing.
-8. **The brief being wrong.** Eleven tasks improved because an implementer pushed back. Wrong in *my* text so far: spot-check values, a contrast ratio, a dark-mode variant's semantics, a test expectation forcing `+` onto every numeric column, the route path for every screen (see §6), an acceptance check that named a row order the default view does not produce, and the upset-filter definition in §4①.
+8. **A shared mark that has never met real data.** `LeaderBar` shipped in M2, passed its review, and sat unrendered until 5.3 — where its `value / top` scaling turned out to assume nothing is ever negative. EPA per rush is signed, so the baseline marker was off-track on every RB board in all ten seasons. Same shape as `DiffCell`'s ASCII hyphen, which also survived M2 and was caught the first time Standings rendered it. **A component's review only covers the data its author imagined; the screen that first renders it is where it is really tested.** Expect one of these per screen for the marks 5.4–5.8 introduce.
+9. **The brief being wrong.** Eleven tasks improved because an implementer pushed back. Wrong in *my* text so far: spot-check values, a contrast ratio, a dark-mode variant's semantics, a test expectation forcing `+` onto every numeric column, the route path for every screen (see §6), an acceptance check that named a row order the default view does not produce, and the upset-filter definition in §4①.
 
 ---
 
