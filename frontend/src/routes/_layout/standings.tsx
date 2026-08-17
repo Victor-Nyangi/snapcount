@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Fragment, useMemo } from "react"
 import { z } from "zod"
 import { StandingsService } from "@/client"
+import { filterPillStyle } from "@/components/filter-pill"
 import { type SortState, StatTable } from "@/components/stat-table"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -53,20 +54,6 @@ const CONFERENCE_FILTERS: { id: "ALL" | "AFC" | "NFC"; label: string }[] = [
   { id: "AFC", label: "AFC" },
   { id: "NFC", label: "NFC" },
 ]
-
-function pillStyle(active: boolean): React.CSSProperties {
-  return {
-    fontFamily: "var(--font-body)",
-    fontSize: 13,
-    fontWeight: active ? 800 : 600,
-    padding: "8px 14px",
-    borderRadius: 999,
-    cursor: "pointer",
-    border: `1px solid ${active ? "var(--emerald)" : "var(--gray-300)"}`,
-    background: active ? "var(--emerald-tint)" : "var(--card)",
-    color: active ? "var(--emerald-dark)" : "var(--gray-600)",
-  }
-}
 
 /**
  * The mockup emphasises only the three weighted terms
@@ -216,7 +203,7 @@ function StandingsScreen() {
               key={filter.id}
               value={filter.id}
               className="h-auto min-w-0 rounded-none border-0 bg-transparent p-0 shadow-none first:rounded-none last:rounded-none data-[spacing=0]:first:rounded-none data-[spacing=0]:last:rounded-none"
-              style={pillStyle(search.conference === filter.id)}
+              style={filterPillStyle(search.conference === filter.id)}
             >
               {filter.label}
             </ToggleGroupItem>
