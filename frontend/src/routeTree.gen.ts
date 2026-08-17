@@ -16,6 +16,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutLeadersRouteImport } from './routes/_layout/leaders'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutStandingsRouteImport } from './routes/_layout/standings'
 import { Route as LayoutWeekRouteImport } from './routes/_layout/week'
@@ -54,6 +55,11 @@ const LayoutAdminRoute = LayoutAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutLeadersRoute = LayoutLeadersRouteImport.update({
+  id: '/leaders',
+  path: '/leaders',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -77,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
+  '/leaders': typeof LayoutLeadersRoute
   '/settings': typeof LayoutSettingsRoute
   '/standings': typeof LayoutStandingsRoute
   '/week': typeof LayoutWeekRoute
@@ -87,6 +94,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
+  '/leaders': typeof LayoutLeadersRoute
   '/settings': typeof LayoutSettingsRoute
   '/standings': typeof LayoutStandingsRoute
   '/week': typeof LayoutWeekRoute
@@ -100,6 +108,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
+  '/_layout/leaders': typeof LayoutLeadersRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/standings': typeof LayoutStandingsRoute
   '/_layout/week': typeof LayoutWeekRoute
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/leaders'
     | '/settings'
     | '/standings'
     | '/week'
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/admin'
+    | '/leaders'
     | '/settings'
     | '/standings'
     | '/week'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/_layout/admin'
+    | '/_layout/leaders'
     | '/_layout/settings'
     | '/_layout/standings'
     | '/_layout/week'
@@ -201,6 +213,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/leaders': {
+      id: '/_layout/leaders'
+      path: '/leaders'
+      fullPath: '/leaders'
+      preLoaderRoute: typeof LayoutLeadersRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/settings': {
       id: '/_layout/settings'
       path: '/settings'
@@ -227,6 +246,7 @@ declare module '@tanstack/react-router' {
 
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
+  LayoutLeadersRoute: typeof LayoutLeadersRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutStandingsRoute: typeof LayoutStandingsRoute
   LayoutWeekRoute: typeof LayoutWeekRoute
@@ -235,6 +255,7 @@ interface LayoutRouteChildren {
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
+  LayoutLeadersRoute: LayoutLeadersRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutStandingsRoute: LayoutStandingsRoute,
   LayoutWeekRoute: LayoutWeekRoute,

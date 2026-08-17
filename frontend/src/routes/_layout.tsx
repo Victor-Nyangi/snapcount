@@ -227,13 +227,17 @@ function Layout() {
                   : "var(--gray-600)",
                 whiteSpace: "nowrap",
               }
-              // /standings (Task 5.1) and /week (Task 5.2) are real routes
-              // and typecheck without a cast. The other FIVE nav targets
-              // don't exist yet (leaders, team, player, explorer, history —
+              // /standings (5.1), /week (5.2) and /leaders (5.3) are real
+              // routes and typecheck without a cast. The other FOUR nav
+              // targets don't exist yet (team, player, explorer, history —
               // later tasks add them); casting `to` past the router's typed
               // route union is the deliberate way to link ahead of a
               // route's file existing rather than inventing a placeholder.
-              if (item.to === "/standings" || item.to === "/week") {
+              if (
+                item.to === "/standings" ||
+                item.to === "/week" ||
+                item.to === "/leaders"
+              ) {
                 return (
                   <Link
                     key={item.to}
