@@ -294,9 +294,14 @@ export function getStandingsColumns({
           className="tabular"
           style={{
             ...monoCellStyle,
+            // A tie streak ("T1") is neither a win nor a loss, so it gets
+            // neither colour — `app/analytics/standings.py` emits W/L/T,
+            // and a two-branch ternary painted every T in the loss ink.
             color: row.streak.startsWith("W")
               ? "var(--emerald-dark)"
-              : "var(--ink-negative)",
+              : row.streak.startsWith("L")
+                ? "var(--ink-negative)"
+                : "var(--gray-600)",
           }}
         >
           {row.streak}

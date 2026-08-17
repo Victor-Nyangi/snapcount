@@ -257,6 +257,19 @@ describe("getStandingsColumns", () => {
     expect(winColor).not.toBe(lossColor)
   })
 
+  it("colors a tie streak as neither a win nor a loss", () => {
+    // app/analytics/standings.py emits "W3" | "L1" | "T1". A two-branch
+    // ternary on startsWith("W") painted every tie in the loss ink.
+    const colorFor = (streak: string) => {
+      const [display] = withDisplayRank([row({ streak })])
+      const { container } = render(byKey.streak.render?.(display))
+      return (container.querySelector("span") as HTMLElement).style.color
+    }
+    const tie = colorFor("T1")
+    expect(tie).not.toBe(colorFor("W3"))
+    expect(tie).not.toBe(colorFor("L2"))
+  })
+
   it("renders the power numeral to one decimal place alongside the bar", () => {
     const [display] = withDisplayRank([row({ power: 72.8 })])
     render(byKey.power.render?.(display))

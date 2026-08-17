@@ -228,10 +228,11 @@ function Layout() {
                 whiteSpace: "nowrap",
               }
               // /standings exists as a real route (Task 5.1) and typechecks
-              // without a cast. The other five nav targets don't exist yet
-              // (later tasks add them); casting `to` past the router's
-              // typed route union is the deliberate way to link ahead of a
-              // route's file existing rather than inventing a placeholder.
+              // without a cast. The other SIX nav targets don't exist yet
+              // (week, leaders, team, player, explorer, history — later
+              // tasks add them); casting `to` past the router's typed route
+              // union is the deliberate way to link ahead of a route's file
+              // existing rather than inventing a placeholder.
               if (item.to === "/standings") {
                 return (
                   <Link
