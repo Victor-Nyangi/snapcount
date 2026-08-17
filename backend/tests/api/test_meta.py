@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from tests.api.conftest import STALE_SEASON
+from tests.api.conftest import FRESH_SEASON, STALE_SEASON
 
 
 def test_seasons_lists_every_ingested_season(client: TestClient) -> None:
@@ -18,8 +18,9 @@ def test_seasons_lists_every_ingested_season(client: TestClient) -> None:
 
 def test_freshness_reports_final_for_a_recently_ingested_season(
     client: TestClient,
+    fresh_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
 ) -> None:
-    body = client.get("/api/v1/meta/freshness?season=2024").json()
+    body = client.get(f"/api/v1/meta/freshness?season={FRESH_SEASON}").json()
     assert body["status"] == "final"
     assert body["label"].startswith("Final")
     assert body["last_ingested_at"] is not None

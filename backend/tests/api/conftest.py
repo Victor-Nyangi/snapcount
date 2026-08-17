@@ -18,8 +18,10 @@ undone by an explicit delete afterward, the same way
 `tests/ingest/test_runner.py`'s `_purge_season` cleans up after
 `ingest_season` (which also commits for real).
 
-Sentinel seasons: 2081 (unplayed game), 2082 (stale freshness). Ingest's own
-tests own 2095-2099; picked clear of that range on purpose.
+Sentinel seasons: 2081 (unplayed game), 2082 (stale freshness), 2083 (fresh
+freshness), 2084 (partial team schedule), 2086/2087 (explorer present vs
+missing). Ingest's own tests own 2095-2099; picked clear of that range on
+purpose.
 """
 
 from collections.abc import Generator
@@ -32,6 +34,7 @@ from app.models import Game, Season, TeamSeasonStat
 
 FUTURE_SEASON = 2081
 STALE_SEASON = 2082
+FRESH_SEASON = 2083
 TEAM_SCHEDULE_SEASON = 2084
 EXPLORER_PRESENT_SEASON = 2086
 EXPLORER_MISSING_SEASON = 2087
@@ -164,6 +167,32 @@ def explorer_partial_range(db: Session) -> Generator[None]:
         )
         db.commit()
         db.exec(delete(Season).where(Season.year == EXPLORER_PRESENT_SEASON))
+        db.commit()
+
+
+@pytest.fixture
+def fresh_season(db: Session) -> Generator[None]:
+    """A `Season` row ingested just now, so freshness reads "final".
+
+    Deliberately a sentinel rather than a read of 2024: "recently ingested"
+    decays. Asserting it against whatever the database happens to hold
+    makes the test pass for as long as someone ran a backfill recently and
+    fail a day later with nothing changed — and the committed fixture slice
+    (tests/fixtures) carries a timestamp frozen at generation time, so on
+    CI it would have gone stale within a day of being generated.
+    """
+    season = Season(
+        year=FRESH_SEASON,
+        current_week=18,
+        week_count=18,
+        last_ingested_at=datetime.now(UTC),
+    )
+    db.add(season)
+    db.commit()
+    try:
+        yield
+    finally:
+        db.exec(delete(Season).where(Season.year == FRESH_SEASON))
         db.commit()
 
 
