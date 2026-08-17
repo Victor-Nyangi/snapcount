@@ -28,5 +28,10 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     exclude: ["tests/**", "node_modules/**"],
+    // Must stay ABOVE the `asyncUtilTimeout` set in vitest.setup.ts, or a
+    // slow `findBy*` burns the whole test budget and vitest reports an
+    // opaque "test timed out" instead of Testing Library's own "unable to
+    // find …" — which names the element and dumps the DOM.
+    testTimeout: 15000,
   },
 })

@@ -20,6 +20,7 @@ import { Route as LayoutLeadersRouteImport } from './routes/_layout/leaders'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutStandingsRouteImport } from './routes/_layout/standings'
 import { Route as LayoutWeekRouteImport } from './routes/_layout/week'
+import { Route as LayoutTeamAbbrRouteImport } from './routes/_layout/team.$abbr'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
@@ -75,6 +76,11 @@ const LayoutWeekRoute = LayoutWeekRouteImport.update({
   path: '/week',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutTeamAbbrRoute = LayoutTeamAbbrRouteImport.update({
+  id: '/team/$abbr',
+  path: '/team/$abbr',
+  getParentRoute: () => LayoutRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof LayoutSettingsRoute
   '/standings': typeof LayoutStandingsRoute
   '/week': typeof LayoutWeekRoute
+  '/team/$abbr': typeof LayoutTeamAbbrRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/standings': typeof LayoutStandingsRoute
   '/week': typeof LayoutWeekRoute
   '/': typeof LayoutIndexRoute
+  '/team/$abbr': typeof LayoutTeamAbbrRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/_layout/standings': typeof LayoutStandingsRoute
   '/_layout/week': typeof LayoutWeekRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/team/$abbr': typeof LayoutTeamAbbrRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/standings'
     | '/week'
+    | '/team/$abbr'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/standings'
     | '/week'
     | '/'
+    | '/team/$abbr'
   id:
     | '__root__'
     | '/_layout'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/_layout/standings'
     | '/_layout/week'
     | '/_layout/'
+    | '/_layout/team/$abbr'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -241,6 +253,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutWeekRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/team/$abbr': {
+      id: '/_layout/team/$abbr'
+      path: '/team/$abbr'
+      fullPath: '/team/$abbr'
+      preLoaderRoute: typeof LayoutTeamAbbrRouteImport
+      parentRoute: typeof LayoutRoute
+    }
   }
 }
 
@@ -251,6 +270,7 @@ interface LayoutRouteChildren {
   LayoutStandingsRoute: typeof LayoutStandingsRoute
   LayoutWeekRoute: typeof LayoutWeekRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutTeamAbbrRoute: typeof LayoutTeamAbbrRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
@@ -260,6 +280,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutStandingsRoute: LayoutStandingsRoute,
   LayoutWeekRoute: LayoutWeekRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutTeamAbbrRoute: LayoutTeamAbbrRoute,
 }
 
 const LayoutRouteWithChildren =

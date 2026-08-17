@@ -49,15 +49,27 @@ export const Route = createFileRoute("/_layout")({
 // mounted at `_layout/index.tsx`). The other six 404 via the root
 // `notFoundComponent` until later tasks add their route files — per
 // instruction, no placeholder routes are invented here to paper over that.
-const NAV_ITEMS: { to: string; label: string }[] = [
+//
+// `prefix` exists for the screens whose route takes a path param. A team
+// page is `/team/$abbr`, so `/team` on its own matches no route at all and
+// would 404 straight out of the nav — the link has to name a concrete
+// team. Detroit is the mockup's own default (`s.teamAbbr || 'DET'`). The
+// prefix then keeps the tab lit for every other team, which an exact
+// pathname comparison against `/team/DET` would not do.
+const NAV_ITEMS: { to: string; label: string; prefix?: string }[] = [
   { to: "/week", label: "Week" },
   { to: "/standings", label: "Standings & power" },
   { to: "/leaders", label: "Leaders" },
-  { to: "/team", label: "Team" },
+  { to: "/team/$abbr", label: "Team", prefix: "/team/" },
   { to: "/player", label: "Player" },
   { to: "/explorer", label: "Explorer" },
   { to: "/history", label: "History" },
 ]
+
+/** The team the nav's "Team" tab opens on — the mockup's own default
+ * (`s.teamAbbr || 'DET'`), and the team this project spot-checks against
+ * everywhere else (15-2, +222, power 72.8 in 2024). */
+const DEFAULT_TEAM = "DET"
 
 // Bound to this route so `Link`'s `search` prop can be typed against the
 // concrete season/week schema instead of the ambiguous root-level union
@@ -213,7 +225,9 @@ function Layout() {
             className="flex flex-nowrap gap-1 overflow-x-auto md:flex-wrap md:overflow-visible"
           >
             {NAV_ITEMS.map((item) => {
-              const isActive = pathname === item.to
+              const isActive = item.prefix
+                ? pathname.startsWith(item.prefix)
+                : pathname === item.to
               const navLinkStyle: CSSProperties = {
                 fontFamily: "var(--font-body)",
                 fontSize: 14,
@@ -227,10 +241,27 @@ function Layout() {
                   : "var(--gray-600)",
                 whiteSpace: "nowrap",
               }
+              // The team page is the first parameterised route, so it also
+              // needs `params` — `/team` alone matches nothing and would
+              // 404 straight out of the nav.
+              if (item.to === "/team/$abbr") {
+                return (
+                  <Link
+                    key={item.to}
+                    to="/team/$abbr"
+                    params={{ abbr: DEFAULT_TEAM }}
+                    search={(prev) => prev}
+                    aria-current={isActive ? "page" : undefined}
+                    style={navLinkStyle}
+                  >
+                    {item.label}
+                  </Link>
+                )
+              }
               // /standings (5.1), /week (5.2) and /leaders (5.3) are real
-              // routes and typecheck without a cast. The other FOUR nav
-              // targets don't exist yet (team, player, explorer, history —
-              // later tasks add them); casting `to` past the router's typed
+              // routes and typecheck without a cast. The other THREE nav
+              // targets don't exist yet (player, explorer, history — later
+              // tasks add them); casting `to` past the router's typed
               // route union is the deliberate way to link ahead of a
               // route's file existing rather than inventing a placeholder.
               if (
