@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { useMemo } from "react"
+import { Fragment, useMemo } from "react"
 import { z } from "zod"
 import { StandingsService } from "@/client"
 import { type SortState, StatTable } from "@/components/stat-table"
@@ -14,6 +14,7 @@ import {
   sortStandingsRows,
   withDisplayRank,
 } from "@/features/standings/columns"
+import { splitFormulaLabel } from "@/lib/format"
 
 // Everything the mockup's `s.conf`/`s.groupByDiv`/`s.sort`/`s.dir` state
 // held is URL search-param state here instead — the URL is the source of
@@ -65,6 +66,38 @@ function pillStyle(active: boolean): React.CSSProperties {
     background: active ? "var(--emerald-tint)" : "var(--card)",
     color: active ? "var(--emerald-dark)" : "var(--gray-600)",
   }
+}
+
+/**
+ * The mockup emphasises only the three weighted terms
+ * (`<strong style="font-weight:800">`) inside an otherwise normal-weight
+ * paragraph, so the weight cannot go on the `<p>`. `splitFormulaLabel`
+ * recovers the terms from the server's single flat string.
+ */
+function FormulaParagraph({ label }: { label: string }) {
+  const { terms, tail } = splitFormulaLabel(label)
+
+  return (
+    <p
+      style={{
+        margin: "10px 0 24px",
+        fontSize: 16,
+        lineHeight: 1.6,
+        color: "var(--gray-600)",
+        maxWidth: "62ch",
+        textWrap: "pretty",
+      }}
+    >
+      Power score is{" "}
+      {terms.map((term, index) => (
+        <Fragment key={term}>
+          {index > 0 && " + "}
+          <strong style={{ fontWeight: 800 }}>{term}</strong>
+        </Fragment>
+      ))}
+      {tail}. Every input is a column — sort on any of them.
+    </p>
+  )
 }
 
 function StandingsScreen() {
@@ -166,20 +199,7 @@ function StandingsScreen() {
       >
         Standings &amp; power ranking
       </h1>
-      {data?.formula_label && (
-        <p
-          style={{
-            margin: "10px 0 24px",
-            fontSize: 16,
-            lineHeight: 1.6,
-            color: "var(--gray-600)",
-            maxWidth: "62ch",
-            fontWeight: 800,
-          }}
-        >
-          {data.formula_label}. Every input is a column — sort on any of them.
-        </p>
-      )}
+      {data?.formula_label && <FormulaParagraph label={data.formula_label} />}
 
       <div
         className="flex flex-wrap items-center"

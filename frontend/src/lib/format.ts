@@ -35,3 +35,32 @@ export function formatDiff(value: number): string {
   if (value > 0) return `+${value}`
   return `${MINUS_SIGN}${Math.abs(value)}`
 }
+
+/**
+ * Splits the standings `formula_label` into its weighted terms and the
+ * trailing clause, so a caller can bold only the terms — the mockup wraps
+ * each weight in `<strong style="font-weight:800">` inside an otherwise
+ * normal-weight paragraph, not the paragraph as a whole.
+ *
+ * The server sends one flat string
+ * ("<term> + <term> + <term>, scaled to 100"), so the shape has to be
+ * recovered here. It degrades instead of mangling: a label with no " + "
+ * comes back as `{ terms: [], tail: label }`, which renders as plain
+ * unemphasised text rather than a wrongly-bolded fragment.
+ */
+export function splitFormulaLabel(label: string): {
+  terms: string[]
+  tail: string
+} {
+  const parts = label.split(" + ")
+  if (parts.length < 2) return { terms: [], tail: label }
+
+  const last = parts[parts.length - 1]
+  const comma = last.indexOf(",")
+  if (comma === -1) return { terms: parts, tail: "" }
+
+  return {
+    terms: [...parts.slice(0, -1), last.slice(0, comma)],
+    tail: last.slice(comma),
+  }
+}
