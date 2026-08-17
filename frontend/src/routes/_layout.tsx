@@ -227,17 +227,17 @@ function Layout() {
                   : "var(--gray-600)",
                 whiteSpace: "nowrap",
               }
-              // /standings exists as a real route (Task 5.1) and typechecks
-              // without a cast. The other SIX nav targets don't exist yet
-              // (week, leaders, team, player, explorer, history — later
-              // tasks add them); casting `to` past the router's typed route
-              // union is the deliberate way to link ahead of a route's file
-              // existing rather than inventing a placeholder.
-              if (item.to === "/standings") {
+              // /standings (Task 5.1) and /week (Task 5.2) are real routes
+              // and typecheck without a cast. The other FIVE nav targets
+              // don't exist yet (leaders, team, player, explorer, history —
+              // later tasks add them); casting `to` past the router's typed
+              // route union is the deliberate way to link ahead of a
+              // route's file existing rather than inventing a placeholder.
+              if (item.to === "/standings" || item.to === "/week") {
                 return (
                   <Link
                     key={item.to}
-                    to="/standings"
+                    to={item.to}
                     search={(prev) => prev}
                     aria-current={isActive ? "page" : undefined}
                     style={navLinkStyle}
