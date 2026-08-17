@@ -36,6 +36,12 @@ export interface StatColumn<Row> {
    */
   signed?: boolean
   sortable?: boolean
+  /**
+   * Direction this column takes on its FIRST click. Default 'desc', which
+   * is right for a quantity (biggest first). A text column wants 'asc' —
+   * A→Z. See `nextSort`.
+   */
+  defaultSortDir?: "asc" | "desc"
   /** First column only. */
   sticky?: boolean
   /**

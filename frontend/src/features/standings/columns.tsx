@@ -116,18 +116,6 @@ export function groupLabelFor(row: StandingsDisplayRow): string {
   return `${row.team.conference} ${row.team.division}`
 }
 
-const seedBadgeStyle: React.CSSProperties = {
-  fontSize: 10,
-  fontWeight: 800,
-  letterSpacing: "0.05em",
-  textTransform: "uppercase",
-  padding: "3px 7px",
-  borderRadius: 999,
-  whiteSpace: "nowrap",
-  background: "var(--emerald-tint)",
-  color: "var(--emerald-dark)",
-}
-
 const monoCellStyle: React.CSSProperties = {
   fontFamily: "var(--font-mono)",
   fontSize: 13,
@@ -171,6 +159,9 @@ export function getStandingsColumns({
       align: "left",
       sticky: true,
       sortable: true,
+      // A→Z on the first click — this column's own tooltip is "Sort
+      // alphabetically", and the shared default ('desc') would open it Z→A.
+      defaultSortDir: "asc",
       value: (row) => row.team.name,
       render: (row) => (
         <div className="flex min-w-0 items-center gap-2.5">
@@ -180,12 +171,14 @@ export function getStandingsColumns({
             name={row.team.name}
             size={30}
           />
+          {/*
+            No playoff-seed badge. The mockup has one ("Bye · 1", "Seed 5"),
+            but `playoff_seed` is NULL for all 320 team-seasons and nothing
+            ingests it — deriving seeds needs the full NFL tiebreaker ladder,
+            which is its own project. Shipping the badge would mean shipping
+            markup and tests for a state no user can reach.
+          */}
           <span className="truncate text-sm font-bold">{row.team.name}</span>
-          {row.playoff_seed != null && (
-            <span style={seedBadgeStyle}>
-              {row.playoff_seed === 1 ? "Bye · 1" : `Seed ${row.playoff_seed}`}
-            </span>
-          )}
         </div>
       ),
     },

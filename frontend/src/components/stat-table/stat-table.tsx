@@ -430,7 +430,9 @@ export function StatTable<Row>({
                     <SortButton
                       column={column}
                       ariaSort={ariaSort ?? "none"}
-                      onActivate={() => activate(column.key)}
+                      onActivate={() =>
+                        activate(column.key, column.defaultSortDir)
+                      }
                     />
                   ) : (
                     <HeaderLabel column={column} />

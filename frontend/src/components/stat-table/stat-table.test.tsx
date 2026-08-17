@@ -18,6 +18,7 @@ const columns: StatColumn<Row>[] = [
     align: "left",
     sticky: true,
     sortable: true,
+    defaultSortDir: "asc",
     value: (r) => r.team,
   },
   {
@@ -99,6 +100,22 @@ describe("StatTable", () => {
     setup({ sort: { key: "diff", dir: "desc" }, onSortChange })
     fireEvent.click(screen.getByRole("button", { name: /PCT/ }))
     expect(onSortChange).toHaveBeenCalledWith({ key: "pct", dir: "desc" })
+  })
+
+  it("honours a column's own first-click direction", () => {
+    // A text column opens A→Z. Resolved into `dir` itself, not by a
+    // comparator inverting behind it, so `aria-sort` stays truthful.
+    const onSortChange = vi.fn()
+    setup({ sort: { key: "diff", dir: "desc" }, onSortChange })
+    fireEvent.click(screen.getByRole("button", { name: /Team/ }))
+    expect(onSortChange).toHaveBeenCalledWith({ key: "team", dir: "asc" })
+  })
+
+  it("still toggles, not re-opens, when that column is clicked again", () => {
+    const onSortChange = vi.fn()
+    setup({ sort: { key: "team", dir: "asc" }, onSortChange })
+    fireEvent.click(screen.getByRole("button", { name: /Team/ }))
+    expect(onSortChange).toHaveBeenCalledWith({ key: "team", dir: "desc" })
   })
 
   it("sorts headers with the keyboard", () => {

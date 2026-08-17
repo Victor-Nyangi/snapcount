@@ -281,21 +281,22 @@ describe("getStandingsColumns", () => {
     expect(byKey.rank.value?.(display)).toBe(1)
   })
 
-  it("shows a playoff seed badge when playoff_seed is present", () => {
+  it("renders no playoff seed badge, even when the API supplies a seed", () => {
+    // The column deliberately drops the mockup's badge: playoff_seed is
+    // NULL for all 320 team-seasons and nothing derives it. Asserting on a
+    // row that HAS a seed, so re-adding the markup fails here rather than
+    // passing on a null that proves nothing.
     const [seeded] = withDisplayRank([row({ playoff_seed: 3 })])
     render(byKey.name.render?.(seeded))
-    expect(screen.getByText("Seed 3")).toBeInTheDocument()
+    expect(screen.queryByText(/Seed|Bye/)).not.toBeInTheDocument()
   })
 
-  it("shows no seed badge when playoff_seed is null", () => {
-    const [unseeded] = withDisplayRank([row({ playoff_seed: null })])
-    render(byKey.name.render?.(unseeded))
-    expect(screen.queryByText(/Seed/)).not.toBeInTheDocument()
-  })
-
-  it("labels the #1 seed 'Bye · 1'", () => {
-    const [display] = withDisplayRank([row({ playoff_seed: 1 })])
-    render(byKey.name.render?.(display))
-    expect(screen.getByText("Bye · 1")).toBeInTheDocument()
+  it("opens the name column A→Z, and every quantity column biggest-first", () => {
+    // The header's first click uses `defaultSortDir`; 'desc' would read
+    // Z→A on a column whose tooltip is "Sort alphabetically".
+    expect(byKey.name.defaultSortDir).toBe("asc")
+    for (const key of ["rank", "pct", "pf", "pa", "diff", "sos", "power"]) {
+      expect(byKey[key].defaultSortDir).toBeUndefined()
+    }
   })
 })

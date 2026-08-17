@@ -13,17 +13,27 @@ export interface SortState {
 }
 
 /**
- * A newly-clicked column starts descending; re-clicking the active column
- * flips its direction.
+ * A newly-clicked column starts at `defaultDir`; re-clicking the active
+ * column flips its direction.
+ *
+ * `defaultDir` exists because "the useful first click" is not the same for
+ * every kind of column. For a quantity it is descending — biggest first.
+ * For a name it is ascending — A→Z, which is what a column labelled "Sort
+ * alphabetically" has to do on its first click. Resolving that here rather
+ * than by inverting the comparator for strings is deliberate: `dir` is what
+ * the URL carries and what `ariaSortFor` announces, so a column showing
+ * A→Z must genuinely be in the "asc" state, not in "desc" with a
+ * comparator quietly reversing it.
  */
 export function nextSort(
   current: SortState | undefined,
   key: string,
+  defaultDir: "asc" | "desc" = "desc",
 ): SortState {
   if (current?.key === key) {
     return { key, dir: current.dir === "desc" ? "asc" : "desc" }
   }
-  return { key, dir: "desc" }
+  return { key, dir: defaultDir }
 }
 
 export type AriaSort = "ascending" | "descending" | "none"
@@ -46,8 +56,8 @@ export function useSortableHeader(
   onSortChange?: (sort: SortState) => void,
 ) {
   return useCallback(
-    (key: string) => {
-      onSortChange?.(nextSort(sort, key))
+    (key: string, defaultDir?: "asc" | "desc") => {
+      onSortChange?.(nextSort(sort, key, defaultDir))
     },
     [sort, onSortChange],
   )
