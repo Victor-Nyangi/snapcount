@@ -1,6 +1,6 @@
 # Snapcount — session handover
 
-**Written:** 2026-08-17 · **Branch:** `feat/design-system-and-screens` · **Head:** `e349349` · **61 commits ahead of `main`** · **PR #7 `CLEAN`, all 16 checks green**
+**Written:** 2026-08-17 · **Branch:** `feat/design-system-and-screens` · **Head:** `7c2314e` (Task 5.2 reviewed, 3 defects fixed) · **PR #7 was `CLEAN` at `e349349`**
 
 Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~900 lines — the authoritative record). The plan is `resources/nfl-implemnentation2.md`.
 
@@ -15,10 +15,10 @@ Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger,
 | M2 Shared components | ✅ | 5 marks, `StatTable`, `CardRail`, app shell with URL-backed season/week |
 | M3 Data model + ingestion | ✅ | 9 models, analytics, 25 champions, **real 2016–2025 backfill** |
 | M4 API | ✅ | 8 route modules, typed TS client generated |
-| **M5 Screens** | **2 of 8** | 5.1 Standings (done, reviewed, fixed); 5.2 Week (done, **unreviewed**); 5.3–5.8 remain |
+| **M5 Screens** | **2 of 8** | 5.1 Standings (done, reviewed, fixed); 5.2 Week (done, reviewed, **3 defects fixed** in `7c2314e`); 5.3–5.8 remain |
 | M6 Finishing | ⬜ | 4 tasks; 6.3 partially done (freshness logic landed early in 4.1) |
 
-**Tests:** 149 backend + 133 frontend. The backend suite passes **from an empty database**, not just a backfilled one — see §2.
+**Tests:** 149 backend + 139 frontend. The backend suite passes **from an empty database**, not just a backfilled one — see §2.
 
 **Data:** 2,764 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
 
@@ -59,17 +59,17 @@ cd backend && uv run python -m tests.fixtures.generate
 
 ## 3. Immediate next actions, in order
 
-1. **Review Task 5.2** — complete and committed but **never reviewed**. Range `8a25ab7..e349349`.
-   `.../scripts/review-package resources/nfl-implemnentation2.md 8a25ab7 e349349`
-   Check specifically: the three-valued outcome in `game-card.tsx` (winner/loser/undecided) against the mockup's two-way `win ? … : …`; that `inkFor` drives **all four** banner text layers in `featured-card.tsx`; that every slate column declares `align`; and the upset-filter divergence in §4.
-2. **Resolve the three open calls in §4** — the first one is a knowing departure from written instructions and should be confirmed or overruled before more screens copy the pattern.
+1. ~~Review Task 5.2~~ — **done** (range `8a25ab7..e349349`). Three defects found and fixed in `7c2314e`: the inverted spread sign in the upset filter (§4①), the slate table's two-way `won` boolean greying out both teams on a tie or an unplayed game, and the game card dimming both scores on a tie. Verified correct and unchanged: all seven slate widths and their order against the mockup's `grid-template-columns`, `align` declared on every column, `inkFor` driving all four banner text layers, the featured card's `border-left` on every stat cell (the mockup does the same), and the pill labels (the mockup carries no counts on `close`/`upset` either). `filterPillStyle` also *restored* a `transition` that 5.1's local `pillStyle` had dropped from the mockup's `pill(on)`.
+2. **Resolve the two remaining open calls in §4** — ① is still a live question (the divergence is now correctly *implemented*, but whether to diverge at all is a human call), and ② and ③ are unchanged.
 3. **Continue M5**: 5.3 Leaders → 5.4 `TrendLine` → 5.5 Team → 5.6 Player → 5.7 Explorer → 5.8 History.
 
 ---
 
 ## 4. Open decisions needing a human call
 
-**① The upset filter diverges from its brief, deliberately.** Task 5.2's brief defines `upset` as "games the road team won" (copying the mockup's `g[2] > g[4]`); the pill is labelled **"Underdog won"**. On invented data those coincide. On the real backfill they do not — 2024 week 15 had **11 road wins but 12 upsets**, and **4 of those road wins were by the favourite** (Rams at SF -3, Cowboys at CAR -2.5, Bills at DET -2.5, Buccaneers at LAC -3). Labelling those "Underdog won" states something false, so `filterSlate` now asks whether the **closing favourite lost**. `spread_line` is home-relative and populated on all 2,764 games. Confirm, or tell me to revert to the literal brief.
+**① The upset filter diverges from its brief, deliberately.** Task 5.2's brief defines `upset` as "games the road team won" (copying the mockup's `g[2] > g[4]`); the pill is labelled **"Underdog won"**. On invented data those coincide. On the real backfill they do not — 2024 week 15 had **11 road wins but only 4 upsets**, because **7 of those road wins were by the favourite** (led by Ravens at NYG -16.5). Labelling those "Underdog won" states something false, so `filterSlate` asks whether the **closing favourite lost**. `spread_line` is home-relative and populated on all 2,764 games. Confirm, or tell me to revert to the literal brief.
+
+> **The numbers above were backwards until `7c2314e`, and so was the code.** As first written this section claimed 12 upsets and named Rams-at-SF, Cowboys-at-CAR, Bills-at-DET and Bucs-at-LAC as *road wins by the favourite*. They are the exact opposite: they are the week's only four upsets, road teams beating home favourites. The cause was one inverted comparison — `favouriteLost` read `spread_line < 0` as "home favoured" when **positive means home favoured** (nflverse; see `_format.py::line_label`, which had it right all along). The pill therefore listed the games the *favourite* won. Fixed, with the sign now pinned to the API's own `line_label` by test. **Sanity check for anyone touching this field:** over the 2,757 played games carrying a line, the home team wins **67.1%** when `spread_line > 0` and **34.7%** when it is negative.
 
 **② `recap` is null for every real game**, so three prose surfaces render as em-dashes: the game card's sentence, the slate table's *widest* column ("What happened", `minmax(220,1.4fr)`), and the featured note (which omits its paragraph rather than showing a dash). Plan §2 line 284 calls this a deliberate empty state — "populate it later" — so it was built as specified rather than dropped the way the playoff-seed badge was. Worth a conscious decision now that it is on screen: keep, narrow the column, or drop the surfaces.
 
@@ -93,7 +93,8 @@ Each cost at least one fix round. Expect them again.
 4. **Fixes introducing new bugs.** `current_week` was reset to 1 by every ingest because a fix for one bug shared a helper with a caller whose rows lacked `game_type`. Caught only because a reviewer checked commit *timestamps* and realised the correct-looking production data **predated the code being merged**.
 5. **Container swaps dropping affordances.** Replacing `AppSidebar` with the top nav silently removed the only logout control. Two code reviews passed; only e2e caught it. **When replacing a container, enumerate what it *provided*, not what it looked like.**
 6. **Autogenerated migrations being wrong.** Twice: naive timestamps, and `None` constraint names that would have broken `downgrade()`. **Always read the migration before applying it.**
-7. **The brief being wrong.** Eleven tasks improved because an implementer pushed back. Wrong in *my* text so far: spot-check values, a contrast ratio, a dark-mode variant's semantics, a test expectation forcing `+` onto every numeric column, the route path for every screen (see §6), an acceptance check that named a row order the default view does not produce, and the upset-filter definition in §4①.
+7. **A sign convention assumed rather than looked up.** `favouriteLost` guessed that a negative `spread_line` meant the home team was favoured; the backend's `line_label` two files away documents the opposite and the data proves it. Because both sides of a `!==` were flipped consistently, every test passed, the reviewer's own SQL reproduced the same wrong answer, and the ledger recorded four genuine upsets as their exact opposite. **When a field carries a sign or a direction, find the code that already interprets it and agree with that, and sanity-check the result against an aggregate** — "home teams win 67% of the games where this is positive" settles it in one query; a unit test written from the same assumption as the code settles nothing.
+8. **The brief being wrong.** Eleven tasks improved because an implementer pushed back. Wrong in *my* text so far: spot-check values, a contrast ratio, a dark-mode variant's semantics, a test expectation forcing `+` onto every numeric column, the route path for every screen (see §6), an acceptance check that named a row order the default view does not produce, and the upset-filter definition in §4①.
 
 ---
 
