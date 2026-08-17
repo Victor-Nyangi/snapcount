@@ -1,5 +1,7 @@
+from collections.abc import Sequence
+
 from fastapi import APIRouter, HTTPException
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.api.deps import SessionDep
 from app.api.routes._format import kickoff_label, line_label, phase_label, score_label
@@ -25,7 +27,9 @@ def _team_side(team: Team, score: int | None) -> WeekTeamSide:
     )
 
 
-def _featured_games(games: list[Game], teams: dict[str, Team]) -> list[FeaturedGame]:
+def _featured_games(
+    games: Sequence[Game], teams: dict[str, Team]
+) -> list[FeaturedGame]:
     """The week's two highest-scoring played games, by rule (plan §2) —
     not editorial. Ties on total score prefer a division game."""
     played = [g for g in games if g.away_score is not None and g.home_score is not None]
@@ -79,7 +83,7 @@ def week(session: SessionDep, season: int, week: int) -> WeekResponse:
     games = session.exec(
         select(Game)
         .where(Game.season == season, Game.week == week)
-        .order_by(Game.kickoff_at)
+        .order_by(col(Game.kickoff_at))
     ).all()
     if not games:
         raise HTTPException(status_code=404, detail="Week not found")
@@ -87,7 +91,7 @@ def week(session: SessionDep, season: int, week: int) -> WeekResponse:
     abbrs = {g.away_team for g in games} | {g.home_team for g in games}
     teams = {
         t.abbr: t
-        for t in session.exec(select(Team).where(Team.abbr.in_(abbrs))).all()  # type: ignore[attr-defined]
+        for t in session.exec(select(Team).where(col(Team.abbr).in_(abbrs))).all()
     }
 
     game_rows = []

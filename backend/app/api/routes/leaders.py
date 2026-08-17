@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.analytics.leaders import baseline, is_qualified, metric_value
 from app.api.deps import SessionDep
@@ -46,13 +46,13 @@ def leaders(
     players = {
         p.id: p
         for p in session.exec(
-            select(Player).where(Player.id.in_([s.player_id for s in top]))  # type: ignore[attr-defined]
+            select(Player).where(col(Player.id).in_([s.player_id for s in top]))
         ).all()
     }
     teams = {
         t.abbr: t
         for t in session.exec(
-            select(Team).where(Team.abbr.in_([s.team for s in top]))  # type: ignore[attr-defined]
+            select(Team).where(col(Team.abbr).in_([s.team for s in top]))
         ).all()
     }
 

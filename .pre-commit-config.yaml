@@ -45,16 +45,21 @@ repos:
         language: unsupported
         types: [python]
 
+      # Both run from `backend/`: mypy and ty only discover configuration in
+      # their own working directory, so from the repo root neither read
+      # backend/pyproject.toml — `[tool.mypy] strict` and the nflreadpy
+      # `ignore_missing_imports` override were silently inert, and the
+      # missing override is what turned this hook red when nflreadpy landed.
       - id: local-mypy
         name: mypy check
-        entry: uv run mypy backend/app
+        entry: bash -c 'cd backend && uv run mypy app'
         require_serial: true
         language: unsupported
         pass_filenames: false
 
       - id: local-ty
         name: ty check
-        entry: uv run ty check backend/app
+        entry: bash -c 'cd backend && uv run ty check app'
         require_serial: true
         language: unsupported
         pass_filenames: false

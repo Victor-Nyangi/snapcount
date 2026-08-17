@@ -48,6 +48,20 @@ _TD_SUFFIX = "tds"  # PlayerSeasonStat's own column suffix is plural; the
 SUPPORTED_METRICS = frozenset({"epa", "yds", "td", "rate"})
 
 
+# The stat columns below are reached by name (the position prefix is only
+# known at runtime), so `getattr` is unavoidable. These two wrappers put the
+# column's real type back on the value instead of letting `Any` spread
+# through every arithmetic expression that touches it.
+def _int_field(stat: PlayerSeasonStat, name: str) -> int:
+    value: int = getattr(stat, name)
+    return value
+
+
+def _float_field(stat: PlayerSeasonStat, name: str) -> float:
+    value: float = getattr(stat, name)
+    return value
+
+
 def metric_value(stat: PlayerSeasonStat, metric: str) -> float:
     """Read a leader-board metric off `stat`, from the column family that
     matches the player's position (QB -> passing_*, RB -> rushing_*,
@@ -66,23 +80,21 @@ def metric_value(stat: PlayerSeasonStat, metric: str) -> float:
         raise ValueError(f"unknown position: {stat.position!r}")
 
     if metric == "epa":
-        attempts = getattr(stat, _ATTEMPTS_FIELD_BY_POSITION[stat.position])
+        attempts = _int_field(stat, _ATTEMPTS_FIELD_BY_POSITION[stat.position])
         if not attempts:
             return 0.0
-        total_epa: float = getattr(stat, f"{prefix}_epa")
-        return total_epa / attempts
+        return _float_field(stat, f"{prefix}_epa") / attempts
 
     if metric == "rate":
-        attempts = getattr(stat, _ATTEMPTS_FIELD_BY_POSITION[stat.position])
+        attempts = _int_field(stat, _ATTEMPTS_FIELD_BY_POSITION[stat.position])
         if not attempts:
             return 0.0
-        yards = getattr(stat, f"{prefix}_{_YARDS_SUFFIX}")
-        return yards / attempts
+        return _int_field(stat, f"{prefix}_{_YARDS_SUFFIX}") / attempts
 
     if metric == "yds":
-        return float(getattr(stat, f"{prefix}_{_YARDS_SUFFIX}"))
+        return float(_int_field(stat, f"{prefix}_{_YARDS_SUFFIX}"))
     if metric == "td":
-        return float(getattr(stat, f"{prefix}_{_TD_SUFFIX}"))
+        return float(_int_field(stat, f"{prefix}_{_TD_SUFFIX}"))
 
     raise ValueError(f"unknown metric: {metric!r}")
 
@@ -93,7 +105,7 @@ def is_qualified(stat: PlayerSeasonStat) -> bool:
     if field_name is None:
         return False
     threshold = QUALIFIER_THRESHOLD_BY_POSITION[stat.position]
-    return getattr(stat, field_name) >= threshold
+    return _int_field(stat, field_name) >= threshold
 
 
 def baseline(stats: Sequence[PlayerSeasonStat], metric: str) -> float:

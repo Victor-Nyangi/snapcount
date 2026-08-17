@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.api.deps import SessionDep
 from app.api.routes._format import record_label
@@ -25,17 +25,17 @@ def standings(
 ) -> StandingsResponse:
     query = (
         select(TeamSeasonStat, Team)
-        .join(Team, Team.abbr == TeamSeasonStat.team)  # type: ignore[arg-type]
+        .join(Team, col(Team.abbr) == col(TeamSeasonStat.team))
         .where(TeamSeasonStat.season == season)
     )
     if conference is not None:
         query = query.where(Team.conference == conference.value)
 
-    pairs = session.exec(query).all()
-    if not pairs:
+    unranked = session.exec(query).all()
+    if not unranked:
         raise HTTPException(status_code=404, detail="Season not found")
 
-    pairs.sort(key=lambda pair: (-pair[0].power, pair[1].abbr))
+    pairs = sorted(unranked, key=lambda pair: (-pair[0].power, pair[1].abbr))
 
     rows = []
     for rank, (stat, team) in enumerate(pairs, start=1):

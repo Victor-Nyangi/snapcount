@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.analytics.leaders import baseline, metric_value
 from app.api.deps import SessionDep
@@ -45,12 +45,12 @@ def list_players(
 ) -> list[PlayerListRow]:
     rows = session.exec(
         select(PlayerSeasonStat, Player)
-        .join(Player, Player.id == PlayerSeasonStat.player_id)  # type: ignore[arg-type]
+        .join(Player, col(Player.id) == col(PlayerSeasonStat.player_id))
         .where(
             PlayerSeasonStat.season == season,
             PlayerSeasonStat.position == position.value,
         )
-        .order_by(Player.name)
+        .order_by(col(Player.name))
     ).all()
     return [
         PlayerListRow(id=player.id, name=player.name, team_abbr=stat.team)
@@ -64,7 +64,7 @@ def player_page(session: SessionDep, player_id: str) -> PlayerPageResponse:
     stats = session.exec(
         select(PlayerSeasonStat)
         .where(PlayerSeasonStat.player_id == player_id)
-        .order_by(PlayerSeasonStat.season)
+        .order_by(col(PlayerSeasonStat.season))
     ).all()
     if player is None or not stats:
         raise HTTPException(status_code=404, detail="Player not found")
@@ -83,7 +83,7 @@ def player_page(session: SessionDep, player_id: str) -> PlayerPageResponse:
     abbrs = {s.team for s in stats}
     teams = {
         t.abbr: t
-        for t in session.exec(select(Team).where(Team.abbr.in_(abbrs))).all()  # type: ignore[attr-defined]
+        for t in session.exec(select(Team).where(col(Team.abbr).in_(abbrs))).all()
     }
     latest_team = teams[latest.team]
 

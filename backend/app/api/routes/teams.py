@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.analytics.trends import team_schedule
 from app.api.deps import SessionDep
@@ -74,7 +74,7 @@ def team_page(session: SessionDep, season: int, abbr: str) -> TeamPageResponse:
     abbrs = {g.away_team for g in games} | {g.home_team for g in games}
     opponents = {
         t.abbr: t
-        for t in session.exec(select(Team).where(Team.abbr.in_(abbrs))).all()  # type: ignore[attr-defined]
+        for t in session.exec(select(Team).where(col(Team.abbr).in_(abbrs))).all()
     }
 
     schedule = []

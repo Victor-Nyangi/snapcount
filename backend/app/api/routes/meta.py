@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, HTTPException
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.api.deps import SessionDep
 from app.models import Game, IngestRun, Season
@@ -14,7 +14,7 @@ _STALE_AFTER = timedelta(days=1)
 
 @router.get("/seasons")
 def list_seasons(session: SessionDep) -> list[SeasonSummary]:
-    seasons = session.exec(select(Season).order_by(Season.year)).all()
+    seasons = session.exec(select(Season).order_by(col(Season.year))).all()
     return [
         SeasonSummary(
             year=s.year,

@@ -25,9 +25,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, TypedDict, cast
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from app.ingest.games import ensure_season_exists
 from app.ingest.source import NflverseSource
@@ -50,15 +50,38 @@ _INT_FIELDS = (
 _FLOAT_FIELDS = ("passing_epa", "rushing_epa", "receiving_epa")
 
 
-def _season_totals(weeks: Sequence[dict[str, Any]]) -> dict[str, int | float]:
-    totals: dict[str, int | float] = dict.fromkeys(_INT_FIELDS, 0)
+class SeasonTotals(TypedDict):
+    """The `_INT_FIELDS`/`_FLOAT_FIELDS` totals, spelled out per field so
+    `**totals` into `PlayerSeasonStat(...)` type-checks — a plain
+    `dict[str, int | float]` widens every int column to `int | float`."""
+
+    attempts: int
+    carries: int
+    targets: int
+    receptions: int
+    passing_yards: int
+    passing_tds: int
+    rushing_yards: int
+    rushing_tds: int
+    receiving_yards: int
+    receiving_tds: int
+    passing_epa: float
+    rushing_epa: float
+    receiving_epa: float
+
+
+def _season_totals(weeks: Sequence[dict[str, Any]]) -> SeasonTotals:
+    # Accumulated by field name, so the dict is built dynamically and only
+    # narrowed to SeasonTotals once, here, where the key set is known to
+    # match _INT_FIELDS + _FLOAT_FIELDS exactly.
+    totals: dict[str, Any] = dict.fromkeys(_INT_FIELDS, 0)
     totals.update(dict.fromkeys(_FLOAT_FIELDS, 0.0))
     for row in weeks:
         for field in _INT_FIELDS:
             totals[field] += int(row.get(field) or 0)
         for field in _FLOAT_FIELDS:
             totals[field] += float(row.get(field) or 0.0)
-    return totals
+    return cast(SeasonTotals, totals)
 
 
 def ingest_players(session: Session, season: int, source: NflverseSource) -> int:
@@ -99,11 +122,7 @@ def ingest_players(session: Session, season: int, source: NflverseSource) -> int
     if by_player:
         prior_stats = session.exec(
             select(PlayerSeasonStat)
-            # SQLModel ships no mypy plugin here, so `.in_()` isn't
-            # recognized on any field (confirmed project-wide - the same
-            # false positive fires on Game.id/Team.abbr/etc.); real
-            # SQLAlchemy Column at runtime, verified by the passing tests.
-            .where(PlayerSeasonStat.player_id.in_(list(by_player.keys())))  # type: ignore[attr-defined]
+            .where(col(PlayerSeasonStat.player_id).in_(list(by_player.keys())))
             .where(PlayerSeasonStat.season < season)
         ).all()
         for prior_stat in prior_stats:
