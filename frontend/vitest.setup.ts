@@ -11,3 +11,12 @@ if (typeof ResizeObserver === "undefined") {
     disconnect() {}
   }
 }
+
+// jsdom implements no scrolling at all, so `Element.scrollIntoView` is
+// simply absent. `_layout`'s nav scrolls the active item into view on every
+// route change, which means ANY test that mounts a real screen through the
+// route tree throws `active?.scrollIntoView is not a function` inside
+// <Layout> and gets the router's error boundary instead of the page.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {}
+}
