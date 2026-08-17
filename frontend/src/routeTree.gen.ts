@@ -20,6 +20,8 @@ import { Route as LayoutLeadersRouteImport } from './routes/_layout/leaders'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutStandingsRouteImport } from './routes/_layout/standings'
 import { Route as LayoutWeekRouteImport } from './routes/_layout/week'
+import { Route as LayoutPlayerIndexRouteImport } from './routes/_layout/player.index'
+import { Route as LayoutPlayerPlayerIdRouteImport } from './routes/_layout/player.$playerId'
 import { Route as LayoutTeamAbbrRouteImport } from './routes/_layout/team.$abbr'
 
 const LayoutRoute = LayoutRouteImport.update({
@@ -76,6 +78,16 @@ const LayoutWeekRoute = LayoutWeekRouteImport.update({
   path: '/week',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutPlayerIndexRoute = LayoutPlayerIndexRouteImport.update({
+  id: '/player/',
+  path: '/player/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutPlayerPlayerIdRoute = LayoutPlayerPlayerIdRouteImport.update({
+  id: '/player/$playerId',
+  path: '/player/$playerId',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutTeamAbbrRoute = LayoutTeamAbbrRouteImport.update({
   id: '/team/$abbr',
   path: '/team/$abbr',
@@ -93,7 +105,9 @@ export interface FileRoutesByFullPath {
   '/settings': typeof LayoutSettingsRoute
   '/standings': typeof LayoutStandingsRoute
   '/week': typeof LayoutWeekRoute
+  '/player/$playerId': typeof LayoutPlayerPlayerIdRoute
   '/team/$abbr': typeof LayoutTeamAbbrRoute
+  '/player/': typeof LayoutPlayerIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -106,7 +120,9 @@ export interface FileRoutesByTo {
   '/standings': typeof LayoutStandingsRoute
   '/week': typeof LayoutWeekRoute
   '/': typeof LayoutIndexRoute
+  '/player/$playerId': typeof LayoutPlayerPlayerIdRoute
   '/team/$abbr': typeof LayoutTeamAbbrRoute
+  '/player': typeof LayoutPlayerIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -121,7 +137,9 @@ export interface FileRoutesById {
   '/_layout/standings': typeof LayoutStandingsRoute
   '/_layout/week': typeof LayoutWeekRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/player/$playerId': typeof LayoutPlayerPlayerIdRoute
   '/_layout/team/$abbr': typeof LayoutTeamAbbrRoute
+  '/_layout/player/': typeof LayoutPlayerIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -136,7 +154,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/standings'
     | '/week'
+    | '/player/$playerId'
     | '/team/$abbr'
+    | '/player/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -149,7 +169,9 @@ export interface FileRouteTypes {
     | '/standings'
     | '/week'
     | '/'
+    | '/player/$playerId'
     | '/team/$abbr'
+    | '/player'
   id:
     | '__root__'
     | '/_layout'
@@ -163,7 +185,9 @@ export interface FileRouteTypes {
     | '/_layout/standings'
     | '/_layout/week'
     | '/_layout/'
+    | '/_layout/player/$playerId'
     | '/_layout/team/$abbr'
+    | '/_layout/player/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -253,6 +277,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutWeekRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/player/': {
+      id: '/_layout/player/'
+      path: '/player'
+      fullPath: '/player/'
+      preLoaderRoute: typeof LayoutPlayerIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/player/$playerId': {
+      id: '/_layout/player/$playerId'
+      path: '/player/$playerId'
+      fullPath: '/player/$playerId'
+      preLoaderRoute: typeof LayoutPlayerPlayerIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/team/$abbr': {
       id: '/_layout/team/$abbr'
       path: '/team/$abbr'
@@ -270,7 +308,9 @@ interface LayoutRouteChildren {
   LayoutStandingsRoute: typeof LayoutStandingsRoute
   LayoutWeekRoute: typeof LayoutWeekRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutPlayerPlayerIdRoute: typeof LayoutPlayerPlayerIdRoute
   LayoutTeamAbbrRoute: typeof LayoutTeamAbbrRoute
+  LayoutPlayerIndexRoute: typeof LayoutPlayerIndexRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
@@ -280,7 +320,9 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutStandingsRoute: LayoutStandingsRoute,
   LayoutWeekRoute: LayoutWeekRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutPlayerPlayerIdRoute: LayoutPlayerPlayerIdRoute,
   LayoutTeamAbbrRoute: LayoutTeamAbbrRoute,
+  LayoutPlayerIndexRoute: LayoutPlayerIndexRoute,
 }
 
 const LayoutRouteWithChildren =

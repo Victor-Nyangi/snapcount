@@ -93,7 +93,7 @@ def leaders(
         position=position.value,
         metric=metric.value,
         metric_label=METRIC_LABELS[position.value][metric.value],
-        unit=UNITS[metric.value],
+        unit=UNITS[position.value][metric.value],
         precision=PRECISION[metric.value],
         baseline=line_baseline,
         qualifier_label=qualifier_label(position.value),

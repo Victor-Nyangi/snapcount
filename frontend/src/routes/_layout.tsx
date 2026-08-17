@@ -61,7 +61,7 @@ const NAV_ITEMS: { to: string; label: string; prefix?: string }[] = [
   { to: "/standings", label: "Standings & power" },
   { to: "/leaders", label: "Leaders" },
   { to: "/team/$abbr", label: "Team", prefix: "/team/" },
-  { to: "/player", label: "Player" },
+  { to: "/player", label: "Player", prefix: "/player" },
   { to: "/explorer", label: "Explorer" },
   { to: "/history", label: "History" },
 ]
@@ -258,16 +258,17 @@ function Layout() {
                   </Link>
                 )
               }
-              // /standings (5.1), /week (5.2) and /leaders (5.3) are real
-              // routes and typecheck without a cast. The other THREE nav
-              // targets don't exist yet (player, explorer, history — later
-              // tasks add them); casting `to` past the router's typed
-              // route union is the deliberate way to link ahead of a
+              // /standings (5.1), /week (5.2), /leaders (5.3) and /player
+              // (5.6) are real routes and typecheck without a cast. The
+              // other TWO nav targets don't exist yet (explorer, history —
+              // later tasks add them); casting `to` past the router's
+              // typed route union is the deliberate way to link ahead of a
               // route's file existing rather than inventing a placeholder.
               if (
                 item.to === "/standings" ||
                 item.to === "/week" ||
-                item.to === "/leaders"
+                item.to === "/leaders" ||
+                item.to === "/player"
               ) {
                 return (
                   <Link
