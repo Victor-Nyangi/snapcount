@@ -1,6 +1,6 @@
 # Snapcount — session handover
 
-**Written:** 2026-08-17 · **Branch:** `feat/design-system-and-screens` · **Head:** `7c2314e` (Task 5.2 reviewed, 3 defects fixed) · **PR #7 was `CLEAN` at `e349349`**
+**Written:** 2026-08-17 · **Branch:** `feat/design-system-and-screens` · **Head:** `60a2546` (5.2 reviewed + fixed, route tests added) · **PR #7 was `CLEAN` at `e349349`; the three commits since are unpushed**
 
 Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~900 lines — the authoritative record). The plan is `resources/nfl-implemnentation2.md`.
 
@@ -18,7 +18,7 @@ Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger,
 | **M5 Screens** | **2 of 8** | 5.1 Standings (done, reviewed, fixed); 5.2 Week (done, reviewed, **3 defects fixed** in `7c2314e`); 5.3–5.8 remain |
 | M6 Finishing | ⬜ | 4 tasks; 6.3 partially done (freshness logic landed early in 4.1) |
 
-**Tests:** 149 backend + 139 frontend. The backend suite passes **from an empty database**, not just a backfilled one — see §2.
+**Tests:** 149 backend + 156 frontend (17 of them route-level, new). The backend suite passes **from an empty database**, not just a backfilled one — see §2.
 
 **Data:** 2,764 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
 
@@ -60,20 +60,20 @@ cd backend && uv run python -m tests.fixtures.generate
 ## 3. Immediate next actions, in order
 
 1. ~~Review Task 5.2~~ — **done** (range `8a25ab7..e349349`). Three defects found and fixed in `7c2314e`: the inverted spread sign in the upset filter (§4①), the slate table's two-way `won` boolean greying out both teams on a tie or an unplayed game, and the game card dimming both scores on a tie. Verified correct and unchanged: all seven slate widths and their order against the mockup's `grid-template-columns`, `align` declared on every column, `inkFor` driving all four banner text layers, the featured card's `border-left` on every stat cell (the mockup does the same), and the pill labels (the mockup carries no counts on `close`/`upset` either). `filterPillStyle` also *restored* a `transition` that 5.1's local `pillStyle` had dropped from the mockup's `pill(on)`.
-2. **Resolve the two remaining open calls in §4** — ① is still a live question (the divergence is now correctly *implemented*, but whether to diverge at all is a human call), and ② and ③ are unchanged.
-3. **Continue M5**: 5.3 Leaders → 5.4 `TrendLine` → 5.5 Team → 5.6 Player → 5.7 Explorer → 5.8 History.
+2. ~~Resolve the open calls in §4~~ — **done, all three answered by the user.** ① keep the "favourite lost" divergence, ② keep the recap surfaces as built, ③ close the route-test gap now (done, `60a2546`).
+3. **Continue M5**: 5.3 Leaders → 5.4 `TrendLine` → 5.5 Team → 5.6 Player → 5.7 Explorer → 5.8 History. **Nothing is blocking 5.3.** Two standing requirements now apply to every remaining screen: it lands with route-level tests of its own (§4③), and a filter/label means what it says on real data (§4①).
 
 ---
 
-## 4. Open decisions needing a human call
+## 4. Decisions — all resolved 2026-08-17
 
-**① The upset filter diverges from its brief, deliberately.** Task 5.2's brief defines `upset` as "games the road team won" (copying the mockup's `g[2] > g[4]`); the pill is labelled **"Underdog won"**. On invented data those coincide. On the real backfill they do not — 2024 week 15 had **11 road wins but only 4 upsets**, because **7 of those road wins were by the favourite** (led by Ravens at NYG -16.5). Labelling those "Underdog won" states something false, so `filterSlate` asks whether the **closing favourite lost**. `spread_line` is home-relative and populated on all 2,764 games. Confirm, or tell me to revert to the literal brief.
+**① The upset filter diverges from its brief, deliberately — CONFIRMED, keep it.** Task 5.2's brief defines `upset` as "games the road team won" (copying the mockup's `g[2] > g[4]`); the pill is labelled **"Underdog won"**. On invented data those coincide. On the real backfill they do not — 2024 week 15 had **11 road wins but only 4 upsets**, because **7 of those road wins were by the favourite** (led by Ravens at NYG -16.5). Labelling those "Underdog won" states something false, so `filterSlate` asks whether the **closing favourite lost**. `spread_line` is home-relative and populated on all 2,764 games. **The plan's §1 should record this as a corrected brief**, and 5.3–5.8 should assume the same standard: a filter means what its label says, not what the mockup's sample data made convenient.
 
 > **The numbers above were backwards until `7c2314e`, and so was the code.** As first written this section claimed 12 upsets and named Rams-at-SF, Cowboys-at-CAR, Bills-at-DET and Bucs-at-LAC as *road wins by the favourite*. They are the exact opposite: they are the week's only four upsets, road teams beating home favourites. The cause was one inverted comparison — `favouriteLost` read `spread_line < 0` as "home favoured" when **positive means home favoured** (nflverse; see `_format.py::line_label`, which had it right all along). The pill therefore listed the games the *favourite* won. Fixed, with the sign now pinned to the API's own `line_label` by test. **Sanity check for anyone touching this field:** over the 2,757 played games carrying a line, the home team wins **67.1%** when `spread_line > 0` and **34.7%** when it is negative.
 
-**② `recap` is null for every real game**, so three prose surfaces render as em-dashes: the game card's sentence, the slate table's *widest* column ("What happened", `minmax(220,1.4fr)`), and the featured note (which omits its paragraph rather than showing a dash). Plan §2 line 284 calls this a deliberate empty state — "populate it later" — so it was built as specified rather than dropped the way the playoff-seed badge was. Worth a conscious decision now that it is on screen: keep, narrow the column, or drop the surfaces.
+**② `recap` is null for every real game — DECIDED: keep as built.** Three prose surfaces render as em-dashes: the game card's sentence, the slate table's *widest* column ("What happened", `minmax(220,1.4fr)`), and the featured note (which omits its paragraph rather than showing a dash). Plan §2 line 284 calls this a deliberate empty state — "populate it later" — and it stays that way, holding the designed layout so nothing shifts when recaps land. **Do not "tidy" this column away** in a later pass; it is a chosen empty state, not an oversight.
 
-**③ Neither screen has route-level tests.** All 133 frontend tests target pure functions and presentational components. Nothing covers `standings.tsx` or `week.tsx`: the sort→ungroup rule (an explicit Step-1 requirement), the slate filter's URL round-trip, the query keys, or `powerMin`/`powerMax` being sourced pre-sort. `routes/-_layout.test.tsx` shows route-level tests are an established pattern here. This gap has now been carried twice and gets cheaper to close once, before 5.3.
+**~~③ Neither screen has route-level tests.~~ — CLOSED (`60a2546`).** 17 route-level tests now cover both screens through the **real generated route tree**: the sort→ungroup rule, Team opening A→Z, URL round-trips in both directions, the query keys (season/conference refetch; sort, grouping and slate do not), `powerMin`/`powerMax` being sourced pre-sort, and the slate filter over a fixture built from real 2024 wk15 rows including BAL at NYG -16.5. The harness is `routes/-route-harness.tsx`; **5.3–5.8 should each add route tests as they land** rather than deferring again. Note `vitest.setup.ts` now stubs `Element.scrollIntoView` — jsdom has none, and `_layout` calls it on every route change, so without the stub any route-level test gets the error boundary instead of the page.
 
 ~~`playoff_seed`~~ — **decided:** badge dropped (`f2cc899`). The API keeps the nullable column; nothing renders it.
 
