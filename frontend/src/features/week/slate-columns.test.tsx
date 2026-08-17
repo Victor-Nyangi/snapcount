@@ -23,7 +23,7 @@ function game(overrides: Partial<WeekGame> = {}): WeekGame {
       color: "#000000",
       score: 17,
     },
-    spread_line: -3.5,
+    spread_line: 3.5,
     line_label: "LV -3.5",
     margin: -7,
     recap: null,
@@ -31,8 +31,13 @@ function game(overrides: Partial<WeekGame> = {}): WeekGame {
   }
 }
 
-/** `spread_line` is home-relative: negative means the home team is favoured. */
-const scored = (id: string, away: number, home: number, spread_line = -3.5) =>
+/**
+ * `spread_line` is home-relative and POSITIVE means the HOME team is
+ * favoured — the nflverse convention, and the one the API's `line_label`
+ * reads (see `_format.py`). The default here is +3.5 so it agrees with the
+ * base fixture's "LV -3.5" label: LV is the home team.
+ */
+const scored = (id: string, away: number, home: number, spread_line = 3.5) =>
   game({
     id,
     away: { ...game().away, score: away },
@@ -76,7 +81,7 @@ describe("filterSlate", () => {
   })
 
   it("keeps games the closing favourite lost under 'upset'", () => {
-    // All three played games above have the HOME team favoured (-3.5), so
+    // All three played games above have the HOME team favoured (+3.5), so
     // the two road wins are upsets and the home win is not.
     expect(filterSlate(games, "upset").map((g) => g.id)).toEqual([
       "blowout",
@@ -86,25 +91,36 @@ describe("filterSlate", () => {
 
   it("does not call a favoured road team's win an upset", () => {
     // The brief said "road team won"; the pill says "Underdog won". On real
-    // data those differ — 2024 week 15 had eleven road wins but four of
-    // them were by the favourite. A positive line means the ROAD team is
-    // favoured, so this road win is not an upset.
-    const favouredRoadWin = scored("chalk", 27, 24, +3.5)
+    // data those differ — 2024 week 15 had eleven road wins and only four
+    // were upsets; the other seven were road FAVOURITES. A negative line
+    // means the ROAD team is favoured, so this road win is not an upset.
+    const favouredRoadWin = scored("chalk", 27, 24, -3.5)
     expect(filterSlate([favouredRoadWin], "upset")).toEqual([])
   })
 
   it("counts a favoured home team losing as an upset, though no road-win rule would", () => {
-    const homeFavouriteLost = scored("homeChoke", 30, 20, -6.5)
+    const homeFavouriteLost = scored("homeChoke", 30, 20, +6.5)
     expect(filterSlate([homeFavouriteLost], "upset").map((g) => g.id)).toEqual([
       "homeChoke",
     ])
   })
 
   it("counts an underdog home team winning as an upset", () => {
-    const roadFavouriteLost = scored("homeShock", 13, 20, +4.5)
+    const roadFavouriteLost = scored("homeShock", 13, 20, -4.5)
     expect(filterSlate([roadFavouriteLost], "upset").map((g) => g.id)).toEqual([
       "homeShock",
     ])
+  })
+
+  it("agrees with the API on which team the line favours", () => {
+    // The sign is the whole filter, and it was inverted once already: the
+    // shipped version read `spread_line < 0` as "home favoured", so the
+    // "Underdog won" pill listed the games the FAVOURITE won. Pin the
+    // convention against the label the API derives from the same field —
+    // a positive line must name the HOME team as favoured.
+    const homeFavoured = scored("homeFav", 10, 31, +3.5) // LV (home) wins
+    expect(homeFavoured.line_label).toBe("LV -3.5") // API: home is favoured
+    expect(filterSlate([homeFavoured], "upset")).toEqual([]) // so: no upset
   })
 
   it("treats a pick'em as having no underdog", () => {
@@ -187,6 +203,39 @@ describe("getSlateColumns", () => {
     render(byKey.score.render?.(unplayed("future")) as React.ReactElement)
     expect(screen.getByText("—")).toBeInTheDocument()
     expect(screen.queryByText("0–0")).not.toBeInTheDocument()
+  })
+
+  it("emphasises the winner and dims only the loser", () => {
+    render(byKey.away.render?.(scored("g", 31, 10)) as React.ReactElement)
+    render(byKey.home.render?.(scored("g", 31, 10)) as React.ReactElement)
+    const winner = screen.getByText("Chiefs")
+    const loser = screen.getByText("Raiders")
+    expect(winner.style.fontWeight).toBe("800")
+    expect(winner.style.color).toBe("inherit")
+    expect(loser.style.fontWeight).toBe("600")
+    expect(loser.style.color).toBe("var(--gray-500)")
+  })
+
+  it("dims neither team on a tie — a tie has no loser", () => {
+    // Real and reachable: the backfill holds ten ties, e.g. 2025 week 4,
+    // GB 40 at DAL 40. The mockup's two-way `won` boolean greyed out BOTH
+    // names here, rendering a finished game as though both teams lost it.
+    const tie = scored("tie", 20, 20)
+    render(byKey.away.render?.(tie) as React.ReactElement)
+    render(byKey.home.render?.(tie) as React.ReactElement)
+    for (const nickname of ["Chiefs", "Raiders"]) {
+      expect(screen.getByText(nickname).style.color).toBe("inherit")
+      expect(screen.getByText(nickname).style.fontWeight).toBe("600")
+    }
+  })
+
+  it("dims neither team before kickoff — nobody has lost yet", () => {
+    const future = unplayed("future")
+    render(byKey.away.render?.(future) as React.ReactElement)
+    render(byKey.home.render?.(future) as React.ReactElement)
+    for (const nickname of ["Chiefs", "Raiders"]) {
+      expect(screen.getByText(nickname).style.color).toBe("inherit")
+    }
   })
 
   it("falls back to an em-dash for a missing closing line and recap", () => {

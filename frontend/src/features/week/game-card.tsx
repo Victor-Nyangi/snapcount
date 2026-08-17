@@ -1,26 +1,15 @@
 import type { CSSProperties } from "react"
 import type { WeekGame, WeekTeamSide } from "@/client"
 import { TeamChip } from "@/components/team-chip"
+import { type Outcome, outcomesFor } from "./outcome"
 
 /**
  * One game in the week rail. 306px fixed, geometry verbatim from the
  * mockup's game card.
  *
- * The mockup only ever renders played games, so every style there is a
- * two-way `win ? … : …`. Real weeks contain scheduled games, and a game
- * nobody has played has no loser — dimming both sides would read as "both
- * teams lost". So the sides resolve to THREE outcomes, not two, and
- * `undecided` keeps the default ink at the loser's weight: nothing is
- * emphasised, nothing is greyed out as beaten.
+ * See `./outcome.ts` for why a side has three outcomes here and only two
+ * in the mockup.
  */
-
-type Outcome = "won" | "lost" | "undecided"
-
-function outcomeFor(side: number | null, other: number | null): Outcome {
-  if (side === null || other === null) return "undecided"
-  if (side === other) return "undecided" // a tie: neither side is the winner
-  return side > other ? "won" : "lost"
-}
 
 function nameStyle(outcome: Outcome): CSSProperties {
   return {
@@ -33,12 +22,21 @@ function nameStyle(outcome: Outcome): CSSProperties {
   }
 }
 
-function scoreStyle(outcome: Outcome): CSSProperties {
+/**
+ * `hasScore` separates the two `undecided` cases, which must not look
+ * alike. A TIE is a real, final result and neither side lost it, so both
+ * scores keep the default ink — dimming them would say "both teams lost"
+ * on the one line of the card that states the result. An UNPLAYED game has
+ * no score at all: what renders is the em-dash placeholder, and a
+ * placeholder belongs in the muted ink.
+ */
+function scoreStyle(outcome: Outcome, hasScore: boolean): CSSProperties {
+  const dimmed = outcome === "lost" || !hasScore
   return {
     fontFamily: "var(--font-mono)",
     fontSize: 19,
     fontWeight: 700,
-    color: outcome === "won" ? "inherit" : "var(--gray-400)",
+    color: dimmed ? "var(--gray-400)" : "inherit",
   }
 }
 
@@ -85,7 +83,7 @@ function TeamRow({ side, outcome }: { side: WeekTeamSide; outcome: Outcome }) {
         size={34}
       />
       <span style={nameStyle(outcome)}>{side.nickname}</span>
-      <span style={scoreStyle(outcome)}>
+      <span style={scoreStyle(outcome, side.score !== null)}>
         {/* An unplayed game has no score. An em-dash, never a 0 — a 0 is a
             real result a team can be held to. */}
         {side.score ?? "—"}
@@ -95,8 +93,7 @@ function TeamRow({ side, outcome }: { side: WeekTeamSide; outcome: Outcome }) {
 }
 
 export function GameCard({ game }: { game: WeekGame }) {
-  const awayOutcome = outcomeFor(game.away.score, game.home.score)
-  const homeOutcome = outcomeFor(game.home.score, game.away.score)
+  const [awayOutcome, homeOutcome] = outcomesFor(game)
   const roadWin = awayOutcome === "won"
   const decided = awayOutcome !== "undecided"
 

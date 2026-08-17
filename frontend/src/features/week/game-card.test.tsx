@@ -23,7 +23,9 @@ function game(overrides: Partial<WeekGame> = {}): WeekGame {
       color: "#000000",
       score: 17,
     },
-    spread_line: -3.5,
+    // Home-relative and positive means the HOME team is favoured, which is
+    // what makes "LV -3.5" the label the API derives for this row.
+    spread_line: 3.5,
     line_label: "LV -3.5",
     margin: -7,
     recap: null,
@@ -138,6 +140,47 @@ describe("GameCard", () => {
     expect(nameCell("Chiefs").style.fontWeight).toBe("600")
     expect(nameCell("Raiders").style.fontWeight).toBe("600")
     expect(screen.queryByText(/road win|home win/)).not.toBeInTheDocument()
+  })
+
+  it("keeps both scores in the default ink on a tie", () => {
+    // A tie is a real final result and neither side lost it. Dimming both
+    // scores to the loser's grey says "both teams lost" on the one line
+    // that states the result — and ten games in the backfill are ties.
+    render(
+      <GameCard
+        game={game({
+          status: "final_ot",
+          away: { ...game().away, score: 40 },
+          home: { ...game().home, score: 40 },
+          margin: 0,
+        })}
+      />,
+    )
+    for (const score of screen.getAllByText("40")) {
+      expect(score.style.color).toBe("inherit")
+    }
+  })
+
+  it("keeps an unplayed game's em-dash placeholder muted", () => {
+    // The other `undecided` case: there is no result to state, so the
+    // placeholder stays in the muted ink rather than the default one.
+    render(
+      <GameCard
+        game={game({
+          status: "scheduled",
+          away: { ...game().away, score: null },
+          home: { ...game().home, score: null },
+          margin: null,
+        })}
+      />,
+    )
+    const dashes = screen
+      .getAllByText("—")
+      .filter((el) => el.tagName === "SPAN")
+    expect(dashes).toHaveLength(2)
+    for (const dash of dashes) {
+      expect(dash.style.color).toBe("var(--gray-400)")
+    }
   })
 
   it("gives an overtime finish the orchid pill, a regulation one the grey", () => {

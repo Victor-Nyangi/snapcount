@@ -3,6 +3,7 @@ import type { WeekGame, WeekTeamSide } from "@/client"
 import type { StatColumn } from "@/components/stat-table"
 import { TeamChip } from "@/components/team-chip"
 import { formatDiff } from "@/lib/format"
+import { type Outcome, outcomesFor } from "./outcome"
 
 /**
  * The full-slate table's seven columns. Widths verbatim from the mockup's
@@ -25,20 +26,27 @@ const CLOSE_MARGIN = 3
  * DIVERGES FROM THE TASK BRIEF, deliberately. The brief defines `upset` as
  * "games the road team won", copying the mockup's `g[2] > g[4]`. The mockup
  * can afford that because its sixteen games are invented; against the real
- * backfill the two are plainly different things. In 2024 week 15, eleven
- * road teams won but only twelve games were upsets, and FOUR of those road
- * wins were by the FAVOURITE — the Rams at SF -3, Cowboys at CAR -2.5,
- * Bills at DET -2.5, Buccaneers at LAC -3. Labelling those "Underdog won"
- * states something false about the game.
+ * backfill the two are plainly different things. In 2024 week 15 eleven
+ * road teams won, but only FOUR of those wins were upsets — the other SEVEN
+ * were road FAVOURITES doing exactly what the line said they would, led by
+ * the Ravens at NYG -16.5. Labelling those "Underdog won" states something
+ * false about the game.
  *
- * `spread_line` is home-relative and populated on all 2,764 games in the
- * backfill, so the honest reading costs nothing. A pick'em (line exactly 0)
- * has no underdog and a tie has no loser; neither counts.
+ * `spread_line` is home-relative and POSITIVE MEANS THE HOME TEAM IS
+ * FAVOURED — the nflverse convention the column is ingested under, and the
+ * one `app/api/routes/_format.py::line_label` reads to decide which
+ * abbreviation to print. Do not guess this sign: across the 2,757 played
+ * games with a line, the home team wins 67.1% when it is positive and 34.7%
+ * when it is negative.
+ *
+ * It is populated on all 2,764 games in the backfill, so the honest reading
+ * costs nothing. A pick'em (line exactly 0) has no underdog and a tie has
+ * no loser; neither counts.
  */
 function favouriteLost(game: WeekGame): boolean {
   if (game.spread_line === null || game.spread_line === 0) return false
   if (game.margin === null || game.margin === 0) return false
-  const homeWasFavoured = game.spread_line < 0
+  const homeWasFavoured = game.spread_line > 0
   const homeWon = game.margin > 0
   return homeWasFavoured !== homeWon
 }
@@ -62,11 +70,17 @@ export function filterSlate(games: WeekGame[], filter: SlateFilter) {
   return games
 }
 
-function nameStyle(won: boolean): CSSProperties {
+/**
+ * Same three-valued rule the game card uses (`./outcome.ts`) — an unplayed
+ * game and a tie dim NEITHER side. A two-way `won` boolean here would grey
+ * out both team names in every scheduled row and in all ten of the
+ * backfill's real ties, reading as though both teams had been beaten.
+ */
+function nameStyle(outcome: Outcome): CSSProperties {
   return {
     fontSize: 13.5,
-    fontWeight: won ? 800 : 600,
-    color: won ? "inherit" : "var(--gray-500)",
+    fontWeight: outcome === "won" ? 800 : 600,
+    color: outcome === "lost" ? "var(--gray-500)" : "inherit",
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -79,7 +93,7 @@ const monoCellStyle: CSSProperties = {
   color: "var(--gray-500)",
 }
 
-function TeamCell({ side, won }: { side: WeekTeamSide; won: boolean }) {
+function TeamCell({ side, outcome }: { side: WeekTeamSide; outcome: Outcome }) {
   return (
     <div className="flex min-w-0 items-center" style={{ gap: 9 }}>
       <TeamChip
@@ -88,14 +102,9 @@ function TeamCell({ side, won }: { side: WeekTeamSide; won: boolean }) {
         name={side.name}
         size={26}
       />
-      <span style={nameStyle(won)}>{side.nickname}</span>
+      <span style={nameStyle(outcome)}>{side.nickname}</span>
     </div>
   )
-}
-
-/** True only for a decided game — a tie or an unplayed game has no winner. */
-function beat(side: number | null, other: number | null): boolean {
-  return side !== null && other !== null && side > other
 }
 
 export function getSlateColumns(): StatColumn<WeekGame>[] {
@@ -116,10 +125,7 @@ export function getSlateColumns(): StatColumn<WeekGame>[] {
       sticky: true,
       value: (game) => game.away.nickname,
       render: (game) => (
-        <TeamCell
-          side={game.away}
-          won={beat(game.away.score, game.home.score)}
-        />
+        <TeamCell side={game.away} outcome={outcomesFor(game)[0]} />
       ),
     },
     {
@@ -153,10 +159,7 @@ export function getSlateColumns(): StatColumn<WeekGame>[] {
       align: "left",
       value: (game) => game.home.nickname,
       render: (game) => (
-        <TeamCell
-          side={game.home}
-          won={beat(game.home.score, game.away.score)}
-        />
+        <TeamCell side={game.home} outcome={outcomesFor(game)[1]} />
       ),
     },
     {
