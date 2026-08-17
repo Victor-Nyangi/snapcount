@@ -40,10 +40,10 @@ cd backend && uv run python -m tests.fixtures.generate
 | M2 Shared components | ✅ | 5 marks, `StatTable`, app shell with URL-backed season/week |
 | M3 Data model + ingestion | ✅ | 9 models, analytics, 25 champions, **real 2016–2025 backfill** |
 | M4 API | ✅ | 8 route modules, typed TS client generated |
-| **M5 Screens** | **1 of 8** | 5.1 Standings done (unreviewed); 5.2–5.8 remain |
+| **M5 Screens** | **1 of 8** | 5.1 Standings done and reviewed; 5.2–5.8 remain |
 | M6 Finishing | ⬜ | 4 tasks; 6.3 partially done (freshness logic landed early in 4.1) |
 
-**Tests:** 147 backend + 91 frontend — and the backend suite now passes from an empty database, not just a backfilled one. **Data:** 2,761 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
+**Tests:** 147 backend + 98 frontend — and the backend suite now passes from an empty database, not just a backfilled one. **Data:** 2,761 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
 
 **Verified real values** (use these as acceptance checks — they are exact, not approximate):
 
@@ -60,19 +60,21 @@ cd backend && uv run python -m tests.fixtures.generate
 ## 3. Immediate next actions, in order
 
 1. ~~Fix the CI seeding defect~~ — **done** (§1). PR #7 is unblocked.
-2. **Review Task 5.1** — it is complete and committed but **never reviewed**. Build the package with
-   `.../scripts/review-package resources/nfl-implemnentation2.md d6c8f28 21a27b2`.
-   Check: plain count columns declare `align: 'right'`; `signed` only on `differential`; sort stays controlled (no `useState`); the `DiffCell` hyphen→U+2212 fix did not disturb its geometry.
-3. **Decide the playoff-seed question** (§4).
+2. ~~Review Task 5.1~~ — **done.** Three defects found and fixed (`b540cb6`, `f2cc899`, `5c6c91c`); everything on the original checklist verified correct. See the ledger entry for the full record.
+3. ~~Decide the playoff-seed question~~ — **done** (§4).
 4. **Continue M5**: 5.2 Week view → 5.3 Leaders → 5.4 `TrendLine` → 5.5 Team → 5.6 Player → 5.7 Explorer → 5.8 History.
+
+**Carry into 5.2:** the acceptance check for 5.1 ("/standings/2024 renders DET first") was wrong — the default view groups by division, so BUF leads and DET sits at position 21. When setting a live acceptance check, state it against the **default URL**, grouping and sorting included, or it cannot be checked without toggling something first.
 
 ---
 
 ## 4. Open decisions needing a human call
 
-**`playoff_seed` is NULL for all 320 team-seasons — verified.** The Standings seed badge ("Bye · 1", "Seed 5") is implemented and can never render. Either derive seeds from final standings plus NFL tiebreakers (a real project), or drop the badge. **Do not leave dead UI implying data we never have.**
+~~**`playoff_seed` is NULL for all 320 team-seasons.**~~ **Decided:** badge dropped (`f2cc899`). The API keeps the nullable column; nothing renders it. Deriving seeds needs the full NFL tiebreaker ladder — treat that as its own project if it ever comes back.
 
-**Five `to={... as any}` casts remain** in `frontend/src/routes/_layout.tsx`, one per unbuilt route. Remove each as its screen lands — an `as any` that outlives its reason hides a real typo.
+**Six `to={... as any}` casts remain** in `frontend/src/routes/_layout.tsx` — week, leaders, team, player, explorer, history. (Seven nav items, one real route; the old count of five was wrong.) Remove each as its screen lands — an `as any` that outlives its reason hides a real typo.
+
+**`standings.tsx` has no tests.** Task 5.1's 28 cases all target pure functions. The sort→ungroup rule is an explicit requirement implemented in a handler nothing exercises. `routes/-_layout.test.tsx` shows route-level tests are an established pattern — worth covering when 5.2 lands the same shell.
 
 **Task 6.2's browser backlog.** Roughly a dozen items have been deferred since Task 1.1 because no browser is available: font `font-stretch: 125%` actually rendering, sticky-column diagonal scroll, `position: sticky` + `border-collapse` (historic Safari issue), the 375px nav collapse, reduced-motion suppression, Radix `Select` pointer UX. All are tagged `CARRY TO 6.2` in the ledger.
 
