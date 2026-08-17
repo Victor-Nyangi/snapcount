@@ -1,44 +1,33 @@
 # Snapcount — session handover
 
-**Written:** 2026-08-17 · **Branch:** `feat/design-system-and-screens` · **Head:** `21a27b2` · **48 commits ahead of `main`**
+**Written:** 2026-08-17 · **Updated:** 2026-08-17 (CI fixed) · **Branch:** `feat/design-system-and-screens` · **Head:** `1df515b` · **52 commits ahead of `main`**
 
-Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~810 lines — the authoritative record).
+Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~860 lines — the authoritative record).
 
 ---
 
-## 1. Start here: CI is RED, and the cause is systemic
+## 1. CI is GREEN — what it took, and what to keep in mind
 
-**PR #7 is `BLOCKED`.** `test-backend` and `pre-commit` fail in CI while **147 backend tests pass locally**. This is not flaky — it is a real defect that local runs cannot see.
+**PR #7 is `CLEAN`, all 16 checks pass, coverage 95%.** Resolved in `46c164b`, `0029a27`, `54a370c`, `1df515b`.
 
-**Cause:** CI runs migrations against a **fresh, empty database**. Tests that insert a `TeamSeasonStat` hit:
+The red had **four independent causes**, not one. Only the first was diagnosed in the original handover, and it was under-scoped.
 
-```
-psycopg.errors.ForeignKeyViolation: insert or update on table "teamseasonstat"
-violates foreign key constraint "teamseasonstat_team_fkey"
-DETAIL:  Key (team)=(LV) is not present in table "team".
-```
+| # | Cause | Fix |
+|---|---|---|
+| 1 | No test outside `tests/ingest/` called `seed_teams`, so `TeamSeasonStat` inserts hit the team FK on CI's empty DB. The first violation poisoned the session-scoped `db` fixture, cascading one missing row into 13 unrelated errors. | `_ensure_reference_data` in `backend/tests/conftest.py` |
+| 2 | **Not diagnosed.** Seeding teams+history only reaches 126/21 — the remaining 21 `tests/api/` cases assert against the real 2016–2025 backfill, which needs a decade of networked nflverse pulls. | An 80 KB committed slice of those same real rows in `backend/tests/fixtures/` |
+| 3 | `typos` read the `"nd"` in `_format.ordinal`'s `{1:"st", 2:"nd", 3:"rd"}` as a misspelling of "and". | Scoped ignore-re in `_typos.toml` |
+| 4 | `mypy`/`ty` ran from the repo root; **neither tool reads config outside its own cwd**, so `backend/pyproject.toml` was never loaded. `strict` has been inert for the life of the repo, and the nflreadpy override added with the dependency never applied — which is what turned the hook red when nflreadpy landed. | Both hooks `cd backend` first; the 31 surfaced diagnostics cleared with `col()`, removing seven `# type: ignore`s |
 
-They pass locally **only because the dev database has the 32 teams seeded** from earlier work.
-
-**Scope — verified by grep:**
-
-| Suite | Files calling `seed_teams` |
-|---|---|
-| `backend/tests/api/` | **0 of 8** |
-| `backend/tests/ingest/` | 2 of 5 (`test_teams.py`, `test_history.py`) |
-
-Every API test written in Task 4.1 depends on ambient database state it never establishes.
-
-**This is the third instance of one pattern** (see §5): tests coupled to database state rather than owning it.
-
-**Fix direction — do not just sprinkle `seed_teams` into eight files.** Prefer a fixture in `backend/tests/conftest.py` that guarantees the reference data every test needs (32 teams; champions/dynasties where relevant), so the guarantee lives in one place. Then verify the way CI does — against an empty database, not the dev one:
+**About the fixture slice.** `backend/tests/fixtures/backfill.json.gz` holds 10 seasons, 320 team-seasons, 285 games (2024), 2,008 player-seasons, 1,997 players — all *real* rows. `tests/conftest.py` loads it only when the database has no team-season row, so it is a no-op against the dev database and the data source on CI. **No assertion was rewritten**; DET is still 15-2/+222, NE still has 6 titles. Regenerate after any model change:
 
 ```bash
-cd backend
-uv run alembic downgrade base && uv run alembic upgrade head   # empty DB
-uv run pytest -q                                               # must pass from nothing
-uv run python -m app.ingest.runner --from 2016 --to 2025       # restore real data afterwards
+cd backend && uv run python -m tests.fixtures.generate
 ```
+
+**To reproduce CI locally, do NOT `alembic downgrade base`** — that destroys the backfill and costs a decade re-ingest. Point `DATABASE_URL` at a scratch database on the same instance instead; that reproduced CI's exact 51F/84P/13E in 14 seconds.
+
+**One bonus defect, found while verifying:** `test_freshness_reports_final_for_a_recently_ingested_season` asked 2024 whether it was fresh, and `_STALE_AFTER` is one day — it passed only while someone's backfill was under 24h old. It now owns sentinel season 2083. Watch for this shape: an assertion whose truth decays with the clock.
 
 ---
 
@@ -54,7 +43,7 @@ uv run python -m app.ingest.runner --from 2016 --to 2025       # restore real da
 | **M5 Screens** | **1 of 8** | 5.1 Standings done (unreviewed); 5.2–5.8 remain |
 | M6 Finishing | ⬜ | 4 tasks; 6.3 partially done (freshness logic landed early in 4.1) |
 
-**Tests:** 147 backend + 91 frontend. **Data:** 2,761 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
+**Tests:** 147 backend + 91 frontend — and the backend suite now passes from an empty database, not just a backfilled one. **Data:** 2,761 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
 
 **Verified real values** (use these as acceptance checks — they are exact, not approximate):
 
@@ -70,7 +59,7 @@ uv run python -m app.ingest.runner --from 2016 --to 2025       # restore real da
 
 ## 3. Immediate next actions, in order
 
-1. **Fix the CI seeding defect** (§1). Nothing else should merge first.
+1. ~~Fix the CI seeding defect~~ — **done** (§1). PR #7 is unblocked.
 2. **Review Task 5.1** — it is complete and committed but **never reviewed**. Build the package with
    `.../scripts/review-package resources/nfl-implemnentation2.md d6c8f28 21a27b2`.
    Check: plain count columns declare `align: 'right'`; `signed` only on `differential`; sort stays controlled (no `useState`); the `DiffCell` hyphen→U+2212 fix did not disturb its geometry.
@@ -93,7 +82,7 @@ uv run python -m app.ingest.runner --from 2016 --to 2025       # restore real da
 
 Each cost at least one fix round. Expect them again.
 
-1. **Tests coupled to ambient database state.** Fixtures at `season=2025` wrote into the real backfill (3.4); API tests assume seeded teams (§1). Sentinel seasons **2081–2099** are the established convention for fixtures.
+1. **Tests coupled to ambient database state.** Fixtures at `season=2025` wrote into the real backfill (3.4); API tests assumed seeded teams *and* a decade of ingested data (§1); a freshness test assumed someone had backfilled within the last 24 hours. Sentinel seasons **2081–2099** are the established convention for fixtures. **Three instances found so far were each diagnosed as "just one missing call" and each turned out to be broader** — measure the blast radius against an empty database before believing a scope estimate.
 2. **Narrow test data manufacturing confidence.** `/players/{id}` 500'd for the *majority of real roster positions* — it survived a full review and 146 tests because the only fixture was a quarterback.
 3. **Fixes introducing new bugs.** `current_week` was reset to 1 by every ingest because a fix for one bug shared a helper with a caller whose rows lacked `game_type`. Caught only because a reviewer checked commit *timestamps* and realised the correct-looking production data **predated the code being merged**.
 4. **Container swaps dropping affordances.** Replacing `AppSidebar` with the top nav silently removed the only logout control. Two code reviews passed; only e2e caught it. **When replacing a container, enumerate what it *provided*, not what it looked like.**
@@ -108,6 +97,9 @@ Each cost at least one fix round. Expect them again.
 - **Bun workspace monorepo.** Run frontend scripts from the **repo root**: `bun run --filter frontend <script>`.
 - **`test` is Playwright; `test:unit` is vitest.** Never run `test` locally — it needs the full compose stack and browsers.
 - **PostgreSQL is on host port 5434**, not 5432 (another project owns that). Started via `docker compose up -d db`.
+- **`mypy` and `ty` only read config from their own working directory.** `backend/pyproject.toml` holds both; run them from `backend/`, never from the root, or `strict` and the nflreadpy override silently vanish. The pre-commit hooks now `cd backend` themselves.
+- **`_typos.toml` overrides `[tool.typos]` in `pyproject.toml` completely** — the hook does not read pyproject at all. `_typos.toml` is a strict superset; add new exemptions there.
+- **The dev database has sentinel season 2099 leaked into it** from an ingest test that commits for real. `tests.fixtures.generate` filters seasons ≥ 2081 out of the slice for exactly this reason.
 - **`.env` is gitignored and holds real secrets.** Never print it, never commit it.
 - **Account-level session limits killed 5 of ~16 implementer dispatches.** Mitigations that worked every time: **commit after each module goes green**, and keep dispatches small (3 modules, not 8).
 - **`delete_branch_on_merge` is on** — after a merge the remote branch vanishes, so the next push needs plain `-u`, not `--force-with-lease`.
