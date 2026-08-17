@@ -42,7 +42,20 @@ METRIC_LABELS: dict[str, dict[str, str]] = {
     },
 }
 
-UNITS = {"epa": "EPA", "yds": "YDS", "td": "TD", "rate": "Y/A"}
+# position -> metric -> unit. The mockup keeps ONE global table here, with
+# `rate: 'Y/A'` for every position — which is right only for a quarterback.
+# A running back's rate metric is yards per CARRY and a receiver's is yards
+# per TARGET, and `METRIC_LABELS` directly above already says exactly that.
+# Serving the global version put "Y/A" as the biggest label on a leader card
+# sitting directly under a dropdown reading "Yards per carry": the same
+# lying-label defect already fixed once in `qualifier_label`. Only `rate`
+# varies; the other three units are genuinely position-independent.
+_RATE_UNIT = {"QB": "Y/A", "RB": "Y/C", "WR": "Y/T", "TE": "Y/T"}
+
+UNITS: dict[str, dict[str, str]] = {
+    position: {"epa": "EPA", "yds": "YDS", "td": "TD", "rate": rate_unit}
+    for position, rate_unit in _RATE_UNIT.items()
+}
 
 # Fixed per metric — precision is a column property, not a per-cell choice.
 PRECISION = {"epa": 3, "yds": 0, "td": 0, "rate": 1}
