@@ -1,79 +1,88 @@
-# Full Stack FastAPI Template
+# Snapcount
+
+An NFL analysis platform: ten seasons of real play-by-play-derived data behind seven screens — week results, standings and a power ranking, position leaderboards, team pages, player pages, a decade-wide differential explorer, and champions history.
 
 [![Test Docker Compose](../../actions/workflows/test-docker-compose.yml/badge.svg)](../../actions/workflows/test-docker-compose.yml)
 [![Test Backend](../../actions/workflows/test-backend.yml/badge.svg)](../../actions/workflows/test-backend.yml)
 
-## Technology Stack and Features
+FastAPI + SQLModel + PostgreSQL on the backend; React 19 + Vite + TanStack Router/Query on the frontend, served by the same FastAPI app in production. Built from the `full-stack-fast` template.
 
-- ⚡ [**FastAPI**](https://fastapi.tiangolo.com) for the Python backend API.
-  - 🧰 [SQLModel](https://sqlmodel.tiangolo.com) for the Python SQL database interactions (ORM).
-  - 🔍 [Pydantic](https://docs.pydantic.dev), used by FastAPI, for the data validation and settings management.
-  - 💾 [PostgreSQL](https://www.postgresql.org) as the SQL database.
-- 🚀 [React](https://react.dev) for the frontend.
-  - 🧩 Built into the backend application and served by FastAPI on the same domain as the API.
-  - 💃 Using TypeScript, hooks, [Vite](https://vitejs.dev), and other parts of a modern frontend stack.
-  - 🎨 [Tailwind CSS](https://tailwindcss.com) and [shadcn/ui](https://ui.shadcn.com) for the frontend components.
-  - 🤖 An automatically generated frontend client.
-  - 🧪 [Playwright](https://playwright.dev) for end-to-end testing.
-  - 🦇 Dark mode support.
-- ☁️ [FastAPI Cloud](https://fastapicloud.com) for deployment.
-- 🐋 [Docker Compose](https://www.docker.com) for local services and self-hosted deployment.
-  - 📞 [Traefik](https://traefik.io) as a reverse proxy with automatic HTTPS.
-- 🔒 Secure password hashing by default.
-- 🔑 JWT (JSON Web Token) authentication.
-- 📫 Email-based password recovery.
-- 📬 [Mailcatcher](https://mailcatcher.me) for local email testing during development.
-- ✅ Tests with [Pytest](https://pytest.org).
-- 🏭 CI (continuous integration) and CD (continuous deployment) based on GitHub Actions.
+## What is actually in the database
 
-### Dashboard Login
+Real data ingested from [nflverse](https://github.com/nflverse) via `nflreadpy`, seasons **2016–2025**:
 
-![Dashboard login screenshot](img/login.png)
+| | |
+|---|---|
+| Games | 2,764 |
+| Players | 5,480 |
+| Player-seasons | 19,521 |
+| Team-seasons | 320 |
+| Teams | 32 |
+| Champions (seeded reference data, 2000–2024) | 25 |
 
-### Dashboard - Admin
+Nothing on the site is synthetic. Where the design mockup carried sample figures, they were replaced — and where the real data has a shape the mockup's never did (ties, negative EPA, absent seasons), the code handles it. See §1 of `resources/nfl-implemnentation2.md` for every such divergence and why.
 
-![Admin dashboard screenshot](img/dashboard.png)
+## The seven screens
 
-### Dashboard - Items
+| Route | What it shows |
+|---|---|
+| `/week` | A week's games as a card rail, featured matchups, and the full slate with closing lines. Filterable to one-score games or genuine upsets. |
+| `/standings` | Standings with a composite power score, division grouping, and point differential on a diverging scale. |
+| `/leaders` | Position leaderboards (QB/RB/WR/TE) on a switchable metric, each ranked against the positional baseline. |
+| `/team/{abbr}` | A team's season: colour banner, cumulative point-differential trend, full schedule, position groups. |
+| `/player/{id}` | A player's rate cards versus positional baseline, and a season-by-season table that follows them across teams. |
+| `/explorer` | The signature screen — a 32 × 10 decade differential grid, sortable by any season column, with a linkable drill-down. |
+| `/history` | Champions by decade, most-titles counts, and dynasty runs. |
 
-![Items dashboard screenshot](img/dashboard-items.png)
+## Running it
 
-### Dashboard - Dark Mode
+Requires [uv](https://docs.astral.sh/uv/), [bun](https://bun.sh), and Docker.
 
-![Dark mode dashboard screenshot](img/dashboard-dark.png)
+```bash
+cp .env.example .env          # then fill in the secrets
+docker compose up -d db       # PostgreSQL on host port 5434
+cd backend && uv sync && uv run alembic upgrade head
+```
 
-### Interactive API Documentation
+Backend and frontend in development:
 
-![API docs](img/docs.png)
+```bash
+cd backend && uv run fastapi dev app/main.py     # API on :8000
+bun install && bun run --filter frontend dev     # UI on :5173
+```
 
-## How to Use It
+Or the whole stack:
 
-Click the **Use this template** button at the top of this page to create a new repository.
+```bash
+docker compose up -d
+```
 
-## Backend Development
+### Ingesting data
 
-Backend docs: [backend/README.md](./backend/README.md).
+A decade takes a while — it pulls each season from nflverse in turn.
 
-## Frontend Development
+```bash
+cd backend
+uv run python -m app.ingest.runner --season 2024        # one season
+uv run python -m app.ingest.runner --from 2016 --to 2025 # the full decade
+```
 
-Frontend docs: [frontend/README.md](./frontend/README.md).
+Runs are recorded in `ingest_run`, and `season.last_ingested_at` is stamped **only** when a run succeeds — which is what makes the header's freshness pill honest when a run fails. A container (`ingest-scheduler`) re-ingests the current season nightly; set `INGEST_AT_HOUR_UTC` to move it.
 
-## Deployment
+### Tests
 
-FastAPI Cloud deployment: [deployment.md](./deployment.md).
+```bash
+cd backend && uv run pytest                       # 152 tests
+bun run --filter frontend test:unit               # 306 tests
+bun run --filter frontend test                    # Playwright e2e (needs the compose stack)
+./scripts/verification-gate.sh                    # the whole gate at once
+```
 
-Self-hosted deployment with Docker Compose: [deployment-docker-compose.md](./deployment-docker-compose.md).
+The backend suite passes from an **empty** database as well as a backfilled one: `backend/tests/conftest.py` loads an 80 KB committed slice of the real rows when the database has none, so CI asserts against the same real values without a decade of network pulls.
 
-## Development
+## Documentation
 
-General development docs: [development.md](./development.md).
-
-This includes the local FastAPI and Vite workflow, Docker Compose services, `.env` configuration, and more.
-
-## Release Notes
-
-Check the file [release-notes.md](./release-notes.md).
-
-## License
-
-The Full Stack FastAPI Template is licensed under the terms of the MIT license.
+- `CLAUDE.md` — conventions that are not obvious from the code
+- `resources/nfl-implemnentation2.md` — the implementation plan; §1 records every divergence from the design and why, §2 what was deliberately not built
+- `resources/HANDOVER.md` — current state, open decisions, and the failure patterns this project has already paid for
+- `development.md`, `deployment.md` — inherited from the template
