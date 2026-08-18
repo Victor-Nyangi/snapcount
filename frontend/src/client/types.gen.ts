@@ -172,6 +172,14 @@ export type ExplorerTeam = {
      * Color
      */
     color: string;
+    /**
+     * Conference
+     */
+    conference: string;
+    /**
+     * Division
+     */
+    division: string;
 };
 
 /**

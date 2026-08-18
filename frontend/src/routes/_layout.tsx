@@ -260,7 +260,7 @@ function Layout() {
               }
               // /standings (5.1), /week (5.2), /leaders (5.3) and /player
               // (5.6) are real routes and typecheck without a cast. The
-              // other TWO nav targets don't exist yet (explorer, history —
+              // other nav target doesn't exist yet (history —
               // later tasks add them); casting `to` past the router's
               // typed route union is the deliberate way to link ahead of a
               // route's file existing rather than inventing a placeholder.
@@ -268,7 +268,8 @@ function Layout() {
                 item.to === "/standings" ||
                 item.to === "/week" ||
                 item.to === "/leaders" ||
-                item.to === "/player"
+                item.to === "/player" ||
+                item.to === "/explorer"
               ) {
                 return (
                   <Link
