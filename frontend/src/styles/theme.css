@@ -114,3 +114,16 @@ h2,
     transition: none;
   }
 }
+
+/*
+ * §1.14 — the card hover lift.
+ *
+ * The mockup writes `translateY(-3px)` inline on the week screen's game
+ * card. It is the only lift in the design, but the plan's verification gate
+ * forbids arbitrary bracketed pixel values in `frontend/src`, and a raw literal
+ * would also mean the next card that wants a lift picks its own number.
+ * Named here so the value is stated once and the gate stays honest.
+ */
+:root {
+  --lift-hover: 3px;
+}

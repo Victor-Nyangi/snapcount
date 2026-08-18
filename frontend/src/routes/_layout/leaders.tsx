@@ -101,7 +101,7 @@ function positionTabStyle(active: boolean): React.CSSProperties {
     border: "none",
     cursor: "pointer",
     // The mockup's literals resolve to existing tokens exactly:
-    // oklch(0.24 0.10 300) is --orchid-900, #F3E8FF is
+    // its dark orchid is --orchid-900 and its pale orchid ink is
     // --accent-secondary-ink.
     background: active ? "var(--orchid-900)" : "transparent",
     color: active ? "var(--accent-secondary-ink)" : "var(--gray-600)",

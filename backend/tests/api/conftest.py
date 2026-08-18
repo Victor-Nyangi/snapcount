@@ -35,6 +35,9 @@ from app.models import Game, Season, TeamSeasonStat
 FUTURE_SEASON = 2081
 STALE_SEASON = 2082
 FRESH_SEASON = 2083
+# 2088 is claimed for the failed-ingest case, which needs a season that was
+# ingested successfully ONCE and has since had a run fail.
+FAILED_INGEST_SEASON = 2088
 FEATURED_SEASON = 2085
 TEAM_SCHEDULE_SEASON = 2084
 EXPLORER_PRESENT_SEASON = 2086
@@ -260,4 +263,56 @@ def stale_season(db: Session) -> Generator[None]:
         yield
     finally:
         db.exec(delete(Season).where(Season.year == STALE_SEASON))
+        db.commit()
+
+
+@pytest.fixture
+def season_with_a_failed_ingest(db: Session) -> Generator[None]:
+    """A season ingested successfully two days ago, whose most recent run
+    then FAILED.
+
+    This is the shape Task 6.3 Step 3 is about. `Season.last_ingested_at`
+    is stamped only when a run closes `ok`, so a later failure must leave
+    it pointing at the older SUCCESS — the freshness label has to name the
+    last time the data was actually good, not the moment we last tried and
+    could not.
+    """
+    from app.models import IngestRun
+
+    succeeded_at = datetime.now(UTC) - timedelta(days=2)
+    db.add(
+        Season(
+            year=FAILED_INGEST_SEASON,
+            current_week=18,
+            week_count=18,
+            last_ingested_at=succeeded_at,
+        )
+    )
+    db.add(
+        IngestRun(
+            source="nflreadpy",
+            season=FAILED_INGEST_SEASON,
+            started_at=succeeded_at,
+            finished_at=succeeded_at,
+            status="ok",
+            rows=100,
+        )
+    )
+    db.add(
+        IngestRun(
+            source="nflreadpy",
+            season=FAILED_INGEST_SEASON,
+            started_at=datetime.now(UTC),
+            finished_at=datetime.now(UTC),
+            status="failed",
+            error="connection reset by peer",
+        )
+    )
+    db.commit()
+    try:
+        yield
+    finally:
+        db.exec(delete(IngestRun).where(IngestRun.season == FAILED_INGEST_SEASON))
+        db.commit()
+        db.exec(delete(Season).where(Season.year == FAILED_INGEST_SEASON))
         db.commit()

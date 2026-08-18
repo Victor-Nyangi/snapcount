@@ -10,7 +10,7 @@ import { inkFor } from "@/lib/contrast"
  *
  * EVERY piece of banner text and the chip ink go through `inkFor` (§1.7 /
  * §1.8). This is the worst contrast surface in the app, not a marginal
- * one: the mockup hard-codes `#fff` and then drops it to 78% and 70% for
+ * one: the mockup hard-codes plain white and then drops it to 78% and 70% for
  * the record line and the stat labels, and on Carolina blue white already
  * measures only 4.03:1 at FULL opacity — the muted layers are below it
  * again. Six hex values across seven teams are in the same position.
