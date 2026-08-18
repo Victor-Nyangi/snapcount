@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useMemo } from "react"
 import type { ChampionRow as ChampionRowData } from "@/client"
 import { HistoryService } from "@/client"
+import { QueryError } from "@/components/query-error"
 import { ChampionRow, TitleCountCard } from "@/features/history/champion-row"
 import { DynastyCard } from "@/features/history/dynasty-card"
 
@@ -36,7 +37,7 @@ export function championsByDecade(
 }
 
 function HistoryScreen() {
-  const { data } = useQuery({
+  const { data, isError, refetch } = useQuery({
     queryKey: ["history"],
     queryFn: async () => (await HistoryService.champions()).data,
   })
@@ -81,6 +82,13 @@ function HistoryScreen() {
         Twenty-five seasons of champions, who won most, and the runs that lasted
         long enough to be called something.
       </p>
+
+      {isError && (
+        <QueryError
+          message="Could not load the champions list."
+          onRetry={() => refetch()}
+        />
+      )}
 
       <div className="flex flex-wrap" style={{ gap: 12, marginBottom: 28 }}>
         {(data?.most_titles ?? []).map((entry) => (

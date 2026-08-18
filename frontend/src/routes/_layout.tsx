@@ -10,7 +10,7 @@ import { type CSSProperties, useEffect, useRef } from "react"
 
 import { Footer } from "@/components/Common/Footer"
 import { RailScrollbarStyle } from "@/components/card-rail"
-import { FreshnessPill } from "@/components/freshness-pill"
+import { Freshness } from "@/components/freshness"
 import {
   SeasonWeekPicker,
   seasonWeekSearchSchema,
@@ -292,10 +292,7 @@ function Layout() {
 
           <div className="ml-auto flex items-center" style={{ gap: 14 }}>
             <SeasonWeekPicker />
-            {/* Placeholder until Task 4.1 wires GET /meta/freshness; status
-                and label are both props, never hard-coded downstream of
-                this call site. */}
-            <FreshnessPill status="final" label="Final · updated Feb 9" />
+            <Freshness />
             <UserMenu />
           </div>
         </div>

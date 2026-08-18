@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo } from "react"
 import { z } from "zod"
 import { type LeaderPosition, PlayersService } from "@/client"
+import { QueryError } from "@/components/query-error"
 import { StatTable } from "@/components/stat-table"
 import { TeamChip } from "@/components/team-chip"
 import {
@@ -53,7 +54,7 @@ function PlayerScreen() {
       ).data ?? [],
   })
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["player", playerId],
     queryFn: async () =>
       (await PlayersService.playerPage({ path: { player_id: playerId } })).data,
@@ -161,9 +162,10 @@ function PlayerScreen() {
       </div>
 
       {isError && (
-        <p style={{ padding: "28px 0", color: "var(--gray-500)" }}>
-          No player page for {playerId}.
-        </p>
+        <QueryError
+          message={`No player page for ${playerId}.`}
+          onRetry={() => refetch()}
+        />
       )}
 
       {data && (
