@@ -1,6 +1,6 @@
 # Snapcount — session handover
 
-**Written:** 2026-08-17 · **Branch:** `feat/m5-screens-leaders` (off `main`; PR #7 squash-merged as `f8d0fa1`, old branch deleted) · **Head:** `4a5e237` (Task 5.3, unreviewed)
+**Written:** 2026-08-18 · **Branch:** `feat/m6-finishing` (off `main`) · **M0–M5 complete and merged; M6 is 3 of 4** · **The plan's verification gate PASSES** (`./scripts/verification-gate.sh`)
 
 Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~900 lines — the authoritative record). The plan is `resources/nfl-implemnentation2.md`.
 
@@ -15,10 +15,10 @@ Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger,
 | M2 Shared components | ✅ | 5 marks, `StatTable`, `CardRail`, app shell with URL-backed season/week |
 | M3 Data model + ingestion | ✅ | 9 models, analytics, 25 champions, **real 2016–2025 backfill** |
 | M4 API | ✅ | 8 route modules, typed TS client generated |
-| **M5 Screens** | **3 of 8** | 5.1 Standings (done, reviewed, fixed); 5.2 Week (done, reviewed, 3 defects fixed); 5.3 Leaders (done, **unreviewed**, `4a5e237`); 5.4–5.8 remain |
-| M6 Finishing | ⬜ | 4 tasks; 6.3 partially done (freshness logic landed early in 4.1) |
+| **M5 Screens** | ✅ **8 of 8** | All merged. 5.1 and 5.2 were reviewed; **5.3–5.8 shipped unreviewed** |
+| **M6 Finishing** | **3 of 4** | 6.1 states ✅ · 6.3 scheduled ingest ✅ · 6.4 docs ✅ · **6.2 a11y/responsive is PARTIAL — needs a browser** |
 
-**Tests:** 149 backend + 190 frontend (29 of them route-level). The backend suite passes **from an empty database**, not just a backfilled one — see §2.
+**Tests:** 152 backend + 306 frontend. The backend suite passes **from an empty database**, not just a backfilled one — see §2.
 
 **Data:** 2,764 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
 
@@ -59,15 +59,28 @@ cd backend && uv run python -m tests.fixtures.generate
 
 ## 3. Immediate next actions, in order
 
-1. ~~Review Task 5.2~~ — **done** (range `8a25ab7..e349349`). Three defects found and fixed in `7c2314e`: the inverted spread sign in the upset filter (§4①), the slate table's two-way `won` boolean greying out both teams on a tie or an unplayed game, and the game card dimming both scores on a tie. Verified correct and unchanged: all seven slate widths and their order against the mockup's `grid-template-columns`, `align` declared on every column, `inkFor` driving all four banner text layers, the featured card's `border-left` on every stat cell (the mockup does the same), and the pill labels (the mockup carries no counts on `close`/`upset` either). `filterPillStyle` also *restored* a `transition` that 5.1's local `pillStyle` had dropped from the mockup's `pill(on)`.
-2. ~~Resolve the open calls in §4~~ — **done, all three answered by the user.** ① keep the "favourite lost" divergence, ② keep the recap surfaces as built, ③ close the route-test gap now (done, `60a2546`).
-3. ~~5.3 Leaders~~ — **done** (`4a5e237`, pushed on `feat/m5-screens-leaders`), **unreviewed**. It fixed a real `LeaderBar` defect and skipped a dead requirement; both are in §5 below and in the ledger. **Review range `f8d0fa1..4a5e237`.**
-4. **Answer §4④** — the `Y/A` unit is wrong for three of the four positions. It is a one-line backend change but it also feeds Task 5.6's rate cards, so decide before 5.6.
-5. **Continue M5**: 5.4 `TrendLine` → 5.5 Team → 5.6 Player → 5.7 Explorer → 5.8 History. Two standing requirements apply to every remaining screen: it lands with route-level tests of its own (§4③), and a filter/label means what it says on real data (§4①).
+**M0–M5 are complete and merged. M6 is 3 of 4.** The plan's verification gate passes end to end — run `./scripts/verification-gate.sh`.
 
----
+1. **Task 6.2 is the only unfinished task, and this environment cannot finish it.** Its measurable half IS done and verified (see §3a); what remains genuinely needs a browser. Someone with one should run it, or it should be explicitly descoped.
+2. **Five screens shipped unreviewed (5.3–5.8).** Review has found a real defect in *every* screen it was run on — including one Critical (an inverted spread sign that made the "Underdog won" filter list the games the favourite won). This is the largest untested-by-review surface in the project. Review ranges are in the ledger.
+3. **Record the confirmed brief corrections in the plan's §1** so a future reader sees why the code diverges: the upset filter (§4①), the `_layout` route path (wrong in all seven screen briefs), the per-position `Y/A` unit (§4④), `TrendLine`'s x-index, 5.7's missing `division` field, and 5.8's self-contradicting decade counts.
 
-## 4. Decisions (①–③ resolved 2026-08-17; ④ open)
+### 3a. What Task 6.2 still needs, and what is already proven
+
+**Already verified, headlessly, with output:**
+
+- **Step 3 (contrast inside coloured cells) — PASSES.** All 32 team chips clear AA after `inkFor`: worst case **4.62:1**, zero failures. The diverging scale's strong-end ink measures **10.92:1** (positive) and **8.77:1** (negative). This was flagged in the brief as "the constraint most likely to have slipped"; it did not.
+- **Step 4a (the Explorer's 320 cells are not 320 tab stops) — PASSES.** Covered by route-level tests asserting exactly one tabbable cell and arrow-key movement between them.
+
+**Still needs a browser — do not mark 6.2 done without it:**
+
+- Step 1: keyboard-only walk of all seven screens; focus never invisible or clipped; sticky columns never occluding the focused cell.
+- Step 2: `bunx @axe-core/cli` per route, expecting zero violations.
+- Step 4: 375 / 768 / 1360px on all seven, no horizontal body scroll; in particular whether the seven-item nav collapses to a scrollable row below `md` rather than wrapping to four rows.
+- Step 5: `prefers-reduced-motion` — no card hover lift, no bar animation, rail scrolling jumps.
+- Plus the accumulated backlog in §4: `font-stretch: 125%` rendering, sticky + `border-collapse` in Safari, Radix `Select` pointer UX, `LeaderBar`'s flush-left marker on a negative baseline, and 6.1's offline-throttling visual check.
+
+## 4. Decisions — all resolved
 
 **① The upset filter diverges from its brief, deliberately — CONFIRMED, keep it.** Task 5.2's brief defines `upset` as "games the road team won" (copying the mockup's `g[2] > g[4]`); the pill is labelled **"Underdog won"**. On invented data those coincide. On the real backfill they do not — 2024 week 15 had **11 road wins but only 4 upsets**, because **7 of those road wins were by the favourite** (led by Ravens at NYG -16.5). Labelling those "Underdog won" states something false, so `filterSlate` asks whether the **closing favourite lost**. `spread_line` is home-relative and populated on all 2,764 games. **The plan's §1 should record this as a corrected brief**, and 5.3–5.8 should assume the same standard: a filter means what its label says, not what the mockup's sample data made convenient.
 
@@ -77,7 +90,9 @@ cd backend && uv run python -m tests.fixtures.generate
 
 **~~③ Neither screen has route-level tests.~~ — CLOSED (`60a2546`).** 17 route-level tests now cover both screens through the **real generated route tree**: the sort→ungroup rule, Team opening A→Z, URL round-trips in both directions, the query keys (season/conference refetch; sort, grouping and slate do not), `powerMin`/`powerMax` being sourced pre-sort, and the slate filter over a fixture built from real 2024 wk15 rows including BAL at NYG -16.5. The harness is `routes/-route-harness.tsx`; **5.3–5.8 should each add route tests as they land** rather than deferring again. Note `vitest.setup.ts` now stubs `Element.scrollIntoView` — jsdom has none, and `_layout` calls it on every route change, so without the stub any route-level test gets the error boundary instead of the page.
 
-**④ NEW, OPEN — the rank-metric unit says `Y/A` for all four positions.** `_metrics.py` serves `UNITS` as one global map (`rate: "Y/A"`), so a leader card's biggest readout is labelled "Y/A (rank metric)" while the metric dropdown right above it says **"Yards per carry"** for a back and **"Yards per target"** for a receiver or tight end. Only QB is right. The mockup has the same global `UNITS`, so this is a faithful port of a mockup shortcut — and the same lying-label class as the `qualifier_label` defect already fixed once. Fixing means making `UNITS` per-position like `METRIC_LABELS` beside it. **Note it also feeds Task 5.6's player rate cards**, so it is cheaper to settle before 5.6 than after.
+**④ RESOLVED (`bdb8b16`) — the rank-metric unit said `Y/A` for all four positions.** Fixed at the source: `_metrics.py::UNITS` is now per-position (QB `Y/A`, RB `Y/C`, WR/TE `Y/T`), matching `METRIC_LABELS` beside it, with a backend test over all sixteen position×metric pairs. Decided by the assistant rather than the user, under the standing rule confirmed for §4① — it is one dict and one test if you want it reverted to match the mockup. Original note follows.
+
+> `_metrics.py` serves `UNITS` as one global map (`rate: "Y/A"`), so a leader card's biggest readout is labelled "Y/A (rank metric)" while the metric dropdown right above it says **"Yards per carry"** for a back and **"Yards per target"** for a receiver or tight end. Only QB is right. The mockup has the same global `UNITS`, so this is a faithful port of a mockup shortcut — and the same lying-label class as the `qualifier_label` defect already fixed once. Fixing means making `UNITS` per-position like `METRIC_LABELS` beside it. **Note it also feeds Task 5.6's player rate cards**, so it is cheaper to settle before 5.6 than after.
 
 ~~`playoff_seed`~~ — **decided:** badge dropped (`f2cc899`). The API keeps the nullable column; nothing renders it.
 
@@ -143,3 +158,18 @@ $SDD/review-package resources/nfl-implemnentation2.md BASE HEAD # build a review
 **Two rules each violated once, expensively:** never `git add -A` while a subagent is running (it swept an implementer's files into my commit), and subagents must never run tree-wide `git checkout` / `restore` / `stash` (one reverted uncommitted plan edits).
 
 The plan is **corrected as errors are found** — its §1 records every divergence from the design and why. It is authoritative over the design mockup where they conflict.
+
+---
+
+## 8. M6, and what "finalized" does and does not mean
+
+**Done and merged-ready on `feat/m6-finishing`:**
+
+- **6.1 loading/empty/error states.** The find here was that the **freshness pill had been hard-coded since Task 2.3** — `status="final" label="Final · updated Feb 9"`, the mockup's literal sample text, behind a comment saying it was a placeholder until Task 4.1 wired the endpoint. 4.1 built the endpoint in full and never changed the call site, so the header asserted the data was current, on a fixed February date, regardless of the database. Live truth at the time of writing is the opposite: every season reports `stale`. Also: four screens could not tell a failed request from an empty result, and no screen had a retry.
+- **6.3 scheduled ingestion.** Steps 2–3 were already satisfied by `ingest_season` (it stamps `last_ingested_at` only inside the success branch), so the work was a test proving it plus the schedule itself. The season is **derived, not configured** — a naive `date +%Y` would spend seven months a year ingesting a season that does not exist yet.
+- **6.4 documentation.** README, this project's `CLAUDE.md`, and the workspace map row. The README had still been the untouched template's.
+- **The verification gate now runs** as `./scripts/verification-gate.sh`, and **passes**. As written in the plan it could not: both greps match their own explanatory comments, and 19 of the 20 bracketed-pixel hits are vendored `components/ui/` template code. Those two exemptions are declared in the script rather than left implicit. Exactly one hit was ours — the game card's `[3px]` lift, now `--lift-hover` (theme.css §1.14).
+
+**Not done:** 6.2, as detailed in §3a. Do not let the "M6 3 of 4" line read as "nearly finished" — the remaining task is the accessibility and responsive pass, which is the one most likely to surface user-facing problems, and none of its browser-dependent half has been run.
+
+**A process note against myself:** during 6.3 I ran `git checkout` on a single file that held uncommitted work and destroyed a fixture I had just written. That is the same rule §7 records for subagents, and it applies to the controller too. Copy to a `.bak` before probing; never use `git checkout` as an undo for work that is not committed.
