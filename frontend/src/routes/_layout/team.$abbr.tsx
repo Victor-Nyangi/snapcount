@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMemo } from "react"
 import { StandingsService, TeamsService } from "@/client"
+import { QueryError } from "@/components/query-error"
 import { StatTable } from "@/components/stat-table"
 import {
   Select,
@@ -30,7 +31,7 @@ function TeamScreen() {
   const { season } = Route.useSearch()
   const navigate = useNavigate()
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["team", season, abbr],
     queryFn: async () =>
       (await TeamsService.teamPage({ path: { season, abbr } })).data,
@@ -119,9 +120,10 @@ function TeamScreen() {
       </div>
 
       {isError && (
-        <p style={{ padding: "28px 0", color: "var(--gray-500)" }}>
-          No {abbr} data for the {season} season.
-        </p>
+        <QueryError
+          message={`No ${abbr} data for the ${season} season.`}
+          onRetry={() => refetch()}
+        />
       )}
 
       {data && <TeamHero data={data} />}

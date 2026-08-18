@@ -7,6 +7,8 @@ import { DifferentialGrid } from "@/components/differential-grid/grid"
 import { orderRows } from "@/components/differential-grid/order"
 import { SelectionPanel } from "@/components/differential-grid/selection-panel"
 import { filterPillStyle } from "@/components/filter-pill"
+import { QueryError } from "@/components/query-error"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 const FROM = 2016
@@ -39,7 +41,7 @@ function ExplorerScreen() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
 
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["explorer", FROM, TO],
     queryFn: async () =>
       (await ExplorerService.differentials({ query: { from: FROM, to: TO } }))
@@ -132,35 +134,62 @@ function ExplorerScreen() {
         />
       )}
 
-      <div
-        style={{
-          background: "var(--card)",
-          border: "1px solid var(--gray-200)",
-          borderRadius: "var(--radius-lg)",
-          padding: "16px 18px",
-          boxShadow: "var(--shadow-light-sm)",
-        }}
-      >
-        <DifferentialGrid
-          rows={rows}
-          seasons={seasons}
-          domain={data?.domain ?? 150}
-          sort={search.sort}
-          selection={
-            search.team && search.year
-              ? { team: search.team, year: search.year }
-              : undefined
-          }
-          onSort={(next) =>
-            navigate({ search: (prev) => ({ ...prev, sort: next }) })
-          }
-          onSelect={(next) =>
-            navigate({
-              search: (prev) => ({ ...prev, team: next.team, year: next.year }),
-            })
-          }
+      {isError && (
+        <QueryError
+          message="Could not load the decade differential grid."
+          onRetry={() => refetch()}
         />
-      </div>
+      )}
+
+      {!isError && (
+        <div
+          style={{
+            background: "var(--card)",
+            border: "1px solid var(--gray-200)",
+            borderRadius: "var(--radius-lg)",
+            padding: "16px 18px",
+            boxShadow: "var(--shadow-light-sm)",
+          }}
+        >
+          {/* Skeleton rows at the grid's REAL row height, so the card does
+            not jump when 32 rows arrive. */}
+          {isLoading ? (
+            <div style={{ display: "grid", gap: 4 }}>
+              {Array.from({ length: 12 }, (_, i) => (
+                <Skeleton
+                  key={`explorer-skeleton-${i}`}
+                  data-testid="explorer-skeleton-row"
+                  style={{ height: 28 }}
+                />
+              ))}
+            </div>
+          ) : (
+            <DifferentialGrid
+              rows={rows}
+              seasons={seasons}
+              domain={data?.domain ?? 150}
+              sort={search.sort}
+              selection={
+                search.team && search.year
+                  ? { team: search.team, year: search.year }
+                  : undefined
+              }
+              onSort={(next) =>
+                navigate({ search: (prev) => ({ ...prev, sort: next }) })
+              }
+              onSelect={(next) =>
+                navigate({
+                  search: (prev) => ({
+                    ...prev,
+                    team: next.team,
+                    year: next.year,
+                  }),
+                })
+              }
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }

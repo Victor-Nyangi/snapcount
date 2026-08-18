@@ -5,6 +5,7 @@ import { z } from "zod"
 import { WeeksService } from "@/client"
 import { CardRail } from "@/components/card-rail"
 import { filterPillStyle } from "@/components/filter-pill"
+import { QueryError } from "@/components/query-error"
 import { StatTable } from "@/components/stat-table"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { FeaturedCard } from "@/features/week/featured-card"
@@ -35,7 +36,7 @@ function WeekScreen() {
   const navigate = Route.useNavigate()
   const { season, week } = search
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["week", season, week],
     queryFn: async () =>
       (await WeeksService.week({ path: { season, week } })).data,
@@ -109,16 +110,27 @@ function WeekScreen() {
         </div>
       </div>
 
+      {/* A failed request used to render "All 0" and "No games match this
+          filter" — a confident, wrong claim that the week was empty. */}
+      {isError && (
+        <QueryError
+          message={`Could not load week ${week} of the ${season} season.`}
+          onRetry={() => refetch()}
+        />
+      )}
+
       {/* The mockup puts the two rail arrows in the header block, top-right.
           `CardRail` (Task 2.3) owns its own arrows so it can disable them at
           each scroll extreme — the mockup's never disable, stranding
           keyboard users on a dead control. Reusing the shared component
           keeps that fix rather than re-implementing raw arrows here. */}
-      <CardRail aria-label={`Every game in week ${week}`}>
-        {games.map((game) => (
-          <GameCard key={game.id} game={game} />
-        ))}
-      </CardRail>
+      {!isError && (
+        <CardRail aria-label={`Every game in week ${week}`}>
+          {games.map((game) => (
+            <GameCard key={game.id} game={game} />
+          ))}
+        </CardRail>
+      )}
 
       {featured.length > 0 && (
         <div
@@ -139,58 +151,62 @@ function WeekScreen() {
           nothing serves them and nothing ever will (plan §2), so the
           heading is omitted too rather than left standing above nothing. */}
 
-      <div
-        className="flex flex-wrap items-center justify-between"
-        style={{ margin: "46px 0 14px", gap: 20 }}
-      >
-        <h2
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: 28,
-            fontWeight: 700,
-            margin: 0,
-            letterSpacing: "-0.01em",
-          }}
-        >
-          Full slate
-        </h2>
-        <ToggleGroup
-          type="single"
-          value={search.slate}
-          onValueChange={handleSlateChange}
-          className="flex flex-wrap gap-2"
-        >
-          {slateFilters.map((filter) => (
-            <ToggleGroupItem
-              key={filter.id}
-              value={filter.id}
-              className="h-auto min-w-0 rounded-none border-0 bg-transparent p-0 shadow-none first:rounded-none last:rounded-none data-[spacing=0]:first:rounded-none data-[spacing=0]:last:rounded-none"
-              style={filterPillStyle(search.slate === filter.id)}
+      {!isError && (
+        <>
+          <div
+            className="flex flex-wrap items-center justify-between"
+            style={{ margin: "46px 0 14px", gap: 20 }}
+          >
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: 28,
+                fontWeight: 700,
+                margin: 0,
+                letterSpacing: "-0.01em",
+              }}
             >
-              {filter.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </div>
+              Full slate
+            </h2>
+            <ToggleGroup
+              type="single"
+              value={search.slate}
+              onValueChange={handleSlateChange}
+              className="flex flex-wrap gap-2"
+            >
+              {slateFilters.map((filter) => (
+                <ToggleGroupItem
+                  key={filter.id}
+                  value={filter.id}
+                  className="h-auto min-w-0 rounded-none border-0 bg-transparent p-0 shadow-none first:rounded-none last:rounded-none data-[spacing=0]:first:rounded-none data-[spacing=0]:last:rounded-none"
+                  style={filterPillStyle(search.slate === filter.id)}
+                >
+                  {filter.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
 
-      <div
-        style={{
-          background: "var(--card)",
-          border: "1px solid var(--gray-200)",
-          borderRadius: "var(--radius-lg)",
-          overflow: "hidden",
-          boxShadow: "var(--shadow-light-sm)",
-        }}
-      >
-        <StatTable
-          caption={`Every game in week ${week} of the ${season} season`}
-          columns={columns}
-          rows={slateRows}
-          rowKey={(game) => game.id}
-          isLoading={isLoading}
-          emptyMessage="No games match this filter."
-        />
-      </div>
+          <div
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--gray-200)",
+              borderRadius: "var(--radius-lg)",
+              overflow: "hidden",
+              boxShadow: "var(--shadow-light-sm)",
+            }}
+          >
+            <StatTable
+              caption={`Every game in week ${week} of the ${season} season`}
+              columns={columns}
+              rows={slateRows}
+              rowKey={(game) => game.id}
+              isLoading={isLoading}
+              emptyMessage="No games match this filter."
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }

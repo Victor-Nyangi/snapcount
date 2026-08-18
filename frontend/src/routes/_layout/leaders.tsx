@@ -6,6 +6,7 @@ import {
   type LeaderPosition,
   LeadersService,
 } from "@/client"
+import { QueryError } from "@/components/query-error"
 import {
   Select,
   SelectContent,
@@ -119,7 +120,7 @@ function LeadersScreen() {
   const navigate = Route.useNavigate()
   const { season, position, metric, top } = search
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["leaders", season, position, metric, top],
     queryFn: async () =>
       (
@@ -286,7 +287,14 @@ function LeadersScreen() {
           since the search schema accepts any season from 1999. Say so
           plainly rather than leaving an empty page that looks like a
           still-loading one. */}
-      {!isLoading && rows.length === 0 && (
+      {isError && (
+        <QueryError
+          message={`No ${position} data for the ${season} season.`}
+          onRetry={() => refetch()}
+        />
+      )}
+
+      {!isLoading && !isError && rows.length === 0 && (
         <p
           style={{
             margin: 0,
@@ -295,9 +303,7 @@ function LeadersScreen() {
             color: "var(--gray-500)",
           }}
         >
-          {isError
-            ? `No ${position} data for the ${season} season.`
-            : "No qualified players for this position."}
+          No qualified players for this position.
         </p>
       )}
 

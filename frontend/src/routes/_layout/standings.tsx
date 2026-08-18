@@ -4,6 +4,7 @@ import { Fragment, useMemo } from "react"
 import { z } from "zod"
 import { StandingsService } from "@/client"
 import { filterPillStyle } from "@/components/filter-pill"
+import { QueryError } from "@/components/query-error"
 import { type SortState, StatTable } from "@/components/stat-table"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -98,7 +99,7 @@ function StandingsScreen() {
   // whatever it returns.
   const conferenceParam =
     search.conference === "ALL" ? undefined : search.conference
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["standings", season, search.conference],
     queryFn: async () =>
       (
@@ -231,27 +232,36 @@ function StandingsScreen() {
         </label>
       </div>
 
-      <div
-        style={{
-          background: "var(--card)",
-          border: "1px solid var(--gray-200)",
-          borderRadius: "var(--radius-lg)",
-          overflow: "hidden",
-          boxShadow: "var(--shadow-light-sm)",
-        }}
-      >
-        <StatTable
-          caption={`${season} NFL standings and power ranking`}
-          columns={columns}
-          rows={displayRows}
-          rowKey={(row) => row.team.abbr}
-          sort={{ key: search.sort, dir: search.dir }}
-          onSortChange={handleSortChange}
-          groupBy={search.group === "division" ? groupLabelFor : undefined}
-          isLoading={isLoading}
-          emptyMessage="No teams match this filter."
+      {isError && (
+        <QueryError
+          message={`Could not load the ${season} standings.`}
+          onRetry={() => refetch()}
         />
-      </div>
+      )}
+
+      {!isError && (
+        <div
+          style={{
+            background: "var(--card)",
+            border: "1px solid var(--gray-200)",
+            borderRadius: "var(--radius-lg)",
+            overflow: "hidden",
+            boxShadow: "var(--shadow-light-sm)",
+          }}
+        >
+          <StatTable
+            caption={`${season} NFL standings and power ranking`}
+            columns={columns}
+            rows={displayRows}
+            rowKey={(row) => row.team.abbr}
+            sort={{ key: search.sort, dir: search.dir }}
+            onSortChange={handleSortChange}
+            groupBy={search.group === "division" ? groupLabelFor : undefined}
+            isLoading={isLoading}
+            emptyMessage="No teams match this filter."
+          />
+        </div>
+      )}
 
       <div
         className="flex flex-wrap items-center"
