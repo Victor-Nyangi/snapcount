@@ -102,8 +102,11 @@ export function GameCard({ game }: { game: WeekGame }) {
       // Hover lift has to be a class, not inline style — the mockup's
       // `style-hover` has no React equivalent. The global
       // `prefers-reduced-motion` rule in theme.css already drops the
-      // transition for anyone who asks for that.
-      className="transition-[transform,box-shadow] duration-[120ms] ease-out hover:-translate-y-[3px] hover:shadow-[var(--shadow-light-md)]"
+      // transition for anyone who asks for that. The distance is
+      // `--lift-hover` (§1.14) rather than a literal, both because the
+      // plan's gate forbids arbitrary px in src and because the next card
+      // that wants a lift should not pick its own number.
+      className="transition-[transform,box-shadow] duration-[120ms] ease-out hover:-translate-y-[var(--lift-hover)] hover:shadow-[var(--shadow-light-md)]"
       style={{
         width: 306,
         background: "var(--card)",

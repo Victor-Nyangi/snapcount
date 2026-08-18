@@ -46,6 +46,42 @@ services:
       # Define the port inside of the Docker service to use
       - traefik.http.services.adminer.loadbalancer.server.port=8080
 
+  # Task 6.3: one nightly ingest of the current season. A loop that sleeps
+  # until the next scheduled hour is enough — see
+  # backend/scripts/nightly-ingest.sh for why this is deliberately not a
+  # queue. Shares the backend image so the ingest code and its dependencies
+  # are exactly the ones the API runs.
+  ingest-scheduler:
+    image: backend:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      INGEST_AT_HOUR_UTC: ${INGEST_AT_HOUR_UTC:-9}
+    working_dir: /app/backend
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        while true; do
+          now=$$(date -u +%s)
+          target=$$(date -u -d "today $${INGEST_AT_HOUR_UTC}:00" +%s)
+          if [ "$$target" -le "$$now" ]; then
+            target=$$(date -u -d "tomorrow $${INGEST_AT_HOUR_UTC}:00" +%s)
+          fi
+          echo "[ingest-scheduler] sleeping until $$(date -u -d "@$$target" +%FT%TZ)"
+          sleep "$$(( target - now ))"
+          # A failed run must not take the scheduler down with it: the
+          # failure is already recorded on the IngestRun row and shows up as
+          # a stale freshness pill, and tomorrow's attempt should still run.
+          bash /app/backend/scripts/nightly-ingest.sh || echo "[ingest-scheduler] run failed; freshness goes stale"
+        done
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+
   backend:
     image: backend:latest
     depends_on:
