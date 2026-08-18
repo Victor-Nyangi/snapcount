@@ -56,7 +56,19 @@ export const Route = createFileRoute("/_layout")({
 // team. Detroit is the mockup's own default (`s.teamAbbr || 'DET'`). The
 // prefix then keeps the tab lit for every other team, which an exact
 // pathname comparison against `/team/DET` would not do.
-const NAV_ITEMS: { to: string; label: string; prefix?: string }[] = [
+// Typed as the router's own path literals rather than `string`, which is
+// what lets the cast below disappear: a typo in any of these is now a
+// build error instead of a nav item that quietly 404s.
+type NavTo =
+  | "/week"
+  | "/standings"
+  | "/leaders"
+  | "/team/$abbr"
+  | "/player"
+  | "/explorer"
+  | "/history"
+
+const NAV_ITEMS: { to: NavTo; label: string; prefix?: string }[] = [
   { to: "/week", label: "Week" },
   { to: "/standings", label: "Standings & power" },
   { to: "/leaders", label: "Leaders" },
@@ -258,35 +270,16 @@ function Layout() {
                   </Link>
                 )
               }
-              // /standings (5.1), /week (5.2), /leaders (5.3) and /player
-              // (5.6) are real routes and typecheck without a cast. The
-              // other nav target doesn't exist yet (history —
-              // later tasks add them); casting `to` past the router's
-              // typed route union is the deliberate way to link ahead of a
-              // route's file existing rather than inventing a placeholder.
-              if (
-                item.to === "/standings" ||
-                item.to === "/week" ||
-                item.to === "/leaders" ||
-                item.to === "/player" ||
-                item.to === "/explorer"
-              ) {
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    search={(prev) => prev}
-                    aria-current={isActive ? "page" : undefined}
-                    style={navLinkStyle}
-                  >
-                    {item.label}
-                  </Link>
-                )
-              }
+              // EVERY OTHER NAV TARGET IS NOW A REAL ROUTE, so the
+              // `to={... as any}` escape hatch that carried this nav from
+              // Task 2.3 through all of M5 is gone with the last screen it
+              // was for. `to` typechecks against the router's own route
+              // union again, which is what makes a typo in one of these
+              // paths a build error rather than a 404 nobody clicks.
               return (
                 <Link
                   key={item.to}
-                  to={item.to as any}
+                  to={item.to}
                   search={(prev) => prev}
                   aria-current={isActive ? "page" : undefined}
                   style={navLinkStyle}
