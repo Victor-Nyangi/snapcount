@@ -23,13 +23,36 @@ for (const width of WIDTHS) {
       await page.goto(screen.path)
       await page.waitForLoadState("networkidle")
 
-      const overflow = await page.evaluate(() => ({
-        scrollWidth: document.documentElement.scrollWidth,
-        clientWidth: document.documentElement.clientWidth,
-      }))
+      // Report the WIDEST offending element, not just that something
+      // overflowed: "the page is 40px too wide" sends you hunting, while
+      // "<nav aria-label=Primary> reaches 812px" is a fix.
+      const overflow = await page.evaluate(() => {
+        const doc = document.documentElement
+        const guilty = [...document.querySelectorAll<HTMLElement>("*")]
+          .map((el) => ({
+            right: Math.round(el.getBoundingClientRect().right),
+            desc:
+              el.tagName.toLowerCase() +
+              (el.getAttribute("aria-label")
+                ? `[aria-label="${el.getAttribute("aria-label")}"]`
+                : el.className && typeof el.className === "string"
+                  ? `.${el.className.split(" ").slice(0, 2).join(".")}`
+                  : ""),
+          }))
+          .filter((e) => e.right > doc.clientWidth + 1)
+          .sort((a, b) => b.right - a.right)
+          .slice(0, 3)
+        return {
+          scrollWidth: doc.scrollWidth,
+          clientWidth: doc.clientWidth,
+          guilty,
+        }
+      })
       expect(
         overflow.scrollWidth,
-        `${screen.path} at ${width}px overflows the viewport`,
+        `${screen.path} at ${width}px overflows by ${
+          overflow.scrollWidth - overflow.clientWidth
+        }px. Widest offenders: ${JSON.stringify(overflow.guilty)}`,
       ).toBeLessThanOrEqual(overflow.clientWidth)
     })
   }

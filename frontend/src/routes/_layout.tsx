@@ -234,7 +234,16 @@ function Layout() {
             ref={navRef}
             data-rail=""
             aria-label="Primary"
-            className="flex flex-nowrap gap-1 overflow-x-auto md:flex-wrap md:overflow-visible"
+            // `min-w-0` is load-bearing, not tidiness. A flex item's default
+            // `min-width: auto` refuses to shrink below its CONTENT, so a
+            // seven-item nowrap row forced the header — and with it the
+            // document — wider than a 375px viewport, giving every screen a
+            // horizontally scrolling page. `overflow-x-auto` alone does not
+            // help: the scroll container has to be allowed to be narrower
+            // than what it scrolls. Caught by responsive.spec.ts at 375px on
+            // all seven screens at once, which is what identified it as a
+            // shell problem rather than a per-screen one.
+            className="flex min-w-0 flex-nowrap gap-1 overflow-x-auto md:flex-wrap md:overflow-visible"
           >
             {NAV_ITEMS.map((item) => {
               const isActive = item.prefix

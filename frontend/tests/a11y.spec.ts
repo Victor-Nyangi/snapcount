@@ -24,7 +24,13 @@ for (const screen of SCREENS) {
     // Name the offending rules in the failure, so a red run says what is
     // wrong instead of just how many things are.
     const summary = results.violations.map(
-      (v) => `${v.id} (${v.impact}, ${v.nodes.length} nodes): ${v.help}`,
+      (v) =>
+        `${v.id} (${v.impact}): ${v.nodes
+          .map(
+            (n) =>
+              `${n.target.join(" ")} — ${n.failureSummary?.replace(/\s+/g, " ").slice(0, 160)}`,
+          )
+          .join(" | ")}`,
     )
     expect(summary, `axe violations on ${screen.path}`).toEqual([])
   })
