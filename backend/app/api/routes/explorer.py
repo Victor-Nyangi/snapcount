@@ -45,7 +45,13 @@ def differentials(
             )
         rows.append(
             ExplorerRow(
-                team=ExplorerTeam(abbr=team.abbr, name=team.name, color=team.color),
+                team=ExplorerTeam(
+                    abbr=team.abbr,
+                    name=team.name,
+                    color=team.color,
+                    conference=team.conference,
+                    division=team.division,
+                ),
                 values=values,
                 total=sum(v for v in values if v is not None),
             )
