@@ -18,7 +18,7 @@ Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger,
 | **M5 Screens** | ✅ **8 of 8** | All merged. 5.1 and 5.2 were reviewed; **5.3–5.8 shipped unreviewed** |
 | **M6 Finishing** | ✅ **4 of 4** | 6.1 states ✅ · 6.3 scheduled ingest ✅ · 6.4 docs ✅ · 6.2 a11y/responsive ✅ (PR #12, `f24472d`) |
 
-**Tests:** 152 backend + 306 frontend unit + 91 Playwright (a11y, responsive, keyboard, contrast, and the template's own). The backend suite passes **from an empty database**, not just a backfilled one — see §2. The *browser* suite no longer runs against one: CI now seeds it from the same committed slice (§2).
+**Tests:** 156 backend + 307 frontend unit + 91 Playwright (a11y, responsive, keyboard, contrast, and the template's own). The backend suite passes **from an empty database**, not just a backfilled one — see §2. The *browser* suite no longer runs against one: CI now seeds it from the same committed slice (§2).
 
 **Data:** 2,764 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
 
@@ -33,6 +33,8 @@ Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger,
 2024 week 15: **16 games, 2 featured**, first by kickoff is Rams 12 at 49ers 6 (line SF -3). Featured #1 is BUF at DET 48–42, banner `#0076B6`.
 
 `current_week` is **17 for 2016–2020, 18 for 2021–2025** — the NFL's 16→17-game expansion. If a change makes these uniform, something regressed.
+
+Two more, useful because they are the ones that catch a page reading the wrong *season* rather than the wrong number. Kirk Cousins `00-0029604` changed teams twice inside the backfill — **WAS 2016–17, MIN 2018–23, ATL 2024–25** — with a different games count and a different `seasons_played` ordinal every year, which is why he is the fixture for the player page's season handling. Aaron Rodgers `00-0023459` is the human-readable version: **2023 NYJ, 1 game** (the torn Achilles), **2024 NYJ, 17 games**, **2025 PIT, 16 games**.
 
 ---
 
