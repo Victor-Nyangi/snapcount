@@ -1,6 +1,6 @@
 # Snapcount — session handover
 
-**Written:** 2026-08-19 · **Branch:** `feat/m6-a11y`, PR **#12 open with RED CI** · **Head:** `bc2c7ce` · M0–M5 and 6.1/6.3/6.4 are merged; **6.2 is the only task left and it is mid-fix**
+**Written:** 2026-08-19 (second session) · **Branch:** `feat/m6-a11y`, PR **#12** · **Head:** `5e4cc33` · M0–M5 and 6.1/6.3/6.4 are merged; **6.2's code is done and its three specs are green — see §3 for what is left**
 
 Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~900 lines — the authoritative record). The plan is `resources/nfl-implemnentation2.md`.
 
@@ -16,9 +16,9 @@ Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger,
 | M3 Data model + ingestion | ✅ | 9 models, analytics, 25 champions, **real 2016–2025 backfill** |
 | M4 API | ✅ | 8 route modules, typed TS client generated |
 | **M5 Screens** | ✅ **8 of 8** | All merged. 5.1 and 5.2 were reviewed; **5.3–5.8 shipped unreviewed** |
-| **M6 Finishing** | **3 of 4 merged** | 6.1 states ✅ · 6.3 scheduled ingest ✅ · 6.4 docs ✅ · **6.2 in progress on PR #12, CI red on purpose — see §3** |
+| **M6 Finishing** | **3 of 4 merged** | 6.1 states ✅ · 6.3 scheduled ingest ✅ · 6.4 docs ✅ · **6.2 fixed on PR #12, awaiting merge — see §3** |
 
-**Tests:** 152 backend + 306 frontend + a new Playwright a11y/responsive suite (currently failing — that is the point, see §3). The backend suite passes **from an empty database**, not just a backfilled one — see §2.
+**Tests:** 152 backend + 306 frontend unit + 91 Playwright (a11y, responsive, keyboard, contrast, and the template's own). The backend suite passes **from an empty database**, not just a backfilled one — see §2. The *browser* suite no longer runs against one: CI now seeds it from the same committed slice (§2).
 
 **Data:** 2,764 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
 
@@ -53,60 +53,59 @@ So it is a **no-op on your machine and the data source on CI**. No assertion was
 cd backend && uv run python -m tests.fixtures.generate
 ```
 
+**The browser suite needed the same treatment, and got it late.** The Playwright job runs the same `docker compose down -v` + `prestart.sh`, but had no equivalent of `_ensure_reference_data` — so it rendered seven empty states and several of Task 6.2's checks were vacuous there (§3). `backend/tests/seed_e2e.py` is that equivalent: the same `load_backfill`, called from the workflow **on the runner** rather than in the container, because the backend image ships `app/` and `scripts/` but deliberately not `tests/`. Compose publishes the database on 5434 and `.env.example`'s `DATABASE_URL` already points there, which is the same path `test-backend` has always used.
+
 **To reproduce CI locally, never `alembic downgrade base`** — that destroys the backfill and costs a decade-long re-ingest. Point `DATABASE_URL` at a scratch database on the same Postgres instance, migrate it, run pytest. That reproduced CI's exact failure in 14 seconds and gave a fast fix loop.
 
 ---
 
-## 3. START HERE — Task 6.2 is half-finished and CI is red on purpose
+## 3. START HERE — 6.2's code is done; what remains is review
 
-Everything else in the plan is merged and green. `./scripts/verification-gate.sh` passes. The only open work is Task 6.2, on branch `feat/m6-a11y` / **PR #12**, whose Playwright job is **failing deliberately** — the specs were written to find real problems and they found two.
+All three specs are green and `./scripts/verification-gate.sh` passes. **Do not re-derive §3 of the previous handover — its two named bugs were the visible tips of five and three respectively.** What that section got wrong is recorded below, because the pattern (a shell fix that unmasks per-screen bugs; a token failure that is really a scale-wide one) is the reusable part.
 
-**Do not "fix" the red by weakening the specs.** Both failures are genuine user-facing bugs.
-
-### What the specs are
-
-Task 6.2 was originally a manual checklist ("walk the screens, run axe, check three widths"). It is now three Playwright specs, so the checks fail the build on regression instead of being a one-time pass. They run in CI on the existing four shards, against the backend serving the built SPA.
+### What 6.2 turned out to be
 
 | Spec | Covers | Status |
 |---|---|---|
-| `frontend/tests/a11y.spec.ts` | axe on all 7 screens | **2 real violations** |
-| `frontend/tests/responsive.spec.ts` | 375/768/1360 + the §1.13 nav | **overflow at 375px** |
-| `frontend/tests/keyboard.spec.ts` | focus, roving tabindex, reduced motion | passing |
+| `frontend/tests/a11y.spec.ts` | axe on all 7 screens | green |
+| `frontend/tests/responsive.spec.ts` | 375/768/1360 + the §1.13 nav | green |
+| `frontend/tests/keyboard.spec.ts` | focus, roving tabindex, reduced motion | green |
+| `frontend/tests/contrast.spec.ts` | **new** — what axe cannot see | green |
 
-### Bug 1 — the page still scrolls sideways at 375px, by 257px
+**The 375px page scroll was five bugs, not one.** The nav (`min-w-0`, `bc2c7ce`) and the header's right-hand group were the shell layer; fixing the group took 7 failures to 4 and *unmasked* four per-screen causes it had been hiding. Two are worth carrying:
 
-Found on all seven screens at once, which is what identified it as a **shell** problem rather than seven layout bugs.
+- `minmax(420px, 1fr)` inside `repeat(auto-fit, …)` is a **hard floor**, not a preference — the track cannot go below 420px, so the week screen overflowed a 375px viewport by exactly 69px. `minmax(min(420px, 100%), 1fr)` is the fix, and `player.$playerId.tsx` had the identical expression at 280px (fixed too; latent only because 280 fits).
+- **Below `md`, a `grid` whose only explicit tracks are `md:grid-cols-[…]` falls back to a single *implicit* `auto` track, and `auto` floors at min-content.** The `md:` tracks already spelled out `minmax(0, …)`; the one-column case never got it. This bit `history` and `team/$abbr`, and bit `history` twice — once more in a nested inline `display: grid` stack.
 
-One cause is already fixed in `bc2c7ce`: the nav is `flex-nowrap overflow-x-auto`, and a flex item's default `min-width: auto` refuses to shrink below its content, so the seven-item row forced the header wider than the viewport. `overflow-x-auto` alone does not help — a scroll container has to be *allowed* to be narrower than what it scrolls. `min-w-0` added.
+**The contrast failure was three failures sharing one token, and axe could only see two.** `--emerald-dark` (#158055) is a DS *fill* the design also spends as small text; at 4.94:1 on white it has no headroom, so every tint under it fails — pill 4.44, filter pill 4.34, **diverging weak-positive cells down to 3.24**. Fixed at source with `--emerald-ink: oklch(0.44 0.1 155)` (`theme.css` §1.9b) for every emerald *text* usage.
 
-**It did not fully fix it.** The latest run still reports 257px of overflow, and now names the offender:
+> The tell was the scale's own asymmetry: the negative weak ink `--ink-negative-mid` is `oklch(0.45 0.17 25)` and clears everywhere (worst 4.81) because it was chosen as an ink. The positive counterpart never got that treatment.
 
-```
-Widest offenders: [{"right":632,"desc":"div.ml-auto.flex"}, {"right":632,"desc":"button"}, ...]
-```
+> **The brief predicted the wrong half.** Step 3 names "the strong end of the diverging scale and every team chip" as most likely to have slipped. Both were already clean (10.92 / 8.77; worst chip 4.62). It was the weak end — the pale tints nobody reads as "coloured cells".
 
-That is the header's right-hand group in `routes/_layout.tsx` — `SeasonWeekPicker` + `Freshness` + `UserMenu` — which is 632px wide inside a 375px viewport and neither wraps nor shrinks. **That is the next thing to fix.**
+**axe does not check the diverging cells at all.** On standings its `color-contrast` rule returned 0 violations, 0 passes *and* 0 incomplete for all 32 cells — it never evaluated them. `contrast.spec.ts` measures rendered pixels through a canvas instead (the tokens are `oklch`; the browser is the only authority on how they land in sRGB). Proven to bite by reverting the token: 5 of 32 cells fail — a narrow band, which is why it hid.
 
-⚠️ **The diagnostic over-reports.** It lists any element whose right edge exceeds `clientWidth`, which includes content *legitimately* scrolling inside its own card — `table.w-full.caption-bottom` at 849px and the explorer grid's `min-width: 860` div at 903px are **not** bugs, they are the designed inner scroll. Only the document scrolling is the bug. Consider scoping the offender search to elements not inside an `overflow-x: auto` ancestor.
+### Two things that were false and cost real time
 
-### Bug 2 — one real axe colour-contrast failure, and it is the freshness pill
+1. **The previous handover said `keyboard.spec.ts` was passing. It was not** — two of its tests failed on CI, and one of those had *never actually run*: `test.use({ reducedMotion: "reduce" })` did not reach the page (`matchMedia(...).matches` read `false` inside the test body), so it measured an un-emulated browser and read 0.12s as correct. With `page.emulateMedia` it immediately caught `leader-bar.tsx` still animating at 0.18s — an **inline** `transition`, which no normal-weight `*` rule can override.
+2. **I first added `!important` to the reduced-motion reset for the wrong reason** — I assumed `*` was losing on *specificity* to Tailwind's `duration-[120ms]`. Reverting and re-measuring showed still 0s: `theme.css` is unlayered and Tailwind v4's utilities are in `@layer utilities`, so unlayered normal declarations already beat them. Only the inline case ever needed it. **Re-measure before writing the comment** — it would have been confidently wrong in the file forever.
 
-```
-color-contrast (serious): span:nth-child(3)
-  contrast 4.43 — foreground #158055, background #e3f8e9, 11px
-```
+### The browser suite had been testing seven empty states
 
-`#158055` is `--emerald-dark` and `#e3f8e9` is `--emerald-tint-strong`: the **freshness pill's own label on its own background**, at 11px, measuring **4.43:1** where small text needs 4.5. It reports on leaders, player, explorer and history because those are the shards that ran those screens — it is in the shell, so it is on every screen.
+CI builds the Playwright stack with `docker compose down -v` + `prestart.sh`, which migrates an empty volume and creates the superuser. Nothing else. So:
 
-**This is not the team chips or the diverging scale.** Both were computed clean beforehand and independently: 32 chips worst-case **4.62:1** with zero failures, strong-end diverging ink **10.92:1** and **8.77:1**. The brief predicted contrast was "the constraint most likely to have slipped"; it slipped in exactly one place nobody had measured, and it took a real browser to find because the pair only fails at 11px.
+- the roving-tabindex check timed out for 30s waiting on a grid with no cells;
+- the week screen's `CardRail` was never scanned, hiding a scroll region no keyboard could reach (`tabIndex={0}` now);
+- no `DiffCell` ever rendered, so the whole positive half of the diverging scale went unmeasured;
+- the pill's contrast failure arrived as a **race** — four screens caught it mid-`"Checking…"` (emerald) and three saw it resolve to `stale` (warning, 11.36:1), on the same run.
 
-Fix by darkening the ink or lightening the tint in `theme.css` — and note the same pair is used by `filterPillStyle`, so check both before changing a token.
+`backend/tests/seed_e2e.py` now loads the same committed slice `conftest.py` uses, called from the workflow **on the runner** (the backend image ships `app/` and `scripts/` but deliberately not `tests/`; compose publishes the DB on 5434). This is the second time this project has paid for a suite coupled to ambient database state — §5 pattern 1.
 
 ### Then
 
-1. Get PR #12 green and merged. That closes M6 and the plan.
+1. **Merge PR #12.** That closes M6 and the plan.
 2. **Five screens (5.3–5.8) shipped unreviewed.** Review found a real defect in *every* screen it was run on, including a Critical. Ranges are in the ledger.
-3. Record the confirmed brief corrections in the plan's §1 — the upset filter, the `_layout` route path (wrong in all seven screen briefs), the per-position `Y/A` unit, `TrendLine`'s x-index, 5.7's missing `division` field, 5.8's self-contradicting decade counts.
+3. Record the remaining brief corrections in the plan's §1 — the upset filter, the `_layout` route path (wrong in all seven screen briefs), the per-position `Y/A` unit, `TrendLine`'s x-index, 5.7's missing `division` field, 5.8's self-contradicting decade counts. *(6.2's own corrections are already recorded there as §1.15 and §1.16, plus a correction appended to §1.13.)*
 
 ## 4. Decisions — all resolved
 
@@ -126,7 +125,9 @@ Fix by darkening the ink or lightening the tint in `theme.css` — and note the 
 
 **Four `to={... as any}` casts remain** in `frontend/src/routes/_layout.tsx` — team, player, explorer, history. Seven nav items, three real routes. Remove each as its screen lands; an `as any` that outlives its reason hides a real typo.
 
-**Task 6.2's browser backlog.** A dozen items deferred since Task 1.1 because no browser is available: `font-stretch: 125%` actually rendering, sticky-column diagonal scroll, `position: sticky` + `border-collapse` (historic Safari issue), the 375px nav collapse, reduced-motion suppression, Radix `Select` pointer UX, the game card's `hover:-translate-y-[3px]` lift, and now `LeaderBar`'s baseline marker sitting flush at 0% whenever the baseline is negative (true — everyone shown beat it — but visually flush against the rounded left edge). All tagged `CARRY TO 6.2` in the ledger.
+**~~Task 6.2's browser backlog.~~ — mostly CLOSED (`5e4cc33`).** The items that a spec can hold are now held by one: the 375px nav collapse and every width check (`responsive.spec.ts`), reduced-motion suppression (`keyboard.spec.ts`, and it caught a real bug once the emulation was fixed), focus visibility and the roving tabindex (`keyboard.spec.ts`), contrast (`contrast.spec.ts` + axe).
+
+Still genuinely open, because they are judgement calls a browser can only *show* you rather than assertions a spec can make: `font-stretch: 125%` actually rendering, sticky-column diagonal scroll, `position: sticky` + `border-collapse` (historic Safari issue — and the suite is chromium-only; firefox/webkit are commented out in `playwright.config.ts`), Radix `Select` pointer UX, and `LeaderBar`'s baseline marker sitting flush at 0% whenever the baseline is negative (true — everyone shown beat it — but visually flush against the rounded left edge). Tagged `CARRY TO 6.2` in the ledger.
 
 ---
 
@@ -142,7 +143,11 @@ Each cost at least one fix round. Expect them again.
 6. **Autogenerated migrations being wrong.** Twice: naive timestamps, and `None` constraint names that would have broken `downgrade()`. **Always read the migration before applying it.**
 7. **A sign convention assumed rather than looked up.** `favouriteLost` guessed that a negative `spread_line` meant the home team was favoured; the backend's `line_label` two files away documents the opposite and the data proves it. Because both sides of a `!==` were flipped consistently, every test passed, the reviewer's own SQL reproduced the same wrong answer, and the ledger recorded four genuine upsets as their exact opposite. **When a field carries a sign or a direction, find the code that already interprets it and agree with that, and sanity-check the result against an aggregate** — "home teams win 67% of the games where this is positive" settles it in one query; a unit test written from the same assumption as the code settles nothing.
 8. **A shared mark that has never met real data.** `LeaderBar` shipped in M2, passed its review, and sat unrendered until 5.3 — where its `value / top` scaling turned out to assume nothing is ever negative. EPA per rush is signed, so the baseline marker was off-track on every RB board in all ten seasons. Same shape as `DiffCell`'s ASCII hyphen, which also survived M2 and was caught the first time Standings rendered it. **A component's review only covers the data its author imagined; the screen that first renders it is where it is really tested.** Expect one of these per screen for the marks 5.4–5.8 introduce.
-9. **The brief being wrong.** Eleven tasks improved because an implementer pushed back. Wrong in *my* text so far: spot-check values, a contrast ratio, a dark-mode variant's semantics, a test expectation forcing `+` onto every numeric column, the route path for every screen (see §6), an acceptance check that named a row order the default view does not produce, and the upset-filter definition in §4①.
+9. **A test that passes without running.** `test.use({ reducedMotion: "reduce" })` silently did not reach the page, so the reduced-motion spec measured an un-emulated browser for as long as it existed — and read the ordinary 0.12s transition as the app's bug rather than its own. **When a test depends on an emulated or injected condition, assert that the condition actually took hold** before asserting anything about it; one `expect(matchMedia(...).matches).toBe(true)` would have caught it immediately. Sibling of pattern 1: state the test never established.
+
+10. **Writing the comment before re-measuring.** I added `!important` to the reduced-motion reset and explained it as a specificity loss to Tailwind's `duration-[120ms]`. Reverting it showed the class case was already fine — `theme.css` is unlayered, Tailwind v4's utilities are layered, and unlayered normal declarations already win. The `!important` *was* needed, but only for **inline** styles, a different mechanism entirely. The fix worked, so nothing would have failed; the file would simply have carried a confident, wrong explanation forever. **A comment asserting a cause is a claim — measure it like one.**
+
+11. **The brief being wrong.** Eleven tasks improved because an implementer pushed back. Wrong in *my* text so far: spot-check values, a contrast ratio, a dark-mode variant's semantics, a test expectation forcing `+` onto every numeric column, the route path for every screen (see §6), an acceptance check that named a row order the default view does not produce, and the upset-filter definition in §4①.
 
 ---
 
@@ -150,9 +155,17 @@ Each cost at least one fix round. Expect them again.
 
 - **`bun` is NOT on `$PATH`.** Prefix every shell command: `export PATH="$HOME/.bun/bin:$PATH"`.
 - **Bun workspace monorepo.** Run frontend scripts from the **repo root**: `bun run --filter frontend <script>`.
-- **`test` is Playwright; `test:unit` is vitest.** Never run `test` locally — it needs the full compose stack and browsers.
+- **`test` is Playwright; `test:unit` is vitest.** `test` needs a stack, but it IS runnable locally and worth it — CI rounds cost ~4 minutes each and its database is empty. What works:
+  1. `docker compose up -d db` (the dev volume already holds the decade backfill — **never** `down -v`).
+  2. Backend on :8000. `app/main.py` serves the built SPA from `backend/app/frontend`, so `cd frontend && bunx vite build` (~0.8s) is the edit-reload loop.
+  3. `PLAYWRIGHT_BASE_URL=http://localhost:8000 bunx playwright test` from `frontend/`.
+  - **`vite dev` cannot run here** — ENOSPC, the inotify watch limit is exhausted. Hence building rather than serving.
+  - **Running `pytest` deletes every `user` row** — `backend/tests/conftest.py:47` does `delete(User)` at session teardown. So the verification gate leaves the dev database unable to log in, `auth.setup.ts` fails with a 400, and every Playwright spec cascades from it. `cd backend && uv run python -m app.initial_data` puts the superuser back (additive, idempotent). Expect to need it after **every** gate run, and note the failure looks nothing like its cause.
+  - `reset-password.spec.ts` (2 tests) needs mailcatcher on :1080 and fails locally without it. That is environmental — it passes in CI.
 - **A brand-new route needs two builds.** `build` is `tsc && vite build`, and only the *vite* step regenerates `routeTree.gen.ts` — so the first typecheck after adding a route file fails against a stale tree. Run `bunx vite build` once from `frontend/`, then the normal build passes. Also: screens live at `routes/_layout/<name>.tsx`, **not** `routes/<name>.tsx` as every task brief says — TanStack's file-based routing needs the `_layout` folder to inherit the shell and the season/week search schema.
 - **PostgreSQL is on host port 5434**, not 5432 (another project owns that). `docker compose up -d db`.
+- **`bun run --filter frontend lint` REWRITES YOUR SOURCE.** The script is `biome check --write --unsafe`, and `--unsafe` fixes delete code. It silently removed two of Task 6.2's fixes — `tabIndex={0}` on the card rail (`lint/a11y/noNoninteractiveTabindex`) and `!important` on the reduced-motion reset (`lint/complexity/noImportantStyles`) — leaving behind only the comments explaining them, which then read as lies. Both were verified green *before* the lint step and committed after it, so CI caught what the local run had already proved fixed. **Run lint BEFORE the final verification, never after**, and when a fix is a deliberate rule conflict, pin it with `biome-ignore` (for a JSX attribute the comment goes *inside* the tag, immediately above the attribute; for CSS use `biome-ignore-start`/`-end` inside the block).
+
 - **`mypy` and `ty` only read config from their own working directory.** `backend/pyproject.toml` holds both; run them from `backend/`, never the root, or `strict` and the nflreadpy override silently vanish. The pre-commit hooks now `cd backend` themselves.
 - **`_typos.toml` fully overrides `[tool.typos]` in `pyproject.toml`** — the hook never reads pyproject. `_typos.toml` is a strict superset; add exemptions there.
 - **jsdom normalises colours to `rgb(r, g, b)`** in `style.color` assertions, so comparing against a hex constant fails. `featured-card.test.tsx` has an `asRgb` helper.
@@ -202,6 +215,10 @@ The plan is **corrected as errors are found** — its §1 records every divergen
 1. **Check the brief against real data before coding.** Roughly half the task briefs had an error findable in five minutes against the live API — a field the API never sent, a count contradicting its own filter, a requirement that was dead code.
 2. **Prove the test bites.** Break the behaviour, confirm the test fails, restore. This has repeatedly caught assertions that passed for the wrong reason, including twice in tests I had just written and believed.
 3. **Verify against the live database, and state acceptance checks against the DEFAULT URL** — the one a user actually lands on, not a hand-tuned one.
+
+**A fourth, earned in 6.2: get the fast local loop before the second CI round.** The first session ran 6.2 through CI at ~4 minutes a round and concluded the specs could not run locally. They can (§6), and the loop is ~8 seconds — which is what made it affordable to fix a bug, re-measure, and discover the *next* bug hiding behind it, five times on one screen set. It is also what showed that CI's own database is empty, which no amount of reading the specs would have revealed.
+
+**And a fifth: a symptom that appears on every screen at once names the layer, not the count.** Seven screens overflowing identically said "shell" correctly — but after the shell was fixed, four screens still overflowed for four different reasons. **The shared cause being real does not mean it is the only one**; re-run before believing the diagnosis is complete.
 
 **M6 in brief (all merged except 6.2).** 6.1 found that the freshness pill had been hard-coded to the mockup's literal `"Final · updated Feb 9"` since Task 2.3 — Task 4.1 built the endpoint and never changed the call site — while every season actually reported `stale`; it also found four screens that could not tell a failed request from an empty result. 6.3 turned out to be mostly already correct (`ingest_season` only stamps `last_ingested_at` on success), so the work was a test proving it plus the nightly schedule, whose season is *derived* because a naive `date +%Y` would ingest a nonexistent season for seven months a year. 6.4 wrote the README (still the template's until then), `CLAUDE.md`, and the workspace row. The plan's verification gate is now `./scripts/verification-gate.sh` and passes — it could not as written, since both its greps matched their own explanatory comments and 19 of 20 bracketed-pixel hits are vendored template code; both exemptions are declared in the script.
 

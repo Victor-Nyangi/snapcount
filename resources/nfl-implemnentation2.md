@@ -268,6 +268,28 @@ The nav grew from three items to seven (`Week`, `Standings & power`, `Leaders`, 
 
 **Decision:** below the `md` breakpoint the nav collapses to a horizontally scrollable single row with the active item scrolled into view — the same `data-rail` treatment the week view already uses, so no new pattern is introduced. Flagged because it is a structure the mockup does not show, invented to satisfy the 375px constraint.
 
+**Correction (Task 6.2).** The nav was the *smallest* of five causes of horizontal page scroll at 375px, and fixing it left 257px of the original 231–257px overflow in place. The others, all confirmed by measurement in a real browser: the header's right-hand group (picker + freshness + user menu) is a nowrap flex row whose min-content width is 578px at any viewport; `minmax(420px, 1fr)` inside `repeat(auto-fit, …)` is a hard floor, not a preference; and a `grid` whose only explicit tracks are under `md:` falls back below that breakpoint to a single **implicit** `auto` track, which floors at its content's min-content width — so the `minmax(0, …)` those grids already spell out for the two-column case is needed for the one-column case too. Anything wide and tabular (the champion rows, every `StatTable`, the explorer grid) scrolls inside its own card; only the page itself must not scroll.
+
+### 1.15 The emerald ink is a fill, and fails as small text on every tint
+
+*(Recorded by Task 6.2, which found this rather than what its own brief predicted.)*
+
+Task 6.2 Step 3 says to verify contrast "on data text inside colored cells specifically — the strong end of the diverging scale and every team chip. This is the constraint most likely to have slipped." Both were already clean: the strong diverging inks measure 10.92:1 and 8.77:1, and the worst of the 32 team chips is 4.62:1 with no failures.
+
+What had slipped was the **weak** end — the pale tints nobody reads as "colored cells". `--emerald-dark` (#158055) is a DS *fill* that the design also spends as small text. At 4.94:1 on white it has no headroom, so every tinted background beneath it falls under AA's 4.5 for text below 18.66px: the freshness pill at 4.44:1, the active filter pill at 4.34:1, and the diverging scale's weak positive cells down to 3.24:1.
+
+The scale's own negative half shows what was missing. `--ink-negative-mid` is `oklch(0.45 0.17 25)` and clears everywhere it lands (worst 4.81:1) because it was chosen as an ink. Its positive counterpart never got that treatment.
+
+**Decision:** `theme.css` §1.9b adds `--emerald-ink: oklch(0.44 0.1 155)` — the same lightness as the negative ink, at emerald's hue — and every emerald **text** usage moves to it. `--emerald-dark` stays as-is for fills (`--chart-4`).
+
+**And axe cannot check this.** On the standings screen axe's `color-contrast` rule returned zero violations, zero passes *and* zero incomplete for all 32 diverging cells — it never evaluated them. Step 2's "run axe, expect zero violations" is therefore necessary but not sufficient for Step 3; `frontend/tests/contrast.spec.ts` measures the rendered pixels directly.
+
+### 1.16 The browser suite must be given data
+
+Task 6.2's specs run in the existing Playwright job, which builds its stack with `docker compose down -v` followed by `prestart.sh` — migrations and a superuser, and nothing else. Every screen therefore rendered its empty state, and the checks that matter most silently tested nothing: the roving-tabindex check timed out on a grid with no cells, the week screen's card rail was never scanned (it is a scroll region no keyboard could reach), no `DiffCell` was ever rendered, and the freshness pill's contrast failure surfaced as a *race* — four screens caught it mid-`"Checking…"` and three saw it resolve to the passing stale styling, on the same run.
+
+**Decision:** the Playwright workflow seeds the same committed backfill slice `backend/tests/conftest.py` already uses for pytest (`backend/tests/seed_e2e.py`, run from the runner against the published `5434` port, because the backend image ships `app/` and `scripts/` but deliberately not `tests/`). This is the second time this project has paid for a suite coupled to ambient database state; it is the same fix as the first.
+
 ---
 
 ## §2 — Explicitly out of scope

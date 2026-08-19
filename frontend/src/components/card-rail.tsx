@@ -108,12 +108,24 @@ export function CardRail({
           are not focusable — the week screen's game cards are `<article>`s.
           Without it a keyboard user can reach the two arrow buttons but
           never the region itself, so arrow-key scrolling is unavailable and
-          axe reports `scrollable-region-focusable`. CI never saw this: it
-          runs against an empty database, so the rail has no cards and does
-          not scroll. `theme.css` already gives `[tabindex]` a focus ring. */}
+          axe reports `scrollable-region-focusable` (WCAG 2.1.1). CI never
+          saw this: it ran against an empty database, so the rail had no
+          cards and did not scroll. `theme.css` already gives `[tabindex]` a
+          focus ring.
+
+          The suppression below is a genuine rule conflict, not a silenced
+          warning: biome forbids `tabIndex` on a non-interactive element,
+          and axe requires it on a scrollable one. axe is right for this
+          element — a region a keyboard cannot reach is unreachable content,
+          which is the stronger failure. Note biome's fix here is UNSAFE and
+          `bun run lint` is `biome check --write --unsafe`, so without this
+          comment the attribute is deleted on the next lint and only this
+          explanation survives. That is exactly what happened once. */}
       <section
         ref={railRef}
         data-rail=""
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be keyboard-reachable — see above
+        tabIndex={0}
         aria-label={ariaLabel}
         onScroll={updateEdges}
         className="flex-1"

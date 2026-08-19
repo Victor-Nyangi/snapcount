@@ -149,8 +149,15 @@ h2,
   *,
   *::before,
   *::after {
-    animation: none;
-    transition: none;
+    /* biome-ignore-start lint/complexity/noImportantStyles: a reduced-motion
+     * reset must outrank inline styles by construction; see above. biome's
+     * fix for this rule is UNSAFE and `bun run lint` is
+     * `biome check --write --unsafe`, so without this the two declarations
+     * below are silently deleted and only the explanation survives. That is
+     * exactly what happened once. */
+    animation: none !important;
+    transition: none !important;
+    /* biome-ignore-end lint/complexity/noImportantStyles: see above */
   }
 }
 
