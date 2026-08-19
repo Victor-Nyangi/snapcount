@@ -1,6 +1,6 @@
 # Snapcount — session handover
 
-**Written:** 2026-08-18 · **Branch:** `feat/m6-finishing` (off `main`) · **M0–M5 complete and merged; M6 is 3 of 4** · **The plan's verification gate PASSES** (`./scripts/verification-gate.sh`)
+**Written:** 2026-08-19 · **Branch:** `feat/m6-a11y`, PR **#12 open with RED CI** · **Head:** `bc2c7ce` · M0–M5 and 6.1/6.3/6.4 are merged; **6.2 is the only task left and it is mid-fix**
 
 Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~900 lines — the authoritative record). The plan is `resources/nfl-implemnentation2.md`.
 
@@ -16,9 +16,9 @@ Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger,
 | M3 Data model + ingestion | ✅ | 9 models, analytics, 25 champions, **real 2016–2025 backfill** |
 | M4 API | ✅ | 8 route modules, typed TS client generated |
 | **M5 Screens** | ✅ **8 of 8** | All merged. 5.1 and 5.2 were reviewed; **5.3–5.8 shipped unreviewed** |
-| **M6 Finishing** | **3 of 4** | 6.1 states ✅ · 6.3 scheduled ingest ✅ · 6.4 docs ✅ · **6.2 a11y/responsive is PARTIAL — needs a browser** |
+| **M6 Finishing** | **3 of 4 merged** | 6.1 states ✅ · 6.3 scheduled ingest ✅ · 6.4 docs ✅ · **6.2 in progress on PR #12, CI red on purpose — see §3** |
 
-**Tests:** 152 backend + 306 frontend. The backend suite passes **from an empty database**, not just a backfilled one — see §2.
+**Tests:** 152 backend + 306 frontend + a new Playwright a11y/responsive suite (currently failing — that is the point, see §3). The backend suite passes **from an empty database**, not just a backfilled one — see §2.
 
 **Data:** 2,764 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
 
@@ -57,28 +57,56 @@ cd backend && uv run python -m tests.fixtures.generate
 
 ---
 
-## 3. Immediate next actions, in order
+## 3. START HERE — Task 6.2 is half-finished and CI is red on purpose
 
-**M0–M5 are complete and merged. M6 is 3 of 4.** The plan's verification gate passes end to end — run `./scripts/verification-gate.sh`.
+Everything else in the plan is merged and green. `./scripts/verification-gate.sh` passes. The only open work is Task 6.2, on branch `feat/m6-a11y` / **PR #12**, whose Playwright job is **failing deliberately** — the specs were written to find real problems and they found two.
 
-1. **Task 6.2 is the only unfinished task, and this environment cannot finish it.** Its measurable half IS done and verified (see §3a); what remains genuinely needs a browser. Someone with one should run it, or it should be explicitly descoped.
-2. **Five screens shipped unreviewed (5.3–5.8).** Review has found a real defect in *every* screen it was run on — including one Critical (an inverted spread sign that made the "Underdog won" filter list the games the favourite won). This is the largest untested-by-review surface in the project. Review ranges are in the ledger.
-3. **Record the confirmed brief corrections in the plan's §1** so a future reader sees why the code diverges: the upset filter (§4①), the `_layout` route path (wrong in all seven screen briefs), the per-position `Y/A` unit (§4④), `TrendLine`'s x-index, 5.7's missing `division` field, and 5.8's self-contradicting decade counts.
+**Do not "fix" the red by weakening the specs.** Both failures are genuine user-facing bugs.
 
-### 3a. What Task 6.2 still needs, and what is already proven
+### What the specs are
 
-**Already verified, headlessly, with output:**
+Task 6.2 was originally a manual checklist ("walk the screens, run axe, check three widths"). It is now three Playwright specs, so the checks fail the build on regression instead of being a one-time pass. They run in CI on the existing four shards, against the backend serving the built SPA.
 
-- **Step 3 (contrast inside coloured cells) — PASSES.** All 32 team chips clear AA after `inkFor`: worst case **4.62:1**, zero failures. The diverging scale's strong-end ink measures **10.92:1** (positive) and **8.77:1** (negative). This was flagged in the brief as "the constraint most likely to have slipped"; it did not.
-- **Step 4a (the Explorer's 320 cells are not 320 tab stops) — PASSES.** Covered by route-level tests asserting exactly one tabbable cell and arrow-key movement between them.
+| Spec | Covers | Status |
+|---|---|---|
+| `frontend/tests/a11y.spec.ts` | axe on all 7 screens | **2 real violations** |
+| `frontend/tests/responsive.spec.ts` | 375/768/1360 + the §1.13 nav | **overflow at 375px** |
+| `frontend/tests/keyboard.spec.ts` | focus, roving tabindex, reduced motion | passing |
 
-**Still needs a browser — do not mark 6.2 done without it:**
+### Bug 1 — the page still scrolls sideways at 375px, by 257px
 
-- Step 1: keyboard-only walk of all seven screens; focus never invisible or clipped; sticky columns never occluding the focused cell.
-- Step 2: `bunx @axe-core/cli` per route, expecting zero violations.
-- Step 4: 375 / 768 / 1360px on all seven, no horizontal body scroll; in particular whether the seven-item nav collapses to a scrollable row below `md` rather than wrapping to four rows.
-- Step 5: `prefers-reduced-motion` — no card hover lift, no bar animation, rail scrolling jumps.
-- Plus the accumulated backlog in §4: `font-stretch: 125%` rendering, sticky + `border-collapse` in Safari, Radix `Select` pointer UX, `LeaderBar`'s flush-left marker on a negative baseline, and 6.1's offline-throttling visual check.
+Found on all seven screens at once, which is what identified it as a **shell** problem rather than seven layout bugs.
+
+One cause is already fixed in `bc2c7ce`: the nav is `flex-nowrap overflow-x-auto`, and a flex item's default `min-width: auto` refuses to shrink below its content, so the seven-item row forced the header wider than the viewport. `overflow-x-auto` alone does not help — a scroll container has to be *allowed* to be narrower than what it scrolls. `min-w-0` added.
+
+**It did not fully fix it.** The latest run still reports 257px of overflow, and now names the offender:
+
+```
+Widest offenders: [{"right":632,"desc":"div.ml-auto.flex"}, {"right":632,"desc":"button"}, ...]
+```
+
+That is the header's right-hand group in `routes/_layout.tsx` — `SeasonWeekPicker` + `Freshness` + `UserMenu` — which is 632px wide inside a 375px viewport and neither wraps nor shrinks. **That is the next thing to fix.**
+
+⚠️ **The diagnostic over-reports.** It lists any element whose right edge exceeds `clientWidth`, which includes content *legitimately* scrolling inside its own card — `table.w-full.caption-bottom` at 849px and the explorer grid's `min-width: 860` div at 903px are **not** bugs, they are the designed inner scroll. Only the document scrolling is the bug. Consider scoping the offender search to elements not inside an `overflow-x: auto` ancestor.
+
+### Bug 2 — one real axe colour-contrast failure, and it is the freshness pill
+
+```
+color-contrast (serious): span:nth-child(3)
+  contrast 4.43 — foreground #158055, background #e3f8e9, 11px
+```
+
+`#158055` is `--emerald-dark` and `#e3f8e9` is `--emerald-tint-strong`: the **freshness pill's own label on its own background**, at 11px, measuring **4.43:1** where small text needs 4.5. It reports on leaders, player, explorer and history because those are the shards that ran those screens — it is in the shell, so it is on every screen.
+
+**This is not the team chips or the diverging scale.** Both were computed clean beforehand and independently: 32 chips worst-case **4.62:1** with zero failures, strong-end diverging ink **10.92:1** and **8.77:1**. The brief predicted contrast was "the constraint most likely to have slipped"; it slipped in exactly one place nobody had measured, and it took a real browser to find because the pair only fails at 11px.
+
+Fix by darkening the ink or lightening the tint in `theme.css` — and note the same pair is used by `filterPillStyle`, so check both before changing a token.
+
+### Then
+
+1. Get PR #12 green and merged. That closes M6 and the plan.
+2. **Five screens (5.3–5.8) shipped unreviewed.** Review found a real defect in *every* screen it was run on, including a Critical. Ranges are in the ledger.
+3. Record the confirmed brief corrections in the plan's §1 — the upset filter, the `_layout` route path (wrong in all seven screen briefs), the per-position `Y/A` unit, `TrendLine`'s x-index, 5.7's missing `division` field, 5.8's self-contradicting decade counts.
 
 ## 4. Decisions — all resolved
 
@@ -161,15 +189,20 @@ The plan is **corrected as errors are found** — its §1 records every divergen
 
 ---
 
-## 8. M6, and what "finalized" does and does not mean
+## 8. Orientation for a cold start
 
-**Done and merged-ready on `feat/m6-finishing`:**
+**What this project is.** An NFL analysis platform: ten seasons of real nflverse data behind seven screens. FastAPI + SQLModel + PostgreSQL; React 19 + Vite + TanStack Router/Query, served by the same FastAPI app in production. Built from the `full-stack-fast` template, so anything in `components/ui/` or `components/Common/` is vendored and not ours.
 
-- **6.1 loading/empty/error states.** The find here was that the **freshness pill had been hard-coded since Task 2.3** — `status="final" label="Final · updated Feb 9"`, the mockup's literal sample text, behind a comment saying it was a placeholder until Task 4.1 wired the endpoint. 4.1 built the endpoint in full and never changed the call site, so the header asserted the data was current, on a fixed February date, regardless of the database. Live truth at the time of writing is the opposite: every season reports `stale`. Also: four screens could not tell a failed request from an empty result, and no screen had a retry.
-- **6.3 scheduled ingestion.** Steps 2–3 were already satisfied by `ingest_season` (it stamps `last_ingested_at` only inside the success branch), so the work was a test proving it plus the schedule itself. The season is **derived, not configured** — a naive `date +%Y` would spend seven months a year ingesting a season that does not exist yet.
-- **6.4 documentation.** README, this project's `CLAUDE.md`, and the workspace map row. The README had still been the untouched template's.
-- **The verification gate now runs** as `./scripts/verification-gate.sh`, and **passes**. As written in the plan it could not: both greps match their own explanatory comments, and 19 of the 20 bracketed-pixel hits are vendored `components/ui/` template code. Those two exemptions are declared in the script rather than left implicit. Exactly one hit was ours — the game card's `[3px]` lift, now `--lift-hover` (theme.css §1.14).
+**Read in this order:** this file → `CLAUDE.md` (conventions the code does not state) → `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, the authoritative record of every task, defect and ruling) → `resources/nfl-implemnentation2.md` (the plan; §1 divergences, §2 what was deliberately not built).
 
-**Not done:** 6.2, as detailed in §3a. Do not let the "M6 3 of 4" line read as "nearly finished" — the remaining task is the accessibility and responsive pass, which is the one most likely to surface user-facing problems, and none of its browser-dependent half has been run.
+**How the work has been run.** One task at a time from the plan, each ending in a commit whose message records what was found rather than only what changed; a branch per milestone chunk; a PR with CI green before merge. The ledger is appended to after every task.
 
-**A process note against myself:** during 6.3 I ran `git checkout` on a single file that held uncommitted work and destroyed a fixture I had just written. That is the same rule §7 records for subagents, and it applies to the controller too. Copy to a `.bak` before probing; never use `git checkout` as an undo for work that is not committed.
+**The three habits that have actually caught things** — keep them:
+
+1. **Check the brief against real data before coding.** Roughly half the task briefs had an error findable in five minutes against the live API — a field the API never sent, a count contradicting its own filter, a requirement that was dead code.
+2. **Prove the test bites.** Break the behaviour, confirm the test fails, restore. This has repeatedly caught assertions that passed for the wrong reason, including twice in tests I had just written and believed.
+3. **Verify against the live database, and state acceptance checks against the DEFAULT URL** — the one a user actually lands on, not a hand-tuned one.
+
+**M6 in brief (all merged except 6.2).** 6.1 found that the freshness pill had been hard-coded to the mockup's literal `"Final · updated Feb 9"` since Task 2.3 — Task 4.1 built the endpoint and never changed the call site — while every season actually reported `stale`; it also found four screens that could not tell a failed request from an empty result. 6.3 turned out to be mostly already correct (`ingest_season` only stamps `last_ingested_at` on success), so the work was a test proving it plus the nightly schedule, whose season is *derived* because a naive `date +%Y` would ingest a nonexistent season for seven months a year. 6.4 wrote the README (still the template's until then), `CLAUDE.md`, and the workspace row. The plan's verification gate is now `./scripts/verification-gate.sh` and passes — it could not as written, since both its greps matched their own explanatory comments and 19 of 20 bracketed-pixel hits are vendored template code; both exemptions are declared in the script.
+
+**A process note against myself.** During 6.3 I ran `git checkout` on a single file holding uncommitted work and destroyed a fixture I had just written. §7 records that rule for subagents; it applies to whoever is driving. Copy to a `.bak` before probing, and never use `git checkout` as an undo for uncommitted work.
