@@ -132,6 +132,40 @@ Fixed on `fix/player-season` (**PR #13**): `season` is an optional query paramet
    What has made these reviews worth their cost, stated as instructions to give: **recompute, don't read** (reimplement the spec independently and diff the outputs — that is how the upset-filter divergence and the Z→A sort bug were both found); **verify against the live database, not fixtures**; **state acceptance checks against the default URL**, grouping and sorting included; and **ask what the tests do *not* cover**, consistently the most valuable section. Add the two this session earned: **look at the screen at 375px**, and **check that any label agrees with the value beside it** — that single check would have caught the player-season bug, the `qualifier_label` defect, the hard-coded freshness pill and the per-position `Y/A` unit, which is four of this project's defects from one question.
 3. ~~Record the remaining brief corrections in the plan's §1.~~ **DONE** — all six are now §1.17 (the `_layout` route path, the upset filter, `TrendLine`'s x-index, the per-position `Y/A` unit, 5.7's missing `division` field, 5.8's self-contradicting decade counts). 6.2's own are §1.15 and §1.16, plus a correction appended to §1.13.
 
+## 3b. The 5.3–5.8 review — COMPLETE, nothing fixed
+
+Method: **combined per screen** — recompute the spec against the live database *and* render the screen — then **report everything, fix on the user's call**. All six screens done. Nothing below is fixed.
+
+### Findings, ranked
+
+| # | Sev | Finding |
+|---|---|---|
+| 1 | **High** | **7 of 10 seasons unreachable from the UI.** `SEASON_OPTIONS` hard-codes `[2025, 2024, 2023]`; `/meta/seasons` reports all ten. `?season=2017` renders 2017 data with a **blank Season control**. The component's comment says to revisit once that endpoint exists — it landed in Task 4.1. |
+| 2 | **High** | **The whole postseason is unreachable, every Super Bowl included.** `WEEK_OPTIONS` is `1..18`; games run to week 21 (2016–20) / 22 (2021–25) and the schema already allows `.max(22)`. `/week?season=2024&week=22` renders "Week 22 · 2024 Super Bowl" with a **blank Week control**. |
+| 3 | **High** | **Player rate-card bars are scaled to unqualified outliers.** `scale_max` is an unfiltered max over every player at the position, so a 1–4 game backup sets the scale. The league's **best qualified WR by EPA** (Amon-Ra St. Brown) fills **9.6%** of his bar; his Y/T bar fills 13% because the max is 69.0 y/t (Tyrell Shavers, one target). Rodgers' 2024 EPA bar fills **0.8%**. Affects every player page, 2 of 3 cards. The code's stated intent — "the bar's own player can never exceed its own scale" — is preserved by `max(qualified_max, this_player_value)`. |
+| 4 | Medium | **Leaders: ties get different ranks and one is silently dropped at the cutoff.** 2017 QB TDs: Roethlisberger/Rivers/Goff all threw 28 → ranks 4, 5, and at Top 5 Goff vanishes. **68 such cases** across the backfill. `qualified.sort()` is stable over a `select()` with **no `ORDER BY`**, so the tiebreak is not deterministic. **The explorer already does this correctly** — BAL and BUF, both +157 in 2024, are both "Ranked #3 of 32". Leaders is inconsistent with a correct pattern already in the codebase. |
+| 5 | Medium | **Team page caption hard-codes "the 17-game season".** The NFL played 16 games 2016–2020. Wrong on 5 of 10 seasons × 32 teams = **160 team-seasons**. `features/team/hero.tsx:135`. |
+| 6 | Medium | **"Nth season" means "Nth season in our backfill", not career.** Tom Brady in 2017 reads **"2nd season"**. `ingest/players.py` documents the limitation in a comment; the UI states it as fact. Feeds both the leader card and the player page. |
+| 7 | Low | **Explorer total column saturates for the teams you most want to compare.** `domain * 4` = 600 against totals spanning −1193..1046: **9 of 32 teams** saturate, so NYJ (−1193) and CLE (−751) render identically. Season cells at domain 150 saturate 14% of the time, which the plan already ruled acceptable. |
+| 8 | Low | **History "most titles" drops a tied team.** Five teams have 2 titles; the cut at 6 cards shows BAL/NYG/PHI/PIT and drops **TB**. Tiebreak is deterministic (alphabetical by abbr), unlike finding 4 — but the row is labelled "most titles" and omits an equally-titled team. |
+| 9 | Low | **Explorer's season range is hard-coded** `FROM = 2016 / TO = 2025` rather than derived from `/meta/seasons`. Same family as 1; a 2026 ingest will not appear until someone edits the constant. |
+
+1 and 2 are **one component and one fix** — `season-week-picker.tsx` sourcing both lists from `/meta/seasons`, which already returns `year`, `current_week` and `week_count`. Highest user-visible value in the review.
+
+### Verified clean — recomputed independently, exact match
+
+- **5.3 leaders**: every baseline and board across 4 positions × 4 metrics; the qualifier gates the board, not just the baseline; per-position units (Y/A / Y/C / Y/T); precision 3/0/0/1.
+- **5.4 TrendLine**: scaling exact (DET 2019 ends at y=126.0, 95% down, from a −82 cumulative); interior-null handling correct.
+- **5.5 team page**: 17 rows with playoffs correctly excluded, record recomputed to 15-2, cumulative lands on +222 with zero mismatches, all four per-game stats. **Ties render correctly** (2019 DET 3-12-1: T badge in orchid, margin `0` neutral) — that fix held.
+- **5.7 explorer**: all 32 × 10 cells match; zero missing; competition ranking correct on ties; selection round-trips through the URL (`team=BAL&year=2024`).
+- **5.8 history**: 25 champions 2000–2024, decades 10/10/5, NE 6 titles, dynasty ranges are curated editorial (PIT's 2010 is their third *appearance*, not a title).
+
+**Correction to an earlier ledger claim:** local deep links are NOT broken. The SPA fallback is `Accept`-header driven — a browser gets `200` + the app; `curl`'s default `*/*` gets a JSON 404.
+
+**Next: hosting/deployment** — untouched. `compose.deploy.yml`, `deployment.md` and `deployment-docker-compose.md` exist and have not been reviewed.
+
+---
+
 ## 4. Decisions — all resolved
 
 **① The upset filter diverges from its brief, deliberately — CONFIRMED, keep it.** Task 5.2's brief defines `upset` as "games the road team won" (copying the mockup's `g[2] > g[4]`); the pill is labelled **"Underdog won"**. On invented data those coincide. On the real backfill they do not — 2024 week 15 had **11 road wins but only 4 upsets**, because **7 of those road wins were by the favourite** (led by Ravens at NYG -16.5). Labelling those "Underdog won" states something false, so `filterSlate` asks whether the **closing favourite lost**. `spread_line` is home-relative and populated on all 2,764 games. **The plan's §1 should record this as a corrected brief**, and 5.3–5.8 should assume the same standard: a filter means what its label says, not what the mockup's sample data made convenient.
