@@ -1,5 +1,8 @@
+import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, useSearch } from "@tanstack/react-router"
 import { z } from "zod"
+
+import { MetaService } from "@/client"
 
 import {
   Select,
@@ -67,12 +70,31 @@ export function useSeasonWeek() {
   }
 }
 
-// Faithful to the mockup's static <option> list (resources/design-v2-seven-
-// screens.html) rather than a computed range: no season-availability
-// endpoint exists yet (that lands with GET /meta/freshness, Task 4.1).
-// Revisit once the API can report which seasons actually have ingested data.
-const SEASON_OPTIONS = [2025, 2024, 2023]
-const WEEK_OPTIONS = Array.from({ length: 18 }, (_, i) => i + 1)
+/**
+ * The four playoff rounds, in order, as `_format.py::phase_label` names
+ * them — one vocabulary shared with the week screen's own header rather
+ * than a second one invented here.
+ */
+const PLAYOFF_ROUNDS = [
+  "Wild card round",
+  "Divisional round",
+  "Conference championship",
+  "Super Bowl",
+]
+
+/**
+ * Week `w` of `season`, labelled the way that season actually played it.
+ *
+ * The postseason is weeks too, and which number it starts on moved: the
+ * league played 17 regular-season weeks through 2020 and 18 from 2021, so
+ * week 18 is the wild card round in 2019 and an ordinary Sunday in 2024.
+ * Deriving the label from `current_week` is what lets one control describe
+ * both eras; a fixed list cannot.
+ */
+export function weekLabel(week: number, currentWeek: number): string {
+  if (week <= currentWeek) return `Week ${week}`
+  return PLAYOFF_ROUNDS[week - currentWeek - 1] ?? `Week ${week}`
+}
 
 const labelStyle: React.CSSProperties = {
   fontSize: 11,
@@ -95,6 +117,37 @@ const triggerStyle: React.CSSProperties = {
 export function SeasonWeekPicker() {
   const { season, week, setSeason, setWeek } = useSeasonWeek()
 
+  // WHAT THE DATABASE ACTUALLY HOLDS, not a hard-coded list. This used to
+  // be `[2025, 2024, 2023]` and `Array.from({length: 18})`, against ten
+  // ingested seasons that each run to week 21 or 22 — so seven seasons and
+  // every postseason week, the Super Bowl included, could only be reached
+  // by hand-editing the URL. Worse, the page honoured such a URL while the
+  // control went BLANK, because Radix has no item matching the value: the
+  // control contradicted the screen beside it.
+  //
+  // `/meta/seasons` has existed since Task 4.1 for exactly this — its
+  // schema docstring reads "populates the season selector" — and was never
+  // wired up. `max_week` is derived there from the games themselves;
+  // `week_count` is a stored constant of 18 and describes nothing.
+  const { data: seasons } = useQuery({
+    queryKey: ["meta", "seasons"],
+    queryFn: async () => (await MetaService.listSeasons()).data,
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+
+  // Newest first, matching the old list's order and the way anyone reads a
+  // season picker. Falls back to the season in the URL so the control still
+  // names the page it is on while the request is in flight or has failed —
+  // never blank, which was the original defect.
+  const seasonOptions = seasons?.length
+    ? [...seasons].sort((a, b) => b.year - a.year).map((s) => s.year)
+    : [season]
+
+  const active = seasons?.find((s) => s.year === season)
+  const maxWeek = active?.max_week ?? week
+  const currentWeek = active?.current_week ?? maxWeek
+  const weekOptions = Array.from({ length: maxWeek }, (_, i) => i + 1)
+
   return (
     <div className="flex items-center" style={{ gap: 14 }}>
       <div className="flex items-center gap-2">
@@ -107,7 +160,7 @@ export function SeasonWeekPicker() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {SEASON_OPTIONS.map((s) => (
+            {seasonOptions.map((s) => (
               <SelectItem key={s} value={String(s)}>
                 {s}
               </SelectItem>
@@ -125,9 +178,9 @@ export function SeasonWeekPicker() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {WEEK_OPTIONS.map((w) => (
+            {weekOptions.map((w) => (
               <SelectItem key={w} value={String(w)}>
-                Week {w}
+                {weekLabel(w, currentWeek)}
               </SelectItem>
             ))}
           </SelectContent>

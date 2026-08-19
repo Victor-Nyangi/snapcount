@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from sqlmodel import col, select
 
-from app.analytics.leaders import baseline, metric_value
+from app.analytics.leaders import baseline, is_qualified, metric_value
 from app.api.deps import SessionDep
 from app.api.routes._format import ordinal
 from app.api.routes._metrics import METRIC_LABELS, PRECISION
@@ -119,9 +119,26 @@ def player_page(
     for metric in _RATE_CARD_METRICS:
         value = metric_value(focus, metric)
         line_baseline = baseline(position_pool, metric)
-        # Unfiltered max (not qualified-only) so the bar's own player can
-        # never exceed its own scale.
-        scale_max = max(metric_value(s, metric) for s in position_pool)
+        # QUALIFIED max, floored by this player's own value.
+        #
+        # An unfiltered max made the bar unreadable: rate metrics are per
+        # play, so the largest value at any position belongs to whoever
+        # took the fewest snaps. On 2024 that put the QB EPA scale at Nick
+        # Mullens' 2.43 over four games and the WR yards-per-target scale
+        # at 69.0 — one target, one long catch. The best QUALIFIED receiver
+        # in the league by EPA filled 9.6% of his bar; Aaron Rodgers' EPA
+        # bar filled 0.8%. Every player page, two of the three cards.
+        #
+        # `max(..., value)` keeps the guarantee the unfiltered max was
+        # there for and which the old comment stated — the bar's own player
+        # can never exceed its own scale — including on the pages of the
+        # unqualified outliers themselves, whose value IS the maximum.
+        qualified = [s for s in position_pool if is_qualified(s)]
+        scale_max = max(
+            (metric_value(s, metric) for s in qualified),
+            default=value,
+        )
+        scale_max = max(scale_max, value)
         rate_cards.append(
             RateCard(
                 key=metric,

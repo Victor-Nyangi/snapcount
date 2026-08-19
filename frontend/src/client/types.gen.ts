@@ -652,6 +652,10 @@ export type SeasonSummary = {
      */
     week_count: number;
     /**
+     * Max Week
+     */
+    max_week: number;
+    /**
      * Last Ingested At
      */
     last_ingested_at: string | null;

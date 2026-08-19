@@ -65,3 +65,26 @@ def test_a_failed_run_leaves_the_pill_stale_and_names_the_last_SUCCESS(
     expected = (datetime.now(UTC) - timedelta(days=2)).strftime("%b %-d")
     assert expected in body["label"]
     assert datetime.now(UTC).strftime("%b %-d") not in body["label"]
+
+
+def test_seasons_report_the_last_week_that_actually_has_games(
+    client: TestClient,
+) -> None:
+    """`max_week` is what the week selector can offer, and it is DERIVED.
+
+    `Season.week_count` is a stored constant — 18 for every season ever
+    ingested — while the games run to week 21 (2016-2020) and week 22
+    (2021-) because the playoffs are weeks too. A selector built on
+    `week_count` therefore hides every postseason week, the Super Bowl
+    included, which is exactly what shipped: `WEEK_OPTIONS` was
+    `Array.from({length: 18})` and `/week?season=2024&week=22` rendered
+    "Week 22 · 2024 Super Bowl" underneath a blank Week control.
+    """
+    rows = {r["year"]: r for r in client.get("/api/v1/meta/seasons").json()}
+    assert 2024 in rows, "the committed backfill slice should carry 2024"
+    row = rows[2024]
+    # 18 regular-season weeks + wild card, divisional, conference, Super Bowl.
+    assert row["max_week"] == 22
+    assert row["current_week"] == 18
+    # And the stored constant it replaces is still wrong, which is the point.
+    assert row["week_count"] == 18
