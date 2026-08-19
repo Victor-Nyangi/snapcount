@@ -130,3 +130,54 @@ def test_player_page_falls_back_when_the_player_has_no_row_that_season(
     r = client.get(f"/api/v1/players/{_QB_ID}?season=2081")
     assert r.status_code == 200
     assert r.json()["player"]["team_abbr"] == "ATL"
+
+
+def test_rate_card_scale_is_set_by_qualified_play_not_a_four_game_backup(
+    client: TestClient,
+) -> None:
+    """The bar has to be readable, and an unfiltered max makes it useless.
+
+    `scale_max` was `max(...)` over EVERY player at the position, so a
+    one-target receiver or a four-game backup set the scale for the whole
+    league. Measured on 2024 before the fix: the best QUALIFIED receiver in
+    the league by EPA filled 9.6% of his bar, because the max was Tyrell
+    Shavers' 7.09 EPA on a single target; Aaron Rodgers' EPA bar filled
+    0.8% against Nick Mullens' 2.43 over four games.
+
+    The original comment gave the reason for the unfiltered max — "so the
+    bar's own player can never exceed its own scale" — and that still
+    holds: the scale is the qualified maximum OR this player's own value,
+    whichever is larger.
+    """
+    body = client.get(f"/api/v1/players/{_QB_ID}?season=2024").json()
+    cards = {c["key"]: c for c in body["rate_cards"]}
+
+    # Kirk Cousins threw for 3,508 yards on 425 attempts in 2024 — a real
+    # qualified season, so its EPA bar should be a readable fraction of the
+    # scale rather than a sliver next to a backup's four-game rate.
+    epa = cards["epa"]
+    assert epa["scale_max"] < 1.0, (
+        f"scale_max {epa['scale_max']} is an unqualified outlier, not a "
+        "qualified maximum"
+    )
+    # The invariant the original comment was protecting must still hold.
+    for card in cards.values():
+        assert card["scale_max"] >= card["value"]
+
+
+def test_rate_card_scale_still_covers_an_unqualified_player_s_own_value(
+    client: TestClient,
+) -> None:
+    """The guarantee the unfiltered max existed for, kept.
+
+    A player who did not qualify can out-rate every qualified player — that
+    is exactly how the outliers above arise — so their own page must still
+    scale to them rather than clipping their bar past 100%.
+    """
+    # Nick Mullens, 2024: four games, and the highest QB EPA per play in
+    # the league precisely because the sample is tiny.
+    roster = client.get("/api/v1/players?season=2024&position=QB").json()
+    mullens = next(p for p in roster if p["name"] == "Nick Mullens")
+    body = client.get(f"/api/v1/players/{mullens['id']}?season=2024").json()
+    epa = next(c for c in body["rate_cards"] if c["key"] == "epa")
+    assert epa["scale_max"] >= epa["value"]
