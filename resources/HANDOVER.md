@@ -1,6 +1,6 @@
 # Snapcount — session handover
 
-**Written:** 2026-08-19 (second session) · **Branch:** `feat/m6-a11y`, PR **#12** · **Head:** `5e4cc33` · M0–M5 and 6.1/6.3/6.4 are merged; **6.2's code is done and its three specs are green — see §3 for what is left**
+**Written:** 2026-08-19 (second session) · **`main` head:** `f24472d` · **Open:** PR **#13** (`fix/player-season`) · **THE PLAN IS COMPLETE — M0–M6 are all merged.** What remains is review, not construction: see §3.
 
 Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~900 lines — the authoritative record). The plan is `resources/nfl-implemnentation2.md`.
 
@@ -16,7 +16,7 @@ Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger,
 | M3 Data model + ingestion | ✅ | 9 models, analytics, 25 champions, **real 2016–2025 backfill** |
 | M4 API | ✅ | 8 route modules, typed TS client generated |
 | **M5 Screens** | ✅ **8 of 8** | All merged. 5.1 and 5.2 were reviewed; **5.3–5.8 shipped unreviewed** |
-| **M6 Finishing** | **3 of 4 merged** | 6.1 states ✅ · 6.3 scheduled ingest ✅ · 6.4 docs ✅ · **6.2 fixed on PR #12, awaiting merge — see §3** |
+| **M6 Finishing** | ✅ **4 of 4** | 6.1 states ✅ · 6.3 scheduled ingest ✅ · 6.4 docs ✅ · 6.2 a11y/responsive ✅ (PR #12, `f24472d`) |
 
 **Tests:** 152 backend + 306 frontend unit + 91 Playwright (a11y, responsive, keyboard, contrast, and the template's own). The backend suite passes **from an empty database**, not just a backfilled one — see §2. The *browser* suite no longer runs against one: CI now seeds it from the same committed slice (§2).
 
@@ -59,9 +59,11 @@ cd backend && uv run python -m tests.fixtures.generate
 
 ---
 
-## 3. START HERE — 6.2's code is done; what remains is review
+## 3. START HERE — the plan is built; what remains is review
 
-All three specs are green and `./scripts/verification-gate.sh` passes. **Do not re-derive §3 of the previous handover — its two named bugs were the visible tips of five and three respectively.** What that section got wrong is recorded below, because the pattern (a shell fix that unmasks per-screen bugs; a token failure that is really a scale-wide one) is the reusable part.
+M6 is merged and `./scripts/verification-gate.sh` passes, so **every task in the plan is now built**. The next work is the 5.3–5.8 review (§3 "Then"), not more construction.
+
+**Do not re-derive §3 of the previous handover — its two named bugs were the visible tips of five and three respectively.** What that section got wrong is kept below, because the pattern (a shell fix that unmasks per-screen bugs; a token failure that is really a scale-wide one) is the reusable part.
 
 ### What 6.2 turned out to be
 
@@ -110,21 +112,22 @@ CI builds the Playwright stack with `docker compose down -v` + `prestart.sh`, wh
 
 **Look at the screens after a layout fix.** A fix that removes an overflow can move the damage *inside* the element instead of removing it, and the spec only knows the page did not widen. All seven are verified by screenshot at 375px now.
 
-### One real defect found while looking — deliberately NOT fixed here
+### The defect found while looking — fixed on PR #13
 
-**`GET /players/{player_id}` takes no `season` parameter** (`backend/app/api/routes/players.py:61`). The frontend sends `?season=2024`; the backend ignores it and builds the whole page from `stats[-1]`, the player's *last ingested* season. So `/player?season=2024` shows Aaron Rodgers with the PIT chip and "Pittsburgh Steelers" — his 2025 team — while the season-scoped dropdown directly above reads "Aaron Rodgers · NYJ". Position, games, "Nth season" and every rate card come from the wrong season too, and the season selector does nothing on this screen.
+**`GET /players/{player_id}` took no `season` parameter.** The frontend sent `?season=2024`; the route ignored it and built the whole page from `stats[-1]`, the player's *last ingested* season — team chip, team name, position, games, the ordinal and all three rate cards. So `/player?season=2024` showed Aaron Rodgers on Pittsburgh, the team he joined in **2025**, beneath a season-scoped picker reading "Aaron Rodgers · NYJ". The season selector did nothing at all on that screen.
 
-```
-/api/v1/players?season=2024&position=QB  →  Aaron Rodgers, NYJ
-/api/v1/players/00-0023459?season=2024   →  team_abbr PIT, "… · Pittsburgh Steelers"
-```
+Fixed on `fix/player-season` (**PR #13**): `season` is an optional query parameter, the page focuses that row, and the rate cards' positional pool is keyed to it. A season the player has no row for falls back to their latest rather than 404ing, because `player.$playerId.tsx` asks for that explicitly. `season` is in the frontend query **key** as well as the request — without it the first season's response is served from cache and the page never refetches.
 
-Left alone because it is a **5.6** defect needing a route-signature change plus tests, and PR #12 is the accessibility pass. It is the highest-value item waiting for the 5.3–5.8 review, and it is the lying-label class `CLAUDE.md` names as this project's most frequent.
+`is_latest` still means the player's most recent season, not the focused one; the season table is a career view and its highlight is documented as "the most recent completed season". Whether it should follow the focus is a design call, deliberately left open.
+
+**Checked for siblings: there are none.** Every other data route — explorer, leaders, standings, `team_page`, `week`, `meta/freshness` — takes `season` explicitly, and `history/champions` is all-time by design. `player_page` was the only one missing it.
 
 ### Then
 
-1. **Merge PR #12.** That closes M6 and the plan.
-2. **Five screens (5.3–5.8) shipped unreviewed.** Review found a real defect in *every* screen it was run on, including a Critical. Ranges are in the ledger.
+1. ~~**Merge PR #12.**~~ **DONE** — squash-merged as `f24472d`. M6 and the plan are complete.
+2. **Merge PR #13**, then: **five screens (5.3–5.8) shipped unreviewed.** This is the whole of the remaining work. Review has found a real defect in *every* screen it was run on, including a Critical, and the player-season bug above is what one screenshot of one screen turned up — so the expected yield is high. Commit ranges are in the ledger.
+
+   What has made these reviews worth their cost, stated as instructions to give: **recompute, don't read** (reimplement the spec independently and diff the outputs — that is how the upset-filter divergence and the Z→A sort bug were both found); **verify against the live database, not fixtures**; **state acceptance checks against the default URL**, grouping and sorting included; and **ask what the tests do *not* cover**, consistently the most valuable section. Add the two this session earned: **look at the screen at 375px**, and **check that any label agrees with the value beside it** — that single check would have caught the player-season bug, the `qualifier_label` defect, the hard-coded freshness pill and the per-position `Y/A` unit, which is four of this project's defects from one question.
 3. ~~Record the remaining brief corrections in the plan's §1.~~ **DONE** — all six are now §1.17 (the `_layout` route path, the upset filter, `TrendLine`'s x-index, the per-position `Y/A` unit, 5.7's missing `division` field, 5.8's self-contradicting decade counts). 6.2's own are §1.15 and §1.16, plus a correction appended to §1.13.
 
 ## 4. Decisions — all resolved
