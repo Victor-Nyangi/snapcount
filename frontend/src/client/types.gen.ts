@@ -1806,7 +1806,12 @@ export type playersPlayerPageData = {
          */
         player_id: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Season
+         */
+        season?: number | null;
+    };
     url: '/api/v1/players/{player_id}';
 };
 

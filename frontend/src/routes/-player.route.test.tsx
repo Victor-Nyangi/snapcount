@@ -154,8 +154,15 @@ describe("/player/$playerId route", () => {
     )
     await tableRows()
 
+    // The SEASON travels with the request, not just the roster call. The
+    // page's header, its ordinal, its games count and all three rate cards
+    // are the focused season's, and the route used to send no season at
+    // all — the backend then built the page from the player's last
+    // ingested season, so a 2025 URL could render a player on the team he
+    // joined afterwards, beneath a picker naming the right one.
     expect(playerPage).toHaveBeenCalledWith({
       path: { player_id: "00-0026158" },
+      query: { season: 2025 },
     })
     expect(listPlayers).toHaveBeenCalledWith({
       query: { season: 2025, position: "QB" },
@@ -277,6 +284,34 @@ describe("/player/$playerId route", () => {
         await screen.findByRole("heading", { name: "Saquon Barkley" }),
       ).toBeInTheDocument()
     })
+  })
+
+  it("refetches the page when the season changes", async () => {
+    // The season is half of this page's identity, so it has to be in the
+    // QUERY KEY as well as the request. With a key of ["player", id] the
+    // first season's response is cached under the same key and served
+    // straight back after a season change — the URL and the picker move,
+    // the page does not, and the header quietly describes a season nobody
+    // asked for. Asserted on the request the route actually makes.
+    const { router } = await renderRouteAt("/player/00-0026158?season=2025")
+    await tableRows()
+    expect(playerPage).toHaveBeenCalledWith({
+      path: { player_id: "00-0026158" },
+      query: { season: 2025 },
+    })
+
+    await router.navigate({
+      to: "/player/$playerId",
+      params: { playerId: "00-0026158" },
+      search: (prev: Record<string, unknown>) => ({ ...prev, season: 2024 }),
+    })
+
+    await waitFor(() =>
+      expect(playerPage).toHaveBeenCalledWith({
+        path: { player_id: "00-0026158" },
+        query: { season: 2024 },
+      }),
+    )
   })
 
   it("navigates on player change rather than holding it in state", async () => {
