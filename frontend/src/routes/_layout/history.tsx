@@ -96,8 +96,21 @@ function HistoryScreen() {
         ))}
       </div>
 
-      <div className="grid gap-5 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-        <div style={{ display: "grid", gap: 20 }}>
+      {/* `grid-cols-[minmax(0,1fr)]` is not a no-op. Below `md` this grid falls back to a single IMPLICIT track, which is `auto` — and `auto` floors at the content's min-content width, so a card holding a 524px record table or a 360px StatTable held the column open at that width and scrolled the whole page sideways. The `md:` tracks below already spell out `minmax(0, …)` for exactly this reason; the one-column case needed it too. */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        {/* Same `auto`-track floor as the grid above, one level in: a
+            single-column `display: grid` stack gets an implicit `auto`
+            track, which refuses to be narrower than its widest child — so
+            the decade cards held this column at 570px however narrow the
+            page got. Naming the track with a zero minimum is what lets the
+            record table inside each card scroll instead. */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr)",
+            gap: 20,
+          }}
+        >
           {DECADES.map((start) => {
             const rows = championsByDecade(champions, start)
             if (rows.length === 0) return null
@@ -122,9 +135,23 @@ function HistoryScreen() {
                 >
                   {start}s
                 </h2>
-                {rows.map((row) => (
-                  <ChampionRow key={row.season} row={row} />
-                ))}
+                {/* The champion rows are a four-column record table
+                    (`64px 44px minmax(180px,1fr) minmax(200px,1.1fr)`), so
+                    their min-content width is 524px and they pushed a 375px
+                    page sideways by 219px. Squeezing the two text columns to
+                    ~70px each would technically fit but shreds "Beat LAR
+                    23-20" into a column of single words, so this takes the
+                    same route the explorer grid and every StatTable already
+                    take: the rows scroll inside their own card and the page
+                    body does not scroll. The heading stays outside the
+                    scroller so it never slides out of view. */}
+                <div className="w-full overflow-x-auto">
+                  <div style={{ minWidth: 524 }}>
+                    {rows.map((row) => (
+                      <ChampionRow key={row.season} row={row} />
+                    ))}
+                  </div>
+                </div>
               </section>
             )
           })}

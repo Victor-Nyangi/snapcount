@@ -22,7 +22,7 @@ export function DynastyCard({ row }: { row: DynastyRow }) {
               fontWeight: 700,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
-              color: "var(--emerald-dark)",
+              color: "var(--emerald-ink)",
               marginTop: 2,
             }}
           >

@@ -299,7 +299,21 @@ function Layout() {
             })}
           </nav>
 
-          <div className="ml-auto flex items-center" style={{ gap: 14 }}>
+          {/* `flex-wrap` + `min-w-0` for the same reason the nav above needs
+              `min-w-0`, one level up. The header bar itself already wraps, so
+              this group gets its own line on a phone — but the group was a
+              NOWRAP row of three unshrinkable items (picker 298px + freshness
+              pill 92px + user menu 160px + two 14px gaps = 578px), so its
+              min-content width stayed 578px whatever the viewport. 28px of
+              left padding + 578 = 606, which is exactly the scrollWidth
+              responsive.spec.ts measured on a 375px viewport. Letting the
+              group wrap internally is what actually bounds it; `justify-end`
+              keeps the wrapped rows against the right edge, where `ml-auto`
+              alone would only place the first one. */}
+          <div
+            className="ml-auto flex min-w-0 flex-wrap items-center justify-end"
+            style={{ gap: 14 }}
+          >
             <SeasonWeekPicker />
             <Freshness />
             <UserMenu />

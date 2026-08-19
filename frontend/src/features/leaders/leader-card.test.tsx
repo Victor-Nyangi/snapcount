@@ -97,7 +97,7 @@ describe("LeaderCard", () => {
 
   it("colours a player at or above the baseline emerald", () => {
     renderCard(row())
-    expect(readout("vs baseline").style.color).toBe("var(--emerald-dark)")
+    expect(readout("vs baseline").style.color).toBe("var(--emerald-ink)")
     expect(readout("vs baseline")).toHaveTextContent("+0.249")
   })
 
@@ -110,7 +110,7 @@ describe("LeaderCard", () => {
 
   it("treats exactly zero as at-baseline, not below it", () => {
     renderCard(row({ vs_baseline: 0 }))
-    expect(readout("vs baseline").style.color).toBe("var(--emerald-dark)")
+    expect(readout("vs baseline").style.color).toBe("var(--emerald-ink)")
   })
 
   it("gives rank 1 the emerald border and the glow — the one per screen", () => {

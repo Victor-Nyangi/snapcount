@@ -58,11 +58,11 @@ describe("RateCard", () => {
   it("colours an at-or-above delta emerald, zero included", () => {
     renderCard({ delta: 0.05 })
     expect(screen.getByText("+0.050 vs baseline").style.color).toBe(
-      "var(--emerald-dark)",
+      "var(--emerald-ink)",
     )
     renderCard({ delta: 0 })
     expect(screen.getByText("0.000 vs baseline").style.color).toBe(
-      "var(--emerald-dark)",
+      "var(--emerald-ink)",
     )
   })
 

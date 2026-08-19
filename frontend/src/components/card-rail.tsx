@@ -104,6 +104,13 @@ export function CardRail({
       >
         <ChevronLeft aria-hidden="true" className="mx-auto size-4" />
       </button>
+      {/* `tabIndex={0}` because this is a scroll container whose children
+          are not focusable — the week screen's game cards are `<article>`s.
+          Without it a keyboard user can reach the two arrow buttons but
+          never the region itself, so arrow-key scrolling is unavailable and
+          axe reports `scrollable-region-focusable`. CI never saw this: it
+          runs against an empty database, so the rail has no cards and does
+          not scroll. `theme.css` already gives `[tabindex]` a focus ring. */}
       <section
         ref={railRef}
         data-rail=""

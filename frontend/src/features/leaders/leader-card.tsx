@@ -92,7 +92,14 @@ export function LeaderCard({
     <article
       style={{
         display: "grid",
-        gridTemplateColumns: "44px minmax(220px, 1fr) auto",
+        // `minmax(0, …)`, not `minmax(220px, …)`: the 220px floor made this
+        // card's min-content width 567px, so it pushed a 375px page sideways
+        // by 216px. The middle column already carries `minWidth: 0` and the
+        // name already truncates with an ellipsis, so nothing here needed a
+        // floor to stay legible — the floor only prevented the shrink those
+        // two were written to absorb. Above ~590px the track is `1fr` and far
+        // wider than 220px anyway, so desktop is unchanged.
+        gridTemplateColumns: "44px minmax(0, 1fr) auto",
         gap: 22,
         alignItems: "center",
         background: "var(--card)",
@@ -164,7 +171,10 @@ export function LeaderCard({
         </div>
       </div>
 
-      <div className="flex items-center" style={{ gap: 26 }}>
+      {/* The readouts are the `auto` third column, so their own width is a
+          floor on the card. Wrapping lets them stack on a phone instead of
+          holding the card open at their full 217px row width. */}
+      <div className="flex flex-wrap items-center" style={{ gap: 26 }}>
         <Readout
           label={`${unit} (rank metric)`}
           style={{ ...monoStyle, fontSize: 22, fontWeight: 700 }}
@@ -191,7 +201,7 @@ export function LeaderCard({
             fontSize: 16,
             fontWeight: 700,
             color: atOrAboveBaseline
-              ? "var(--emerald-dark)"
+              ? "var(--emerald-ink)"
               : "var(--ink-negative)",
           }}
         >

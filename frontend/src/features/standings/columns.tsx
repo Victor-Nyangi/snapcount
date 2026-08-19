@@ -291,7 +291,7 @@ export function getStandingsColumns({
             // neither colour — `app/analytics/standings.py` emits W/L/T,
             // and a two-branch ternary painted every T in the loss ink.
             color: row.streak.startsWith("W")
-              ? "var(--emerald-dark)"
+              ? "var(--emerald-ink)"
               : row.streak.startsWith("L")
                 ? "var(--ink-negative)"
                 : "var(--gray-600)",

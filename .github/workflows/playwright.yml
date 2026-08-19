@@ -82,6 +82,15 @@ jobs:
     - run: docker compose build
     - run: docker compose down -v --remove-orphans
     - run: docker compose run --rm backend bash scripts/prestart.sh
+    # `prestart.sh` migrates an empty volume and creates the superuser, and
+    # that is all — so without this every screen rendered its empty state and
+    # the browser suite tested nothing but the shell. Run from the runner
+    # rather than in the container: the backend image ships `app/` and
+    # `scripts/` but deliberately not `tests/`, and compose publishes the
+    # database on 5434. Same slice, same loader as pytest's conftest.
+    - name: Seed the e2e database with the committed backfill slice
+      run: uv run python -m tests.seed_e2e
+      working-directory: backend
     - name: Run Playwright tests
       run: docker compose run --rm playwright bunx playwright test --fail-on-flaky-tests --trace=retain-on-failure --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
     - run: docker compose down -v --remove-orphans

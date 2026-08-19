@@ -90,7 +90,7 @@ export function RateCard({ card }: { card: RateCardData }) {
             ...monoStyle,
             fontSize: 14,
             fontWeight: 700,
-            color: atOrAbove ? "var(--emerald-dark)" : "var(--ink-negative)",
+            color: atOrAbove ? "var(--emerald-ink)" : "var(--ink-negative)",
           }}
         >
           {formatDelta(card.delta, card.precision)} vs baseline

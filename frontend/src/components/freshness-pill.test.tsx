@@ -41,7 +41,7 @@ describe("FreshnessPill", () => {
       background: "var(--emerald)",
     })
     expect(screen.getByText("Live")).toHaveStyle({
-      color: "var(--emerald-dark)",
+      color: "var(--emerald-ink)",
     })
   })
 

@@ -18,7 +18,7 @@ export function divergingCell(value: number, domain = 150) {
   if (value > 0) {
     return {
       background: `oklch(${round(0.97 - mag * 0.22)} ${round(0.04 + mag * 0.12)} 155)`,
-      color: strong ? "var(--accent-primary-ink)" : "var(--emerald-dark)",
+      color: strong ? "var(--accent-primary-ink)" : "var(--emerald-ink)",
     }
   }
   return {

@@ -76,14 +76,30 @@ test("the explorer's 320 cells are not 320 tab stops", async ({ page }) => {
 })
 
 test.describe("prefers-reduced-motion", () => {
-  test.use({ reducedMotion: "reduce" })
-
   test("suppresses the card lift, bar animation and smooth rail scrolling", async ({
     page,
   }) => {
     // Step 5. theme.css carries a sitewide rule zeroing animation and
     // transition under this query; this asserts it actually reaches the
     // three places the design animates.
+    //
+    // `page.emulateMedia`, NOT the `test.use({ reducedMotion: "reduce" })`
+    // this block used to carry: that option never reached the page here —
+    // `matchMedia("(prefers-reduced-motion: reduce)").matches` read `false`
+    // inside the test body, so the media query never applied and the
+    // assertion below was measuring the ORDINARY 0.12s transition. The test
+    // was failing for its own reason rather than the app's; the sitewide
+    // rule works (0s) the moment the query actually matches. Asserted
+    // explicitly first, so a silent emulation failure can never again be
+    // read as a styling bug.
+    await page.emulateMedia({ reducedMotion: "reduce" })
+    expect(
+      await page.evaluate(
+        () => matchMedia("(prefers-reduced-motion: reduce)").matches,
+      ),
+      "reduced-motion emulation must actually reach the page",
+    ).toBe(true)
+
     await page.goto("/week?season=2024&week=15")
     await page.waitForLoadState("networkidle")
 

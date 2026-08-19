@@ -129,7 +129,13 @@ function TeamScreen() {
       {data && <TeamHero data={data} />}
 
       <div
-        className="grid gap-5 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]"
+        // `grid-cols-[minmax(0,1fr)]` is not a no-op: below `md` this
+        // grid falls back to a single IMPLICIT `auto` track, and `auto`
+        // floors at min-content — so the 360px schedule StatTable held
+        // the column open and scrolled the page sideways by 9px. The
+        // `md:` tracks already spell out `minmax(0, …)` for the same
+        // reason; the one-column case needed it too.
+        className="grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]"
         style={{ marginTop: 24 }}
       >
         {/* Schedule first in source order, so the md-and-below stack puts

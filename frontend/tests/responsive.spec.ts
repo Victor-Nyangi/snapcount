@@ -26,9 +26,26 @@ for (const width of WIDTHS) {
       // Report the WIDEST offending element, not just that something
       // overflowed: "the page is 40px too wide" sends you hunting, while
       // "<nav aria-label=Primary> reaches 812px" is a fix.
+      //
+      // Elements inside a scroll/clip container are SKIPPED. A `StatTable`
+      // is 849px wide and the explorer's grid is 903px, both inside their
+      // own `overflow-x: auto` card — that is the designed inner scroll,
+      // and neither can widen the document. Listing them made the widest
+      // "offender" on several screens a non-bug (the week screen named a
+      // 5212px card rail while the page overflowed by 69px), which sends
+      // the reader to the wrong element. Only an element with no scrolling
+      // or clipping ancestor can actually push the page wider.
       const overflow = await page.evaluate(() => {
         const doc = document.documentElement
+        const CONTAINED = new Set(["auto", "scroll", "hidden", "clip"])
+        const isContained = (el: HTMLElement) => {
+          for (let a = el.parentElement; a && a !== doc; a = a.parentElement) {
+            if (CONTAINED.has(getComputedStyle(a).overflowX)) return true
+          }
+          return false
+        }
         const guilty = [...document.querySelectorAll<HTMLElement>("*")]
+          .filter((el) => !isContained(el))
           .map((el) => ({
             right: Math.round(el.getBoundingClientRect().right),
             desc:

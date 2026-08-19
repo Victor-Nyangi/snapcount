@@ -21,7 +21,7 @@ export function filterPillStyle(active: boolean): CSSProperties {
     cursor: "pointer",
     border: `1px solid ${active ? "var(--emerald)" : "var(--gray-300)"}`,
     background: active ? "var(--emerald-tint)" : "var(--card)",
-    color: active ? "var(--emerald-dark)" : "var(--gray-600)",
+    color: active ? "var(--emerald-ink)" : "var(--gray-600)",
     transition: "background 120ms ease",
   }
 }
