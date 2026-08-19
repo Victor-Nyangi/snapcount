@@ -39,7 +39,7 @@ export function FreshnessPill({
 }) {
   const isStale = status === "stale"
   const dotColor = isStale ? "var(--warning)" : "var(--emerald)"
-  const inkColor = isStale ? "var(--warning-ink)" : "var(--emerald-dark)"
+  const inkColor = isStale ? "var(--warning-ink)" : "var(--emerald-ink)"
   const bgColor = isStale
     ? "var(--warning-tint-strong)"
     : "var(--emerald-tint-strong)"

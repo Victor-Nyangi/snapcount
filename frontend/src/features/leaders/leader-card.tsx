@@ -91,8 +91,24 @@ export function LeaderCard({
   return (
     <article
       style={{
-        display: "grid",
-        gridTemplateColumns: "44px minmax(220px, 1fr) auto",
+        // A WRAPPING FLEX ROW, not the `44px minmax(220px, 1fr) auto` grid
+        // this used to be. That grid's 220px floor made the card's
+        // min-content width 567px and pushed a 375px page sideways by 216px
+        // — but simply relaxing the floor to `minmax(0, …)` is worse than
+        // the overflow it fixes: the `auto` readouts column keeps its
+        // max-content width, crushes the name column to nothing, and the
+        // readouts render ON TOP of the player's name. (Verified in a
+        // screenshot, not inferred — `responsive.spec.ts` was green for
+        // that layout, because a broken card is not a wide one.)
+        //
+        // Flex gives the phone layout the grid could not without a media
+        // query: the readouts wrap onto their own line once the row no
+        // longer fits, and nothing overlaps. Desktop is unchanged — the
+        // three children still sit on one line, `flexGrow` on the middle
+        // child putting the readouts hard right exactly as the `auto`
+        // track did.
+        display: "flex",
+        flexWrap: "wrap",
         gap: 22,
         alignItems: "center",
         background: "var(--card)",
@@ -115,13 +131,19 @@ export function LeaderCard({
           color: "var(--gray-300)",
           lineHeight: 1,
           width: 44,
+          flexShrink: 0,
           textAlign: "center",
         }}
       >
         {row.rank}
       </div>
 
-      <div style={{ minWidth: 0 }}>
+      {/* `flexBasis: 220` is the old grid floor doing the job it was
+          actually for: on a 375px card (287px of inner width) 44 + 22 + 220
+          leaves no room for the readouts, so they wrap below instead of
+          squeezing the name to zero. It is a BASIS, not a minimum, so the
+          name still shrinks the rest of the way on anything narrower. */}
+      <div style={{ minWidth: 0, flex: "1 1 220px" }}>
         <div className="flex items-center" style={{ gap: 10 }}>
           {/* No `name`: the leaders payload carries only the abbreviation,
               and passing it as the label would make AT announce "BAL,
@@ -164,7 +186,10 @@ export function LeaderCard({
         </div>
       </div>
 
-      <div className="flex items-center" style={{ gap: 26 }}>
+      {/* The readouts are the `auto` third column, so their own width is a
+          floor on the card. Wrapping lets them stack on a phone instead of
+          holding the card open at their full 217px row width. */}
+      <div className="flex flex-wrap items-center" style={{ gap: 26 }}>
         <Readout
           label={`${unit} (rank metric)`}
           style={{ ...monoStyle, fontSize: 22, fontWeight: 700 }}
@@ -191,7 +216,7 @@ export function LeaderCard({
             fontSize: 16,
             fontWeight: 700,
             color: atOrAboveBaseline
-              ? "var(--emerald-dark)"
+              ? "var(--emerald-ink)"
               : "var(--ink-negative)",
           }}
         >

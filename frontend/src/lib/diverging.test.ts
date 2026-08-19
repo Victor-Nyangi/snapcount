@@ -21,7 +21,7 @@ describe("divergingCell", () => {
     // mag = 30/150 = 0.2 -> L 0.926, C 0.064
     expect(divergingCell(30)).toEqual({
       background: "oklch(0.926 0.064 155)",
-      color: "var(--emerald-dark)",
+      color: "var(--emerald-ink)",
     })
   })
 

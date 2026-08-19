@@ -83,11 +83,17 @@ export function TeamHero({ data }: { data: TeamPageResponse }) {
               {data.record_label} · {data.conference_label}
             </div>
           </div>
+          {/* `repeat(4, auto)` is a four-across row whose min-content width
+              is the sum of all four stats (360px measured) — 9px more than a
+              375px viewport allows, which is the whole of this screen's
+              horizontal page scroll. A wrapping flex row keeps the four
+              across on every width that fits them and folds to two rows on a
+              phone, where a grid track count cannot change without a media
+              query. */}
           <div
+            className="flex flex-wrap"
             style={{
               marginLeft: "auto",
-              display: "grid",
-              gridTemplateColumns: "repeat(4, auto)",
               gap: 26,
             }}
           >

@@ -26,10 +26,33 @@
  *     emerald tint pair is a fixed lightness/chroma formula at the emerald
  *     hue (oklch(0.96 0.03 155) / oklch(0.86 0.06 155)); these are that same
  *     formula applied at --warning's hue (82), not an invented color.
+ * 1.9b --emerald-ink: the ink for emerald TEXT, everywhere. The DS's
+ *     --emerald-dark (#158055) is a fill colour that the design also spends
+ *     as small text, and it is too light for that: 4.94:1 on white leaves no
+ *     headroom, so every tinted background underneath it lands below AA's
+ *     4.5 for text under 18.66px. Measured, all at 11-13px:
+ *
+ *       --emerald-tint-strong  freshness pill label   4.44:1  FAIL
+ *       --emerald-tint         active filter pill     4.34:1  FAIL
+ *       diverging weak +ve     DiffCell, mag<0.55     3.24:1  FAIL (worst)
+ *
+ *     The diverging scale makes the asymmetry obvious: its NEGATIVE weak ink
+ *     --ink-negative-mid is oklch(0.45 0.17 25) and clears everywhere it
+ *     lands (worst 4.81:1), because it was picked as an ink. Its positive
+ *     counterpart never got the same treatment. This is that treatment —
+ *     the same lightness, at emerald's hue — and it clears the worst weak
+ *     diverging background (#94e2af) at 4.85:1 and white at 7.41:1.
+ *
+ *     Note axe does NOT catch the DiffCell half of this: its color-contrast
+ *     rule evaluated none of the 32 diverging cells on the standings screen
+ *     (0 violations, 0 passes, 0 incomplete). tests/contrast.spec.ts covers
+ *     what axe skips. --emerald-dark stays as-is for fills (--chart-4).
  */
 :root {
   --warning-tint-strong: oklch(0.96 0.03 82);
   --warning-tint-border: oklch(0.86 0.06 82);
+
+  --emerald-ink: oklch(0.44 0.1 155);
 
   --background: var(--app-canvas);
   --foreground: var(--text-primary-light);
@@ -106,12 +129,35 @@ h2,
   outline-offset: 2px;
 }
 
+/* `!important` is required, and only for INLINE styles. An inline `style`
+ * attribute outranks every normal-weight author rule regardless of selector,
+ * so this reset could not touch `leader-bar.tsx`'s
+ * `transition: "width 180ms …"` — the bar kept animating at 0.18s with
+ * `prefers-reduced-motion: reduce` set. (Class-based motion was never the
+ * problem: theme.css is unlayered and Tailwind v4's utilities live in
+ * `@layer utilities`, so unlayered normal declarations already beat them —
+ * the week screen's `duration-[120ms]` game card was suppressed correctly
+ * before this changed.) `freshness-pill.tsx` documents this same inline-style
+ * hole and works around it locally with a scoped class; with `!important`
+ * here the global rule now closes it for every component instead.
+ *
+ * Nothing caught this for a while because the test asserting it was itself
+ * broken: `test.use({ reducedMotion: "reduce" })` never reached the page, so
+ * the spec measured an un-emulated browser and read the ordinary durations as
+ * correct. See the note in `tests/keyboard.spec.ts`. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation: none;
-    transition: none;
+    /* biome-ignore-start lint/complexity/noImportantStyles: a reduced-motion
+     * reset must outrank inline styles by construction; see above. biome's
+     * fix for this rule is UNSAFE and `bun run lint` is
+     * `biome check --write --unsafe`, so without this the two declarations
+     * below are silently deleted and only the explanation survives. That is
+     * exactly what happened once. */
+    animation: none !important;
+    transition: none !important;
+    /* biome-ignore-end lint/complexity/noImportantStyles: see above */
   }
 }
 

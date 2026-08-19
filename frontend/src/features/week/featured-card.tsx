@@ -43,8 +43,14 @@ export function FeaturedCard({ game }: { game: FeaturedGame }) {
         >
           {game.eyebrow}
         </span>
+        {/* `flex-wrap`: the banner is two 38px display abbreviations plus a
+            26px mono score, about 335px of content against 283px of inner
+            width on a 375px phone — so the score used to be clipped by the
+            card's own rounded corner. Wrapping puts it on its own line
+            there and changes nothing at any width the row already fits.
+            `marginLeft: auto` still holds it right in both cases. */}
         <div
-          className="flex items-center"
+          className="flex flex-wrap items-center"
           style={{ gap: 18, marginTop: 12, color: ink }}
         >
           <span
@@ -84,6 +90,7 @@ export function FeaturedCard({ game }: { game: FeaturedGame }) {
               fontFamily: "var(--font-mono)",
               fontSize: 26,
               fontWeight: 700,
+              whiteSpace: "nowrap",
             }}
           >
             {game.score_label}

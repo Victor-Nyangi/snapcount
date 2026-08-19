@@ -136,7 +136,15 @@ function WeekScreen() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+            // `min(420px, 100%)`, not a bare `420px`: `minmax(420px, 1fr)`
+            // makes 420px a HARD floor, so on a 375px phone the track stays
+            // 420px and the page itself scrolls sideways (measured: 444px
+            // against a 375px viewport, 69px of overflow). Wrapping the
+            // floor in `min(…, 100%)` lets the track collapse to the
+            // container on anything narrower than the ideal card, which is
+            // what `auto-fit` is for; above 420px nothing changes.
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(min(420px, 100%), 1fr))",
             gap: 20,
             marginTop: 34,
           }}

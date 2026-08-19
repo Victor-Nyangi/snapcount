@@ -234,7 +234,16 @@ function Layout() {
             ref={navRef}
             data-rail=""
             aria-label="Primary"
-            className="flex flex-nowrap gap-1 overflow-x-auto md:flex-wrap md:overflow-visible"
+            // `min-w-0` is load-bearing, not tidiness. A flex item's default
+            // `min-width: auto` refuses to shrink below its CONTENT, so a
+            // seven-item nowrap row forced the header — and with it the
+            // document — wider than a 375px viewport, giving every screen a
+            // horizontally scrolling page. `overflow-x-auto` alone does not
+            // help: the scroll container has to be allowed to be narrower
+            // than what it scrolls. Caught by responsive.spec.ts at 375px on
+            // all seven screens at once, which is what identified it as a
+            // shell problem rather than a per-screen one.
+            className="flex min-w-0 flex-nowrap gap-1 overflow-x-auto md:flex-wrap md:overflow-visible"
           >
             {NAV_ITEMS.map((item) => {
               const isActive = item.prefix
@@ -290,7 +299,21 @@ function Layout() {
             })}
           </nav>
 
-          <div className="ml-auto flex items-center" style={{ gap: 14 }}>
+          {/* `flex-wrap` + `min-w-0` for the same reason the nav above needs
+              `min-w-0`, one level up. The header bar itself already wraps, so
+              this group gets its own line on a phone — but the group was a
+              NOWRAP row of three unshrinkable items (picker 298px + freshness
+              pill 92px + user menu 160px + two 14px gaps = 578px), so its
+              min-content width stayed 578px whatever the viewport. 28px of
+              left padding + 578 = 606, which is exactly the scrollWidth
+              responsive.spec.ts measured on a 375px viewport. Letting the
+              group wrap internally is what actually bounds it; `justify-end`
+              keeps the wrapped rows against the right edge, where `ml-auto`
+              alone would only place the first one. */}
+          <div
+            className="ml-auto flex min-w-0 flex-wrap items-center justify-end"
+            style={{ gap: 14 }}
+          >
             <SeasonWeekPicker />
             <Freshness />
             <UserMenu />

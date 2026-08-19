@@ -209,7 +209,14 @@ function PlayerScreen() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+              // Same hard-floor bug as week.tsx's featured grid, and latent
+              // for the same reason: 280px happens to fit inside a 375px
+              // viewport's 327px of content width, so it does not overflow
+              // TODAY. It is the identical expression with a smaller number,
+              // so it gets the identical fix rather than waiting for a
+              // narrower phone to turn it into a bug.
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(min(280px, 100%), 1fr))",
               gap: 16,
               marginBottom: 28,
             }}
