@@ -59,7 +59,9 @@ def list_players(
 
 
 @router.get("/{player_id}")
-def player_page(session: SessionDep, player_id: str) -> PlayerPageResponse:
+def player_page(
+    session: SessionDep, player_id: str, season: int | None = None
+) -> PlayerPageResponse:
     player = session.get(Player, player_id)
     stats = session.exec(
         select(PlayerSeasonStat)
@@ -69,13 +71,28 @@ def player_page(session: SessionDep, player_id: str) -> PlayerPageResponse:
     if player is None or not stats:
         raise HTTPException(status_code=404, detail="Player not found")
 
+    # THE SEASON THE PAGE IS ABOUT. This used to be `stats[-1]`
+    # unconditionally, with no `season` parameter at all — so the frontend
+    # sent `?season=2024`, the route ignored it, and the entire page (team
+    # chip, team name, position, games, ordinal and every rate card) came
+    # from the player's LAST ingested season. A 2024 URL rendered Aaron
+    # Rodgers on Pittsburgh, his 2025 team, directly beneath a
+    # season-scoped picker reading "Aaron Rodgers · NYJ".
+    #
+    # Falling back to the most recent season rather than 404ing when the
+    # player has no row for `season` is deliberate, and
+    # `player.$playerId.tsx` states the reason: "a real player who simply
+    # did not qualify that season is absent from the list while still
+    # having a perfectly good page — a deep link to either would be
+    # silently thrown away."
     latest = stats[-1]
+    focus = next((s for s in stats if s.season == season), latest)
 
-    if latest.position not in _SUPPORTED_POSITIONS:
+    if focus.position not in _SUPPORTED_POSITIONS:
         raise HTTPException(
             status_code=404,
             detail=(
-                f"No player page for position {latest.position!r} — "
+                f"No player page for position {focus.position!r} — "
                 "Snapcount's player view covers QB, RB, WR and TE."
             ),
         )
@@ -85,21 +102,22 @@ def player_page(session: SessionDep, player_id: str) -> PlayerPageResponse:
         t.abbr: t
         for t in session.exec(select(Team).where(col(Team.abbr).in_(abbrs))).all()
     }
-    latest_team = teams[latest.team]
+    focus_team = teams[focus.team]
 
-    # The positional pool `latest`'s rate cards are measured against —
+    # The positional pool `focus`'s rate cards are measured against —
     # every player at the same position in the same season, the same
-    # scope `leaders` uses for its own baseline/qualifier logic.
+    # scope `leaders` uses for its own baseline/qualifier logic. Keyed to
+    # the FOCUSED season, so a 2018 page compares against 2018's field.
     position_pool = session.exec(
         select(PlayerSeasonStat).where(
-            PlayerSeasonStat.season == latest.season,
-            PlayerSeasonStat.position == latest.position,
+            PlayerSeasonStat.season == focus.season,
+            PlayerSeasonStat.position == focus.position,
         )
     ).all()
 
     rate_cards = []
     for metric in _RATE_CARD_METRICS:
-        value = metric_value(latest, metric)
+        value = metric_value(focus, metric)
         line_baseline = baseline(position_pool, metric)
         # Unfiltered max (not qualified-only) so the bar's own player can
         # never exceed its own scale.
@@ -107,7 +125,7 @@ def player_page(session: SessionDep, player_id: str) -> PlayerPageResponse:
         rate_cards.append(
             RateCard(
                 key=metric,
-                label=METRIC_LABELS[latest.position][metric],
+                label=METRIC_LABELS[focus.position][metric],
                 precision=PRECISION[metric],
                 value=value,
                 baseline=line_baseline,
@@ -126,6 +144,11 @@ def player_page(session: SessionDep, player_id: str) -> PlayerPageResponse:
             tds=metric_value(s, "td"),
             rate=metric_value(s, "rate"),
             epa=metric_value(s, "epa"),
+            # Still literally "the player's most recent season", NOT the
+            # focused one — `season-columns.tsx` documents this highlight as
+            # "the most recent completed season" and the table is a career
+            # view. Whether it should instead follow `focus` is a design
+            # call, deliberately left alone here.
             is_latest=s.season == latest.season,
         )
         for s in stats
@@ -135,12 +158,12 @@ def player_page(session: SessionDep, player_id: str) -> PlayerPageResponse:
         player=PlayerRef(
             id=player.id,
             name=player.name,
-            position=latest.position,
-            team_abbr=latest.team,
-            team_color=latest_team.color,
+            position=focus.position,
+            team_abbr=focus.team,
+            team_color=focus_team.color,
             meta=(
-                f"{ordinal(latest.seasons_played)} season · {latest.games} g · "
-                f"{latest.position} · {latest_team.name}"
+                f"{ordinal(focus.seasons_played)} season · {focus.games} g · "
+                f"{focus.position} · {focus_team.name}"
             ),
         ),
         rate_cards=rate_cards,

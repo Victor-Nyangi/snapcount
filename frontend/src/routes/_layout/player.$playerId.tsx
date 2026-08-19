@@ -55,9 +55,19 @@ function PlayerScreen() {
   })
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["player", playerId],
+    // `season` is in the key as well as the request. The page is
+    // season-scoped — team, games, position, the ordinal and all three rate
+    // cards come from the season asked for — so a key of `["player", id]`
+    // alone would serve the previous season's page from cache after a
+    // season change and never refetch.
+    queryKey: ["player", playerId, season],
     queryFn: async () =>
-      (await PlayersService.playerPage({ path: { player_id: playerId } })).data,
+      (
+        await PlayersService.playerPage({
+          path: { player_id: playerId },
+          query: { season },
+        })
+      ).data,
   })
 
   // The mockup resets `pName` to null on a position change and falls back
