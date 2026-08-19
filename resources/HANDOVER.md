@@ -101,11 +101,31 @@ CI builds the Playwright stack with `docker compose down -v` + `prestart.sh`, wh
 
 `backend/tests/seed_e2e.py` now loads the same committed slice `conftest.py` uses, called from the workflow **on the runner** (the backend image ships `app/` and `scripts/` but deliberately not `tests/`; compose publishes the DB on 5434). This is the second time this project has paid for a suite coupled to ambient database state — §5 pattern 1.
 
+### A passing spec is not a look
+
+`responsive.spec.ts` was green on two screens that were visibly broken at 375px, because "the page did not widen" and "the card is readable" are different claims. Screenshots caught both:
+
+- **The leader card rendered its readouts on top of the player's name.** Relaxing its grid to `minmax(0, 1fr)` stopped the overflow and then let the `auto` readouts column keep its max-content width and crush the name column to nothing. It is a wrapping flex row now — `flex: "1 1 220px"` on the middle child uses the old 220 as a *basis* rather than a floor, so the readouts drop to their own line on a phone and sit hard right on desktop.
+- **The featured card clipped its own score.** Freeing the grid from its 420px floor made the card 327px, and the banner's ~335px of content pushed `48–42` 14px past the rounded corner, where it was clipped rather than overflowing the page.
+
+**Look at the screens after a layout fix.** A fix that removes an overflow can move the damage *inside* the element instead of removing it, and the spec only knows the page did not widen. All seven are verified by screenshot at 375px now.
+
+### One real defect found while looking — deliberately NOT fixed here
+
+**`GET /players/{player_id}` takes no `season` parameter** (`backend/app/api/routes/players.py:61`). The frontend sends `?season=2024`; the backend ignores it and builds the whole page from `stats[-1]`, the player's *last ingested* season. So `/player?season=2024` shows Aaron Rodgers with the PIT chip and "Pittsburgh Steelers" — his 2025 team — while the season-scoped dropdown directly above reads "Aaron Rodgers · NYJ". Position, games, "Nth season" and every rate card come from the wrong season too, and the season selector does nothing on this screen.
+
+```
+/api/v1/players?season=2024&position=QB  →  Aaron Rodgers, NYJ
+/api/v1/players/00-0023459?season=2024   →  team_abbr PIT, "… · Pittsburgh Steelers"
+```
+
+Left alone because it is a **5.6** defect needing a route-signature change plus tests, and PR #12 is the accessibility pass. It is the highest-value item waiting for the 5.3–5.8 review, and it is the lying-label class `CLAUDE.md` names as this project's most frequent.
+
 ### Then
 
 1. **Merge PR #12.** That closes M6 and the plan.
 2. **Five screens (5.3–5.8) shipped unreviewed.** Review found a real defect in *every* screen it was run on, including a Critical. Ranges are in the ledger.
-3. Record the remaining brief corrections in the plan's §1 — the upset filter, the `_layout` route path (wrong in all seven screen briefs), the per-position `Y/A` unit, `TrendLine`'s x-index, 5.7's missing `division` field, 5.8's self-contradicting decade counts. *(6.2's own corrections are already recorded there as §1.15 and §1.16, plus a correction appended to §1.13.)*
+3. ~~Record the remaining brief corrections in the plan's §1.~~ **DONE** — all six are now §1.17 (the `_layout` route path, the upset filter, `TrendLine`'s x-index, the per-position `Y/A` unit, 5.7's missing `division` field, 5.8's self-contradicting decade counts). 6.2's own are §1.15 and §1.16, plus a correction appended to §1.13.
 
 ## 4. Decisions — all resolved
 
