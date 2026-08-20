@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMemo } from "react"
 import { z } from "zod"
-import { ExplorerService } from "@/client"
+import { ExplorerService, MetaService } from "@/client"
 import { DifferentialGrid } from "@/components/differential-grid/grid"
 import { orderRows } from "@/components/differential-grid/order"
 import { SelectionPanel } from "@/components/differential-grid/selection-panel"
@@ -11,8 +11,13 @@ import { QueryError } from "@/components/query-error"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
-const FROM = 2016
-const TO = 2025
+// The decade this screen was built against, used ONLY when /meta/seasons
+// cannot be reached. The real range is whatever the database holds: these
+// were `FROM`/`TO` outright until a 2026 ingest would have been invisible
+// until someone edited this file. A grid of ten known seasons is a better
+// failure than an empty screen, so the constants stay as the fallback.
+const FALLBACK_FROM = 2016
+const FALLBACK_TO = 2025
 
 // The SELECTED CELL lives in the URL beside the sort. A drill-down that
 // cannot be linked to defeats the point of the screen — the whole reason
@@ -41,12 +46,34 @@ function ExplorerScreen() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["explorer", FROM, TO],
-    queryFn: async () =>
-      (await ExplorerService.differentials({ query: { from: FROM, to: TO } }))
-        .data,
+  // Same query key as the shell's season picker, so this is a cache read
+  // rather than a second request on every visit.
+  const seasonsQuery = useQuery({
+    queryKey: ["meta", "seasons"],
+    queryFn: async () => (await MetaService.listSeasons()).data,
+    staleTime: Number.POSITIVE_INFINITY,
   })
+
+  // Ordering is the endpoint's (`ORDER BY year`), but min/max says so
+  // outright rather than trusting it — the range is what the whole screen
+  // is scaled and labelled by.
+  const years = seasonsQuery.data?.map((s) => s.year) ?? []
+  const from = years.length ? Math.min(...years) : FALLBACK_FROM
+  const to = years.length ? Math.max(...years) : FALLBACK_TO
+
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["explorer", from, to],
+    // Held until the range is known. Firing on the fallback first would
+    // mean two requests and an eyebrow that visibly corrects itself.
+    enabled: !seasonsQuery.isPending,
+    queryFn: async () =>
+      (await ExplorerService.differentials({ query: { from, to } })).data,
+  })
+
+  // A disabled query is `pending` but not `loading`, so the seasons round
+  // trip has to be folded in by hand or the card renders empty while it
+  // is in flight.
+  const showSkeleton = seasonsQuery.isPending || isLoading
 
   const seasons = useMemo(() => data?.seasons ?? [], [data])
   const rows = useMemo(
@@ -68,7 +95,7 @@ function ExplorerScreen() {
           color: "var(--orchid)",
         }}
       >
-        {FROM}–{TO}
+        {from}–{to}
       </div>
       <h1
         style={{
@@ -153,7 +180,7 @@ function ExplorerScreen() {
         >
           {/* Skeleton rows at the grid's REAL row height, so the card does
             not jump when 32 rows arrive. */}
-          {isLoading ? (
+          {showSkeleton ? (
             <div style={{ display: "grid", gap: 4 }}>
               {Array.from({ length: 12 }, (_, i) => (
                 <Skeleton
@@ -168,6 +195,7 @@ function ExplorerScreen() {
               rows={rows}
               seasons={seasons}
               domain={data?.domain ?? 150}
+              totalDomain={data?.total_domain ?? 150}
               sort={search.sort}
               selection={
                 search.team && search.year

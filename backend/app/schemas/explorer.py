@@ -22,4 +22,10 @@ class ExplorerRow(SQLModel):
 class ExplorerResponse(SQLModel):
     seasons: list[int]
     domain: int
+    # The total column needs its OWN saturation magnitude: a decade of
+    # differentials is an order of magnitude wider than one season's, so
+    # reusing `domain` (or a fixed multiple of it) flattens the extremes
+    # into one another. Derived from the rows actually returned, so it
+    # holds for any range the caller asks for.
+    total_domain: int
     rows: list[ExplorerRow]
