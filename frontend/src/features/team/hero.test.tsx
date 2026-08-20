@@ -4,7 +4,7 @@ import type { TeamPageResponse } from "@/client"
 import { contrastRatio } from "@/lib/contrast"
 import { TeamHero } from "./hero"
 
-/** Detroit's real 2024 team page, trimmed to four weeks of schedule. */
+/** Detroit's real 2024 team page, trimmed to TWO weeks of schedule. */
 function page(overrides: Partial<TeamPageResponse> = {}): TeamPageResponse {
   return {
     team: {
@@ -125,6 +125,30 @@ describe("TeamHero", () => {
     const path = container.querySelector("path")!
     // cumulative [6, 2] under the ±40 floor: y = 66 - (v/40)*60
     expect(path.getAttribute("d")).toBe("M0.0 57.0 L640.0 63.0")
+  })
+
+  it("counts the games in the season it is showing, not always 17", () => {
+    // The NFL played SIXTEEN games a season through 2020 and seventeen from
+    // 2021, so a hard-coded "17-game season" was wrong on five of the ten
+    // ingested seasons — 160 team-seasons — including every page for a
+    // 3-12-1 Detroit in 2019. The fixture carries two weeks, so a caption
+    // reading anything but 2 is quoting a constant rather than the data.
+    render(<TeamHero data={page()} />)
+    expect(
+      screen.getByText(/Running total across the 2-game season/),
+    ).toBeInTheDocument()
+
+    // And it tracks the data rather than the fixture's length by accident.
+    const seventeen = page()
+    seventeen.schedule = Array.from({ length: 17 }, (_, i) => ({
+      ...page().schedule[0],
+      week: i + 1,
+      week_label: `W${i + 1}`,
+    }))
+    render(<TeamHero data={seventeen} />)
+    expect(
+      screen.getByText(/Running total across the 17-game season/),
+    ).toBeInTheDocument()
   })
 
   it("names the chart for assistive tech", () => {

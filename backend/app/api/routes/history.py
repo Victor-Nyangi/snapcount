@@ -21,6 +21,23 @@ router = APIRouter(prefix="/history", tags=["history"])
 _MOST_TITLES_LIMIT = 6
 
 
+def _with_ties(ranked: list[tuple[str, int]], limit: int) -> list[tuple[str, int]]:
+    """`ranked[:limit]`, extended through anyone level with the last card.
+
+    A plain slice cut mid-tie. Five franchises have two championships, so
+    the row headed "most titles" showed BAL, NYG, PHI and PIT and dropped
+    Tampa Bay — on alphabetical order, since the sort's tiebreak is the
+    abbreviation. A row cannot claim to list the most-titled teams while
+    omitting one holding the same number as a team it shows.
+
+    Same shape, and same resolution, as the leaderboard's own cutoff.
+    """
+    if len(ranked) <= limit:
+        return ranked
+    edge = ranked[limit - 1][1]
+    return ranked[:limit] + [row for row in ranked[limit:] if row[1] == edge]
+
+
 @router.get("/champions")
 def champions(session: SessionDep) -> HistoryResponse:
     rows = session.exec(select(Champion)).all()
@@ -50,9 +67,10 @@ def champions(session: SessionDep) -> HistoryResponse:
             ),
             count=count,
         )
-        for abbr, count in sorted(
-            title_counts.items(), key=lambda item: (-item[1], item[0])
-        )[:_MOST_TITLES_LIMIT]
+        for abbr, count in _with_ties(
+            sorted(title_counts.items(), key=lambda item: (-item[1], item[0])),
+            _MOST_TITLES_LIMIT,
+        )
     ]
 
     dynasty_rows = session.exec(select(DynastyRun)).all()
