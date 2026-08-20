@@ -20,6 +20,7 @@ export function DifferentialGrid({
   rows,
   seasons,
   domain,
+  totalDomain,
   sort,
   selection,
   onSort,
@@ -28,6 +29,11 @@ export function DifferentialGrid({
   rows: ExplorerRow[]
   seasons: number[]
   domain: number
+  /** The total column's own saturation magnitude — a decade of
+   * differentials is roughly an order of magnitude wider than a season's,
+   * so it cannot share `domain`. Comes from the API, which is the only
+   * place that can see every row. */
+  totalDomain: number
   sort: string
   selection?: Selection
   onSort: (next: string) => void
@@ -194,7 +200,7 @@ export function DifferentialGrid({
               />
             ))}
             <div className="flex justify-end">
-              <DiffCell value={row.total} domain={domain * 4} />
+              <DiffCell value={row.total} domain={totalDomain} />
             </div>
           </div>
         ))}

@@ -15,13 +15,13 @@ hazard than the ingest package's `isolated_db`: routes here go through
 `app.api.deps.get_db`, so a SAVEPOINT rolled back on *this* fixture's
 session would be invisible to it — the mutation has to be a real commit,
 undone by an explicit delete afterward, the same way
-`tests/ingest/test_runner.py`'s `_purge_season` cleans up after
+`tests/ingest/conftest.py`'s `purge_season` cleans up after
 `ingest_season` (which also commits for real).
 
 Sentinel seasons: 2081 (unplayed game), 2082 (stale freshness), 2083 (fresh
 freshness), 2084 (partial team schedule), 2086/2087 (explorer present vs
-missing). Ingest's own tests own 2095-2099; picked clear of that range on
-purpose.
+missing), 2089 (explorer empty range). Ingest's own tests own 2095-2099;
+picked clear of that range on purpose.
 """
 
 from collections.abc import Generator
@@ -42,6 +42,9 @@ FEATURED_SEASON = 2085
 TEAM_SCHEDULE_SEASON = 2084
 EXPLORER_PRESENT_SEASON = 2086
 EXPLORER_MISSING_SEASON = 2087
+# Deliberately has NO fixture: the point of this one is a range the
+# database holds nothing in, which is what makes every total 0.
+EXPLORER_EMPTY_SEASON = 2089
 
 
 @pytest.fixture

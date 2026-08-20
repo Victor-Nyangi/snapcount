@@ -136,6 +136,10 @@ export type ExplorerResponse = {
      */
     domain: number;
     /**
+     * Total Domain
+     */
+    total_domain: number;
+    /**
      * Rows
      */
     rows: Array<ExplorerRow>;

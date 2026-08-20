@@ -57,4 +57,17 @@ def differentials(
             )
         )
 
-    return ExplorerResponse(seasons=seasons, domain=DOMAIN, rows=rows)
+    # The widest magnitude in the column, so exactly one team saturates and
+    # every other pair stays distinguishable. `domain * 4` = 600 lived on
+    # the client and pinned nine of 32 teams to full colour across
+    # 2016-2025 - NYJ at -1193 and CLE at -751 read as the same cell.
+    # `max(..., 1)` because the client divides by this, and an empty range
+    # (or a genuinely all-zero one) is a legal request.
+    total_domain = max((abs(r.total) for r in rows), default=1) or 1
+
+    return ExplorerResponse(
+        seasons=seasons,
+        domain=DOMAIN,
+        total_domain=total_domain,
+        rows=rows,
+    )

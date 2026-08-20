@@ -1,6 +1,10 @@
 from fastapi.testclient import TestClient
 
-from tests.api.conftest import EXPLORER_MISSING_SEASON, EXPLORER_PRESENT_SEASON
+from tests.api.conftest import (
+    EXPLORER_EMPTY_SEASON,
+    EXPLORER_MISSING_SEASON,
+    EXPLORER_PRESENT_SEASON,
+)
 
 
 def test_explorer_returns_32_rows_by_10_seasons(client: TestClient) -> None:
@@ -9,6 +13,34 @@ def test_explorer_returns_32_rows_by_10_seasons(client: TestClient) -> None:
     assert len(body["rows"]) == 32
     assert all(len(r["values"]) == 10 for r in body["rows"])
     assert body["domain"] == 150
+
+
+def test_total_domain_saturates_at_the_widest_total_not_a_multiple(
+    client: TestClient,
+) -> None:
+    """The total column used to reuse the season domain x4 = 600, against
+    real decade totals spanning -1193..1046: nine of the 32 teams pinned
+    to full saturation, so NYJ (-1193) and CLE (-751) rendered as the same
+    colour - the two teams a decade view most invites you to compare. The
+    scale is now the data's own widest magnitude, so exactly one team
+    saturates and everyone else is separable."""
+    body = client.get("/api/v1/explorer/differentials?from=2016&to=2025").json()
+    totals = [r["total"] for r in body["rows"]]
+
+    assert body["total_domain"] == max(abs(t) for t in totals) == 1193
+    assert sum(1 for t in totals if abs(t) >= body["total_domain"]) == 1
+
+
+def test_total_domain_never_returns_zero_for_an_empty_range(
+    client: TestClient,
+) -> None:
+    """`abs(value) / domain` is the first thing the client does with it."""
+    body = client.get(
+        f"/api/v1/explorer/differentials?from={EXPLORER_EMPTY_SEASON}"
+        f"&to={EXPLORER_EMPTY_SEASON}"
+    ).json()
+    assert all(r["total"] == 0 for r in body["rows"])
+    assert body["total_domain"] > 0
 
 
 def test_explorer_total_is_the_sum_of_present_seasons(client: TestClient) -> None:
