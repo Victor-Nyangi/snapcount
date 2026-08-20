@@ -1,7 +1,11 @@
+from collections.abc import Generator
+
+import pytest
 from sqlmodel import Session, select
 
 from app.ingest.games import ingest_games
 from app.models import Game
+from tests.ingest.conftest import purge_season
 
 # Sentinel season for every fixture in this file. NOT a real-range year
 # (2016-2025): "season" is a foreign key into Season.year, and this repo's
@@ -69,6 +73,19 @@ class FakeSource:
 
     def player_stats(self, season):
         return []
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _purge_sentinel_season(db: Session) -> Generator[None]:
+    """`ingest_games` does not commit, but this module does (the recap test
+    has to, to prove an editorial value survives a re-ingest) - and the
+    shared session commits again at teardown regardless. So these three
+    fake games and the Season row `ingest_games` creates for them persisted
+    into the real dev database on every run. They did, for months: see
+    `purge_season`. Module-scoped so the recap test still sees what the
+    tests before it wrote."""
+    yield
+    purge_season(db, _SEASON)
 
 
 def test_ingest_games_maps_the_feed_onto_the_model(db: Session) -> None:

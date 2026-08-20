@@ -34,7 +34,9 @@ with an explicit purge instead; see test_runner.py's `_purge_season`.
 from collections.abc import Generator
 
 import pytest
-from sqlmodel import Session
+from sqlmodel import Session, delete
+
+from app.models import Game, IngestRun, Player, PlayerSeasonStat, Season, TeamSeasonStat
 
 
 @pytest.fixture
@@ -42,3 +44,32 @@ def isolated_db(db: Session) -> Generator[Session]:
     nested = db.begin_nested()
     yield db
     nested.rollback()
+
+
+def purge_season(session: Session, season: int) -> None:
+    """Delete every row a fake season can have produced, and commit.
+
+    For code paths that commit for real, `isolated_db`'s SAVEPOINT cannot
+    help: `ingest_season` owns a transaction boundary (correctly - that is
+    what a production run must do), and test_games.py commits directly to
+    prove an editorial recap survives a re-ingest. Both therefore clean up
+    explicitly, or their throwaway season lingers in the shared dev DB
+    past the run. 2099 did exactly that for months: three fabricated games
+    and a Season row with no TeamSeasonStat behind them, which then showed
+    up in the season picker and would have rendered an empty extra column
+    in the explorer the moment its range became data-driven.
+    """
+    session.exec(delete(Game).where(Game.season == season))
+    session.exec(delete(PlayerSeasonStat).where(PlayerSeasonStat.season == season))
+    session.exec(delete(TeamSeasonStat).where(TeamSeasonStat.season == season))
+    session.exec(delete(IngestRun).where(IngestRun.season == season))
+    session.exec(delete(Season).where(Season.year == season))
+    session.commit()
+
+
+def purge_players(session: Session, *ids: str) -> None:
+    """Player has no `season` column - it is a cross-season entity - so a
+    fake player outlives `purge_season` and must be named explicitly."""
+    for player_id in ids:
+        session.exec(delete(Player).where(Player.id == player_id))
+    session.commit()
