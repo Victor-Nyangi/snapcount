@@ -1,28 +1,34 @@
 # Snapcount — session handover
 
-**Written:** 2026-08-19 (second session) · **`main` head:** `f24472d` · **Open:** PR **#13** (`fix/player-season`) · **THE PLAN IS COMPLETE — M0–M6 are all merged.** What remains is review, not construction: see §3.
+**Written:** 2026-08-20 · **`main`:** `998cb6e` · **No open PRs. Working tree clean.** M0–M6 are merged and the plan is complete; six of the nine review findings are fixed. **Everything still open is a DECISION, not a patch — see §3.**
 
-Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~900 lines — the authoritative record). The plan is `resources/nfl-implemnentation2.md`.
+Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~1000 lines — the authoritative record). The plan is `resources/nfl-implemnentation2.md`.
 
 ---
 
 ## 1. Where things stand
 
-| Milestone | Status | Notes |
-|---|---|---|
-| M0 Scaffold | ✅ | Template cloned, `Item` demo removed, light theme forced |
-| M1 Design system | ✅ | Fonts, three-layer tokens, shadcn primitives, diverging scale + WCAG contrast |
-| M2 Shared components | ✅ | 5 marks, `StatTable`, `CardRail`, app shell with URL-backed season/week |
-| M3 Data model + ingestion | ✅ | 9 models, analytics, 25 champions, **real 2016–2025 backfill** |
-| M4 API | ✅ | 8 route modules, typed TS client generated |
-| **M5 Screens** | ✅ **8 of 8** | All merged. 5.1 and 5.2 were reviewed; **5.3–5.8 shipped unreviewed** |
-| **M6 Finishing** | ✅ **4 of 4** | 6.1 states ✅ · 6.3 scheduled ingest ✅ · 6.4 docs ✅ · 6.2 a11y/responsive ✅ (PR #12, `f24472d`) |
+**The build is done.** M0–M6 all merged. All seven screens ship, the accessibility and responsive pass is enforced by Playwright specs rather than a checklist, and the 5.3–5.8 review that had been outstanding is now complete.
 
-**Tests:** 156 backend + 307 frontend unit + 91 Playwright (a11y, responsive, keyboard, contrast, and the template's own). The backend suite passes **from an empty database**, not just a backfilled one — see §2. The *browser* suite no longer runs against one: CI now seeds it from the same committed slice (§2).
+| Milestone | Status |
+|---|---|
+| M0 Scaffold · M1 Design system · M2 Shared components | ✅ |
+| M3 Data model + ingestion | ✅ real 2016–2025 backfill |
+| M4 API · M5 Screens (8/8) · M6 Finishing (4/4) | ✅ |
+| **5.3–5.8 review** | ✅ complete — 6 of 9 findings fixed (§3) |
+
+**Tests:** 163 backend · 312 frontend unit · 91 Playwright (a11y, responsive, keyboard, contrast, plus the template's own). Both suites pass **from an empty database** — see §2.
+
+**Verify before trusting anything below:**
+
+```bash
+./scripts/verification-gate.sh        # 163 + 312, build, lint, two greps
+uv run prek run --all-files           # NOT covered by the gate — see §6
+```
 
 **Data:** 2,764 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
 
-**Verified real values** — exact, not approximate. Use them as acceptance checks:
+**Spot-check values — exact, not approximate.** Use them as acceptance checks:
 
 | Season | Team | Record | PF | PA | Differential |
 |---|---|---|---|---|---|
@@ -30,11 +36,11 @@ Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger,
 | 2023 | SF | 12-5 | 491 | 298 | **+193** |
 | 2020 | JAX | 1-15 | 306 | 492 | **−186** |
 
-2024 week 15: **16 games, 2 featured**, first by kickoff is Rams 12 at 49ers 6 (line SF -3). Featured #1 is BUF at DET 48–42, banner `#0076B6`.
+2024 week 15: **16 games, 2 featured**, first by kickoff is Rams 12 at 49ers 6 (line SF -3). Featured #1 is BUF at DET 48–42, banner `#0076B6`. NE has **6** titles, the most.
 
-`current_week` is **17 for 2016–2020, 18 for 2021–2025** — the NFL's 16→17-game expansion. If a change makes these uniform, something regressed.
+`current_week` is **17 for 2016–2020, 18 for 2021–2025** (the 16→17-game expansion) and every season runs on to **week 21 or 22** — the playoffs are weeks too. If a change makes either uniform, something regressed.
 
-Two more, useful because they are the ones that catch a page reading the wrong *season* rather than the wrong number. Kirk Cousins `00-0029604` changed teams twice inside the backfill — **WAS 2016–17, MIN 2018–23, ATL 2024–25** — with a different games count and a different `seasons_played` ordinal every year, which is why he is the fixture for the player page's season handling. Aaron Rodgers `00-0023459` is the human-readable version: **2023 NYJ, 1 game** (the torn Achilles), **2024 NYJ, 17 games**, **2025 PIT, 16 games**.
+**Players whose team moved inside the backfill**, which is what catches a screen reading the wrong *season* rather than the wrong number: Kirk Cousins `00-0029604` (WAS 2016–17, MIN 2018–23, ATL 2024–25 — a different games count and ordinal every year, so nothing passes by coincidence) and Aaron Rodgers `00-0023459` (2023 NYJ **1 g** — the torn Achilles; 2024 NYJ 17 g; 2025 PIT 16 g).
 
 ---
 
@@ -61,96 +67,74 @@ cd backend && uv run python -m tests.fixtures.generate
 
 ---
 
-## 3. START HERE — the plan is built; what remains is review
+## 3. START HERE — four open decisions, no open code
 
-M6 is merged and `./scripts/verification-gate.sh` passes, so **every task in the plan is now built**. The next work is the 5.3–5.8 review (§3 "Then"), not more construction.
+Nothing is half-finished. `main` is green, there are no open PRs, and every remaining item needs **you** to choose rather than someone to keep typing. In rough order of value:
 
-**Do not re-derive §3 of the previous handover — its two named bugs were the visible tips of five and three respectively.** What that section got wrong is kept below, because the pattern (a shell fix that unmasks per-screen bugs; a token failure that is really a scale-wide one) is the reusable part.
+### A. Hosting — untouched, and the real question is the data
 
-### What 6.2 turned out to be
+Two paths ship with the template. The choice is forced by something snapcount-specific, so read this before picking:
 
-| Spec | Covers | Status |
+| | FastAPI Cloud (`deploy.yml`) | Docker Compose on your own box (`compose.deploy.yml`) |
 |---|---|---|
-| `frontend/tests/a11y.spec.ts` | axe on all 7 screens | green |
-| `frontend/tests/responsive.spec.ts` | 375/768/1360 + the §1.13 nav | green |
-| `frontend/tests/keyboard.spec.ts` | focus, roving tabindex, reduced motion | green |
-| `frontend/tests/contrast.spec.ts` | **new** — what axe cannot see | green |
+| Trigger | push to **`master`** — but this repo's default branch is **`main`**, so it would never fire. One-line fix. | `workflow_dispatch:` only — manual |
+| Nightly ingest | **Nowhere to run it.** Task 6.3's scheduler is an `ingest-scheduler` *container* running a sleep-loop. Would need re-homing to a GitHub Actions `schedule:`. | Works as designed |
+| TLS / infra | managed | Traefik + Let's Encrypt, you own the box |
 
-**The 375px page scroll was five bugs, not one.** The nav (`min-w-0`, `bc2c7ce`) and the header's right-hand group were the shell layer; fixing the group took 7 failures to 4 and *unmasked* four per-screen causes it had been hiding. Two are worth carrying:
+**The bigger question, either path: how does production get its decade of data?** `prestart.sh` runs migrations and creates the superuser, nothing more — so a fresh deploy starts **empty** and renders seven empty states. And `nightly-ingest.sh` deliberately ingests only the **current** season, so it will never backfill history.
 
-- `minmax(420px, 1fr)` inside `repeat(auto-fit, …)` is a **hard floor**, not a preference — the track cannot go below 420px, so the week screen overflowed a 375px viewport by exactly 69px. `minmax(min(420px, 100%), 1fr)` is the fix, and `player.$playerId.tsx` had the identical expression at 280px (fixed too; latent only because 280 fits).
-- **Below `md`, a `grid` whose only explicit tracks are `md:grid-cols-[…]` falls back to a single *implicit* `auto` track, and `auto` floors at min-content.** The `md:` tracks already spelled out `minmax(0, …)`; the one-column case never got it. This bit `history` and `team/$abbr`, and bit `history` twice — once more in a nested inline `display: grid` stack.
+> **Recommendation: `pg_dump` the local database and restore it.** It already holds the verified decade (DET +222, NE 6 titles), which makes the first deploy fast and reproducible. The alternative — running the 2016–2025 backfill against production — is a decade of networked nflverse pulls, the exact thing CI refuses to do.
 
-**The contrast failure was three failures sharing one token, and axe could only see two.** `--emerald-dark` (#158055) is a DS *fill* the design also spends as small text; at 4.94:1 on white it has no headroom, so every tint under it fails — pill 4.44, filter pill 4.34, **diverging weak-positive cells down to 3.24**. Fixed at source with `--emerald-ink: oklch(0.44 0.1 155)` (`theme.css` §1.9b) for every emerald *text* usage.
+### B. Finding 6 — "Nth season" cannot be fixed, only reworded
 
-> The tell was the scale's own asymmetry: the negative weak ink `--ink-negative-mid` is `oklch(0.45 0.17 25)` and clears everywhere (worst 4.81) because it was chosen as an ink. The positive counterpart never got that treatment.
+The ingest stores **no rookie or entry year**, so a true career length cannot be computed from what exists. The label is correct precisely for players who debuted inside the backfill window and wrong for everyone else: on the 2024 WR board Brian Thomas Jr. reads "1st season" and is right; Mike Evans reads "9th season" and was in his **11th**; Tom Brady in 2017 reads "2nd season".
 
-> **The brief predicted the wrong half.** Step 3 names "the strong end of the diverging scale and every team chip" as most likely to have slipped. Both were already clean (10.92 / 8.77; worst chip 4.62). It was the weak end — the pale tints nobody reads as "coloured cells".
+Three options, all copy: drop the ordinal, qualify it ("tracked"), or **show the season year** — the player page is season-scoped now, so that is both true and arguably more useful. Needs a product call.
 
-**axe does not check the diverging cells at all.** On standings its `color-contrast` rule returned 0 violations, 0 passes *and* 0 incomplete for all 32 cells — it never evaluated them. `contrast.spec.ts` measures rendered pixels through a canvas instead (the tokens are `oklch`; the browser is the only authority on how they land in sRGB). Proven to bite by reverting the token: 5 of 32 cells fail — a narrow band, which is why it hid.
+### C. Finding 7 — explorer total-column saturation
 
-### Two things that were false and cost real time
+`domain * 4` = 600 against ten-season totals spanning −1193..1046 clips **9 of 32 teams**, so NYJ (−1193) and CLE (−751) render identically. The arithmetic is easy; what the darkest cell should *mean* over a decade is the design call.
 
-1. **The previous handover said `keyboard.spec.ts` was passing. It was not** — two of its tests failed on CI, and one of those had *never actually run*: `test.use({ reducedMotion: "reduce" })` did not reach the page (`matchMedia(...).matches` read `false` inside the test body), so it measured an un-emulated browser and read 0.12s as correct. With `page.emulateMedia` it immediately caught `leader-bar.tsx` still animating at 0.18s — an **inline** `transition`, which no normal-weight `*` rule can override.
-2. **I first added `!important` to the reduced-motion reset for the wrong reason** — I assumed `*` was losing on *specificity* to Tailwind's `duration-[120ms]`. Reverting and re-measuring showed still 0s: `theme.css` is unlayered and Tailwind v4's utilities are in `@layer utilities`, so unlayered normal declarations already beat them. Only the inline case ever needed it. **Re-measure before writing the comment** — it would have been confidently wrong in the file forever.
+### D. Finding 9 — blocked on leaked test data, deliberately not fixed
 
-### The browser suite had been testing seven empty states
+The explorer's range is `FROM = 2016 / TO = 2025`, correct today but hard-coded. Sourcing it from `/meta/seasons` would pick up the leaked **2099** sentinel — which has a `Season` row and 3 games but **zero `TeamSeasonStat` rows** — so the grid would render an entirely empty extra column, a worse bug than the one being fixed. **The prerequisite is deleting that leaked row from the dev database.** (It also shows up in the season picker now that the picker is data-driven.)
 
-CI builds the Playwright stack with `docker compose down -v` + `prestart.sh`, which migrates an empty volume and creates the superuser. Nothing else. So:
+---
 
-- the roving-tabindex check timed out for 30s waiting on a grid with no cells;
-- the week screen's `CardRail` was never scanned, hiding a scroll region no keyboard could reach (`tabIndex={0}` now);
-- no `DiffCell` ever rendered, so the whole positive half of the diverging scale went unmeasured;
-- the pill's contrast failure arrived as a **race** — four screens caught it mid-`"Checking…"` (emerald) and three saw it resolve to `stale` (warning, 11.36:1), on the same run.
+## 3a. What the accessibility pass taught, kept because it recurs
 
-`backend/tests/seed_e2e.py` now loads the same committed slice `conftest.py` uses, called from the workflow **on the runner** (the backend image ships `app/` and `scripts/` but deliberately not `tests/`; compose publishes the DB on 5434). This is the second time this project has paid for a suite coupled to ambient database state — §5 pattern 1.
+Task 6.2 is merged and its specs are green, but four lessons from it cost real time and will cost it again:
 
-### A passing spec is not a look
+1. **A symptom on every screen at once names the layer, not the count.** Seven screens overflowing identically correctly said "shell" — and after the shell was fixed, four screens still overflowed for four *different* reasons. The shared cause being real does not mean it is the only one.
+2. **A passing spec is not a look.** `responsive.spec.ts` was green on two visibly broken cards — the leader card was painting its readouts on top of the player's name. "The page did not widen" and "the card is readable" are different claims. **Screenshot the screens after a layout fix.**
+3. **A test can pass without ever running.** `test.use({ reducedMotion: "reduce" })` never reached the page, so the spec measured an un-emulated browser for as long as it existed. When a test depends on an emulated condition, **assert the condition took hold** before asserting anything about it.
+4. **axe is necessary, not sufficient.** Its `color-contrast` rule returned 0 violations, 0 passes *and* 0 incomplete for all 32 diverging cells on the standings screen — it never evaluated them. `tests/contrast.spec.ts` measures rendered pixels through a canvas for exactly this reason.
 
-`responsive.spec.ts` was green on two screens that were visibly broken at 375px, because "the page did not widen" and "the card is readable" are different claims. Screenshots caught both:
+---
 
-- **The leader card rendered its readouts on top of the player's name.** Relaxing its grid to `minmax(0, 1fr)` stopped the overflow and then let the `auto` readouts column keep its max-content width and crush the name column to nothing. It is a wrapping flex row now — `flex: "1 1 220px"` on the middle child uses the old 220 as a *basis* rather than a floor, so the readouts drop to their own line on a phone and sit hard right on desktop.
-- **The featured card clipped its own score.** Freeing the grid from its 420px floor made the card 327px, and the banner's ~335px of content pushed `48–42` 14px past the rounded corner, where it was clipped rather than overflowing the page.
+## 3b. The 5.3–5.8 review — COMPLETE; 6 of 9 findings fixed
 
-**Look at the screens after a layout fix.** A fix that removes an overflow can move the damage *inside* the element instead of removing it, and the spec only knows the page did not widen. All seven are verified by screenshot at 375px now.
+Method: **combined per screen** — recompute the spec against the live database *and* render the screen — then **report everything, fix on the user's call**. All six screens done.
 
-### The defect found while looking — fixed on PR #13
-
-**`GET /players/{player_id}` took no `season` parameter.** The frontend sent `?season=2024`; the route ignored it and built the whole page from `stats[-1]`, the player's *last ingested* season — team chip, team name, position, games, the ordinal and all three rate cards. So `/player?season=2024` showed Aaron Rodgers on Pittsburgh, the team he joined in **2025**, beneath a season-scoped picker reading "Aaron Rodgers · NYJ". The season selector did nothing at all on that screen.
-
-Fixed on `fix/player-season` (**PR #13**): `season` is an optional query parameter, the page focuses that row, and the rate cards' positional pool is keyed to it. A season the player has no row for falls back to their latest rather than 404ing, because `player.$playerId.tsx` asks for that explicitly. `season` is in the frontend query **key** as well as the request — without it the first season's response is served from cache and the page never refetches.
-
-`is_latest` still means the player's most recent season, not the focused one; the season table is a career view and its highlight is documented as "the most recent completed season". Whether it should follow the focus is a design call, deliberately left open.
-
-**Checked for siblings: there are none.** Every other data route — explorer, leaders, standings, `team_page`, `week`, `meta/freshness` — takes `season` explicitly, and `history/champions` is all-time by design. `player_page` was the only one missing it.
-
-### Then
-
-1. ~~**Merge PR #12.**~~ **DONE** — squash-merged as `f24472d`. M6 and the plan are complete.
-2. **Merge PR #13**, then: **five screens (5.3–5.8) shipped unreviewed.** This is the whole of the remaining work. Review has found a real defect in *every* screen it was run on, including a Critical, and the player-season bug above is what one screenshot of one screen turned up — so the expected yield is high. Commit ranges are in the ledger.
-
-   What has made these reviews worth their cost, stated as instructions to give: **recompute, don't read** (reimplement the spec independently and diff the outputs — that is how the upset-filter divergence and the Z→A sort bug were both found); **verify against the live database, not fixtures**; **state acceptance checks against the default URL**, grouping and sorting included; and **ask what the tests do *not* cover**, consistently the most valuable section. Add the two this session earned: **look at the screen at 375px**, and **check that any label agrees with the value beside it** — that single check would have caught the player-season bug, the `qualifier_label` defect, the hard-coded freshness pill and the per-position `Y/A` unit, which is four of this project's defects from one question.
-3. ~~Record the remaining brief corrections in the plan's §1.~~ **DONE** — all six are now §1.17 (the `_layout` route path, the upset filter, `TrendLine`'s x-index, the per-position `Y/A` unit, 5.7's missing `division` field, 5.8's self-contradicting decade counts). 6.2's own are §1.15 and §1.16, plus a correction appended to §1.13.
-
-## 3b. The 5.3–5.8 review — COMPLETE, nothing fixed
-
-Method: **combined per screen** — recompute the spec against the live database *and* render the screen — then **report everything, fix on the user's call**. All six screens done. Nothing below is fixed.
+**All merged.** 1–3 in `74051aa`, 4/5/8 in `af75bf5`. **6, 7 and 9 stay open as decisions — they are §3 B, C and D.** The table below is kept as the evidence trail: each row records what was measured, so a future change can be checked against it rather than re-derived.
 
 ### Findings, ranked
 
 | # | Sev | Finding |
 |---|---|---|
-| 1 | **High** | **7 of 10 seasons unreachable from the UI.** `SEASON_OPTIONS` hard-codes `[2025, 2024, 2023]`; `/meta/seasons` reports all ten. `?season=2017` renders 2017 data with a **blank Season control**. The component's comment says to revisit once that endpoint exists — it landed in Task 4.1. |
-| 2 | **High** | **The whole postseason is unreachable, every Super Bowl included.** `WEEK_OPTIONS` is `1..18`; games run to week 21 (2016–20) / 22 (2021–25) and the schema already allows `.max(22)`. `/week?season=2024&week=22` renders "Week 22 · 2024 Super Bowl" with a **blank Week control**. |
-| 3 | **High** | **Player rate-card bars are scaled to unqualified outliers.** `scale_max` is an unfiltered max over every player at the position, so a 1–4 game backup sets the scale. The league's **best qualified WR by EPA** (Amon-Ra St. Brown) fills **9.6%** of his bar; his Y/T bar fills 13% because the max is 69.0 y/t (Tyrell Shavers, one target). Rodgers' 2024 EPA bar fills **0.8%**. Affects every player page, 2 of 3 cards. The code's stated intent — "the bar's own player can never exceed its own scale" — is preserved by `max(qualified_max, this_player_value)`. |
-| 4 | Medium | **Leaders: ties get different ranks and one is silently dropped at the cutoff.** 2017 QB TDs: Roethlisberger/Rivers/Goff all threw 28 → ranks 4, 5, and at Top 5 Goff vanishes. **68 such cases** across the backfill. `qualified.sort()` is stable over a `select()` with **no `ORDER BY`**, so the tiebreak is not deterministic. **The explorer already does this correctly** — BAL and BUF, both +157 in 2024, are both "Ranked #3 of 32". Leaders is inconsistent with a correct pattern already in the codebase. |
-| 5 | Medium | **Team page caption hard-codes "the 17-game season".** The NFL played 16 games 2016–2020. Wrong on 5 of 10 seasons × 32 teams = **160 team-seasons**. `features/team/hero.tsx:135`. |
+| 1 | **High** · ✅ FIXED `74051aa` | **7 of 10 seasons unreachable from the UI.** `SEASON_OPTIONS` hard-codes `[2025, 2024, 2023]`; `/meta/seasons` reports all ten. `?season=2017` renders 2017 data with a **blank Season control**. The component's comment says to revisit once that endpoint exists — it landed in Task 4.1. |
+| 2 | **High** · ✅ FIXED `74051aa` | **The whole postseason is unreachable, every Super Bowl included.** `WEEK_OPTIONS` is `1..18`; games run to week 21 (2016–20) / 22 (2021–25) and the schema already allows `.max(22)`. `/week?season=2024&week=22` renders "Week 22 · 2024 Super Bowl" with a **blank Week control**. |
+| 3 | **High** · ✅ FIXED `74051aa` | **Player rate-card bars are scaled to unqualified outliers.** `scale_max` is an unfiltered max over every player at the position, so a 1–4 game backup sets the scale. The league's **best qualified WR by EPA** (Amon-Ra St. Brown) fills **9.6%** of his bar; his Y/T bar fills 13% because the max is 69.0 y/t (Tyrell Shavers, one target). Rodgers' 2024 EPA bar fills **0.8%**. Affects every player page, 2 of 3 cards. The code's stated intent — "the bar's own player can never exceed its own scale" — is preserved by `max(qualified_max, this_player_value)`. |
+| 4 | Medium · ✅ FIXED `af75bf5` | **Leaders: ties get different ranks and one is silently dropped at the cutoff.** 2017 QB TDs: Roethlisberger/Rivers/Goff all threw 28 → ranks 4, 5, and at Top 5 Goff vanishes. **68 such cases** across the backfill. `qualified.sort()` is stable over a `select()` with **no `ORDER BY`**, so the tiebreak is not deterministic. **The explorer already does this correctly** — BAL and BUF, both +157 in 2024, are both "Ranked #3 of 32". Leaders is inconsistent with a correct pattern already in the codebase. |
+| 5 | Medium · ✅ FIXED `af75bf5` | **Team page caption hard-codes "the 17-game season".** The NFL played 16 games 2016–2020. Wrong on 5 of 10 seasons × 32 teams = **160 team-seasons**. `features/team/hero.tsx:135`. |
 | 6 | Medium | **"Nth season" means "Nth season in our backfill", not career.** Tom Brady in 2017 reads **"2nd season"**. `ingest/players.py` documents the limitation in a comment; the UI states it as fact. Feeds both the leader card and the player page. |
 | 7 | Low | **Explorer total column saturates for the teams you most want to compare.** `domain * 4` = 600 against totals spanning −1193..1046: **9 of 32 teams** saturate, so NYJ (−1193) and CLE (−751) render identically. Season cells at domain 150 saturate 14% of the time, which the plan already ruled acceptable. |
-| 8 | Low | **History "most titles" drops a tied team.** Five teams have 2 titles; the cut at 6 cards shows BAL/NYG/PHI/PIT and drops **TB**. Tiebreak is deterministic (alphabetical by abbr), unlike finding 4 — but the row is labelled "most titles" and omits an equally-titled team. |
+| 8 | Low · ✅ FIXED `af75bf5` | **History "most titles" drops a tied team.** Five teams have 2 titles; the cut at 6 cards shows BAL/NYG/PHI/PIT and drops **TB**. Tiebreak is deterministic (alphabetical by abbr), unlike finding 4 — but the row is labelled "most titles" and omits an equally-titled team. |
 | 9 | Low | **Explorer's season range is hard-coded** `FROM = 2016 / TO = 2025` rather than derived from `/meta/seasons`. Same family as 1; a 2026 ingest will not appear until someone edits the constant. |
 
-1 and 2 are **one component and one fix** — `season-week-picker.tsx` sourcing both lists from `/meta/seasons`, which already returns `year`, `current_week` and `week_count`. Highest user-visible value in the review.
+### Note on 1 and 2
+
+They were **one component and one fix** — `season-week-picker.tsx` sourcing both lists from `/meta/seasons`. `week_count` could not serve: it is a stored constant of 18, so `SeasonSummary` gained a derived `max_week`.
 
 ### Verified clean — recomputed independently, exact match
 
@@ -160,9 +144,9 @@ Method: **combined per screen** — recompute the spec against the live database
 - **5.7 explorer**: all 32 × 10 cells match; zero missing; competition ranking correct on ties; selection round-trips through the URL (`team=BAL&year=2024`).
 - **5.8 history**: 25 champions 2000–2024, decades 10/10/5, NE 6 titles, dynasty ranges are curated editorial (PIT's 2010 is their third *appearance*, not a title).
 
-**Correction to an earlier ledger claim:** local deep links are NOT broken. The SPA fallback is `Accept`-header driven — a browser gets `200` + the app; `curl`'s default `*/*` gets a JSON 404.
+**Correction to an earlier ledger claim:** local deep links are NOT broken. The SPA fallback is `Accept`-header driven — a browser gets `200` + the app; `curl`'s default `*/*` gets a JSON 404. That tripped up one session's diagnosis.
 
-**Next: hosting/deployment** — untouched. `compose.deploy.yml`, `deployment.md` and `deployment-docker-compose.md` exist and have not been reviewed.
+**Also verified while reviewing:** every other data route already takes `season` explicitly (explorer, leaders, standings, `team_page`, `week`, `meta/freshness`), and `history/champions` is all-time by design — so the player-page season bug fixed in `0d86411` had no siblings.
 
 ---
 
@@ -182,7 +166,7 @@ Method: **combined per screen** — recompute the spec against the live database
 
 ~~`playoff_seed`~~ — **decided:** badge dropped (`f2cc899`). The API keeps the nullable column; nothing renders it.
 
-**Four `to={... as any}` casts remain** in `frontend/src/routes/_layout.tsx` — team, player, explorer, history. Seven nav items, three real routes. Remove each as its screen lands; an `as any` that outlives its reason hides a real typo.
+**~~Four `to={... as any}` casts remain.~~ — CLOSED.** All gone as of 5.8; `NAV_ITEMS` is typed against the router's own path literals, so a typo in a nav path is a build error rather than a 404 nobody clicks. Only a comment in `_layout.tsx` still mentions the old escape hatch.
 
 **~~Task 6.2's browser backlog.~~ — mostly CLOSED (`5e4cc33`).** The items that a spec can hold are now held by one: the 375px nav collapse and every width check (`responsive.spec.ts`), reduced-motion suppression (`keyboard.spec.ts`, and it caught a real bug once the emulation was fixed), focus visibility and the roving tabindex (`keyboard.spec.ts`), contrast (`contrast.spec.ts` + axe).
 
@@ -223,6 +207,8 @@ Each cost at least one fix round. Expect them again.
   - `reset-password.spec.ts` (2 tests) needs mailcatcher on :1080 and fails locally without it. That is environmental — it passes in CI.
 - **A brand-new route needs two builds.** `build` is `tsc && vite build`, and only the *vite* step regenerates `routeTree.gen.ts` — so the first typecheck after adding a route file fails against a stale tree. Run `bunx vite build` once from `frontend/`, then the normal build passes. Also: screens live at `routes/_layout/<name>.tsx`, **not** `routes/<name>.tsx` as every task brief says — TanStack's file-based routing needs the `_layout` folder to inherit the shell and the season/week search schema.
 - **PostgreSQL is on host port 5434**, not 5432 (another project owns that). `docker compose up -d db`.
+- **`./scripts/verification-gate.sh` IS NOT CI.** The gate runs pytest, vitest, the build, biome and two greps. It does **not** run `ruff format`, which is a pre-commit hook — so a green gate shipped an unformatted branch and CI's `pre-commit` job went red on `2 files reformatted`. Run **`uv run prek run --all-files`** alongside the gate before pushing anything Python. Same lesson as the biome one below: formatters rewrite source, so running them after verifying is how their changes reach CI unverified.
+
 - **`bun run --filter frontend lint` REWRITES YOUR SOURCE.** The script is `biome check --write --unsafe`, and `--unsafe` fixes delete code. It silently removed two of Task 6.2's fixes — `tabIndex={0}` on the card rail (`lint/a11y/noNoninteractiveTabindex`) and `!important` on the reduced-motion reset (`lint/complexity/noImportantStyles`) — leaving behind only the comments explaining them, which then read as lies. Both were verified green *before* the lint step and committed after it, so CI caught what the local run had already proved fixed. **Run lint BEFORE the final verification, never after**, and when a fix is a deliberate rule conflict, pin it with `biome-ignore` (for a JSX attribute the comment goes *inside* the tag, immediately above the attribute; for CSS use `biome-ignore-start`/`-end` inside the block).
 
 - **`mypy` and `ty` only read config from their own working directory.** `backend/pyproject.toml` holds both; run them from `backend/`, never the root, or `strict` and the nflreadpy override silently vanish. The pre-commit hooks now `cd backend` themselves.
@@ -279,6 +265,10 @@ The plan is **corrected as errors are found** — its §1 records every divergen
 
 **And a fifth: a symptom that appears on every screen at once names the layer, not the count.** Seven screens overflowing identically said "shell" correctly — but after the shell was fixed, four screens still overflowed for four different reasons. **The shared cause being real does not mean it is the only one**; re-run before believing the diagnosis is complete.
 
-**M6 in brief (all merged except 6.2).** 6.1 found that the freshness pill had been hard-coded to the mockup's literal `"Final · updated Feb 9"` since Task 2.3 — Task 4.1 built the endpoint and never changed the call site — while every season actually reported `stale`; it also found four screens that could not tell a failed request from an empty result. 6.3 turned out to be mostly already correct (`ingest_season` only stamps `last_ingested_at` on success), so the work was a test proving it plus the nightly schedule, whose season is *derived* because a naive `date +%Y` would ingest a nonexistent season for seven months a year. 6.4 wrote the README (still the template's until then), `CLAUDE.md`, and the workspace row. The plan's verification gate is now `./scripts/verification-gate.sh` and passes — it could not as written, since both its greps matched their own explanatory comments and 19 of 20 bracketed-pixel hits are vendored template code; both exemptions are declared in the script.
+**A sixth, earned across three separate incidents: formatters rewrite your source, so run them BEFORE you verify.** `bun run --filter frontend lint` is `biome check --write --unsafe` and silently deleted two fixes, leaving only the comments describing them. `ruff format` reformatted a branch after the gate had gone green. In both cases CI caught what the local run had already proved fixed. The pre-push order that works: **`prek run --all-files` → `bun run --filter frontend lint` → `./scripts/verification-gate.sh` → Playwright**, never the reverse.
+
+**And a seventh: ask what the label claims, then check the value beside it.** This is the single highest-yield question on this codebase — it has caught the hard-coded freshness pill, `qualifier_label`, the per-position `Y/A` unit, the player page reading the wrong season, the blank season/week controls, and the "17-game season" caption. Seven defects from one question.
+
+**M6 in brief (all merged).** 6.1 found that the freshness pill had been hard-coded to the mockup's literal `"Final · updated Feb 9"` since Task 2.3 — Task 4.1 built the endpoint and never changed the call site — while every season actually reported `stale`; it also found four screens that could not tell a failed request from an empty result. 6.3 turned out to be mostly already correct (`ingest_season` only stamps `last_ingested_at` on success), so the work was a test proving it plus the nightly schedule, whose season is *derived* because a naive `date +%Y` would ingest a nonexistent season for seven months a year. 6.4 wrote the README (still the template's until then), `CLAUDE.md`, and the workspace row. The plan's verification gate is now `./scripts/verification-gate.sh` and passes — it could not as written, since both its greps matched their own explanatory comments and 19 of 20 bracketed-pixel hits are vendored template code; both exemptions are declared in the script.
 
 **A process note against myself.** During 6.3 I ran `git checkout` on a single file holding uncommitted work and destroyed a fixture I had just written. §7 records that rule for subagents; it applies to whoever is driving. Copy to a `.bak` before probing, and never use `git checkout` as an undo for uncommitted work.
