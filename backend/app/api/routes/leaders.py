@@ -47,9 +47,7 @@ def leaders(
     players = {
         p.id: p
         for p in session.exec(
-            select(Player).where(
-                col(Player.id).in_([s.player_id for s in qualified])
-            )
+            select(Player).where(col(Player.id).in_([s.player_id for s in qualified]))
         ).all()
     }
 
@@ -71,11 +69,7 @@ def leaders(
     top = qualified[:limit]
     if len(qualified) > limit:
         edge = metric_value(qualified[limit - 1], metric.value)
-        top += [
-            s
-            for s in qualified[limit:]
-            if metric_value(s, metric.value) == edge
-        ]
+        top += [s for s in qualified[limit:] if metric_value(s, metric.value) == edge]
     teams = {
         t.abbr: t
         for t in session.exec(
