@@ -44,7 +44,10 @@ def test_leader_row_carries_team_color_and_secondary_stat(
     row = body["rows"][0]
     assert row["player"]["team_color"].startswith("#")
     assert row["secondary"]["key"] == "TD"
-    assert "season" in row["player"]["meta"]
+    # Names the season on the board, not a count of the seasons this
+    # database holds for the player — see test_players.py for why the
+    # ordinal could not be made truthful.
+    assert row["player"]["meta"].startswith("2024 season · ")
 
 
 def test_leaders_metric_and_position_reject_unknown_values(

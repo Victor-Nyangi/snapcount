@@ -3,7 +3,6 @@ from sqlmodel import col, select
 
 from app.analytics.leaders import baseline, is_qualified, metric_value
 from app.api.deps import SessionDep
-from app.api.routes._format import ordinal
 from app.api.routes._metrics import METRIC_LABELS, PRECISION, UNITS, qualifier_label
 from app.models import Player, PlayerSeasonStat, Team
 from app.schemas.leaders import (
@@ -112,7 +111,7 @@ def leaders(
                     name=player.name,
                     team_abbr=team.abbr,
                     team_color=team.color,
-                    meta=f"{ordinal(stat.seasons_played)} season · {stat.games} g",
+                    meta=f"{stat.season} season · {stat.games} g",
                 ),
                 value=value,
                 secondary=LeaderSecondary(

@@ -88,7 +88,28 @@ def test_player_page_honours_the_requested_season(client: TestClient) -> None:
     assert player["position"] == "QB"
     # The full meta line, not a substring search: this is the string the
     # header renders, and every field in it comes from the focused season.
-    assert player["meta"] == "3rd season · 16 g · QB · Minnesota Vikings"
+    #
+    # The season YEAR, not an ordinal. This read "3rd season" until the
+    # backfill window was recognised as not being a career: Cousins
+    # debuted in 2012, so 2018 was his SEVENTH NFL season and "3rd" only
+    # ever counted the seasons this database happens to hold. Nothing
+    # stores a rookie year, so the ordinal could not be corrected - only
+    # replaced by something true.
+    assert player["meta"] == "2018 season · 16 g · QB · Minnesota Vikings"
+
+
+def test_player_meta_names_the_season_it_is_showing(client: TestClient) -> None:
+    """The same player, two seasons, two labels — and each names its own.
+
+    The ordinal this replaced moved too (3rd, then 4th), so a test pinning
+    one season could not tell "counts backfilled seasons" from "names the
+    season". Two seasons apart can.
+    """
+    y2018 = client.get(f"/api/v1/players/{_QB_ID}?season=2018").json()
+    y2021 = client.get(f"/api/v1/players/{_QB_ID}?season=2021").json()
+
+    assert y2018["player"]["meta"].startswith("2018 season · ")
+    assert y2021["player"]["meta"].startswith("2021 season · ")
 
 
 def test_player_page_rate_cards_come_from_the_requested_season(
@@ -113,7 +134,7 @@ def test_player_page_without_a_season_uses_the_latest(client: TestClient) -> Non
     behaviour — the player's most recent ingested season."""
     body = client.get(f"/api/v1/players/{_QB_ID}").json()
     assert body["player"]["team_abbr"] == "ATL"
-    assert body["player"]["meta"] == "10th season · 10 g · QB · Atlanta Falcons"
+    assert body["player"]["meta"] == "2025 season · 10 g · QB · Atlanta Falcons"
 
 
 def test_player_page_falls_back_when_the_player_has_no_row_that_season(

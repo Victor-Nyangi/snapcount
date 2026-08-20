@@ -56,7 +56,7 @@ function PlayerScreen() {
 
   const { data, isLoading, isError, refetch } = useQuery({
     // `season` is in the key as well as the request. The page is
-    // season-scoped — team, games, position, the ordinal and all three rate
+    // season-scoped — team, games, position, the season label and all three rate
     // cards come from the season asked for — so a key of `["player", id]`
     // alone would serve the previous season's page from cache after a
     // season change and never refetch.

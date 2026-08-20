@@ -57,7 +57,7 @@ const FLACCO: PlayerPageResponse = {
     position: "QB",
     team_abbr: "CIN",
     team_color: "#FB4F14",
-    meta: "10th season · 13 g · QB · Cincinnati Bengals",
+    meta: "2025 season · 13 g · QB · Cincinnati Bengals",
   },
   rate_cards: [
     {
@@ -108,7 +108,7 @@ const BARKLEY: PlayerPageResponse = {
     position: "RB",
     team_abbr: "PHI",
     team_color: "#004C54",
-    meta: "7th season · 16 g · RB · Philadelphia Eagles",
+    meta: "2024 season · 16 g · RB · Philadelphia Eagles",
   },
   rate_cards: [
     {

@@ -12,7 +12,7 @@ function row(overrides: Partial<LeaderRow> = {}): LeaderRow {
       name: "Lamar Jackson",
       team_abbr: "BAL",
       team_color: "#241773",
-      meta: "7th season · 17 g",
+      meta: "2024 season · 17 g",
     },
     value: 0.36345698661607145,
     secondary: { key: "YDS", value: 4172 },
@@ -70,7 +70,7 @@ describe("LeaderCard", () => {
     expect(screen.getByText("1")).toBeInTheDocument()
     expect(screen.getByText("Lamar Jackson")).toBeInTheDocument()
     expect(screen.getByText("BAL")).toBeInTheDocument()
-    expect(screen.getByText("7th season · 17 g")).toBeInTheDocument()
+    expect(screen.getByText("2024 season · 17 g")).toBeInTheDocument()
   })
 
   it("applies the metric's precision to the rank metric", () => {
