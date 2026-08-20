@@ -132,7 +132,15 @@ export function TeamHero({ data }: { data: TeamPageResponse }) {
         <p
           style={{ margin: "0 0 14px", fontSize: 13, color: "var(--gray-500)" }}
         >
-          Running total across the 17-game season. Zero line marked.
+          {/* One expression, not interpolated JSX: React would otherwise
+              split this into three text nodes and the sentence would no
+              longer be findable — or readable — as one string.
+
+              The count comes from the schedule rather than a constant. The
+              league played SIXTEEN games a season through 2020 and
+              seventeen from 2021, so "the 17-game season" was wrong on five
+              of the ten ingested seasons — 160 team-seasons. */}
+          {`Running total across the ${data.schedule.length}-game season. Zero line marked.`}
         </p>
         <TrendLine
           values={cumulative}
