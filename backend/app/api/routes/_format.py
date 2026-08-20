@@ -70,14 +70,3 @@ def score_label(away_score: int, home_score: int) -> str:
     """`"34–38"` (away first), en dash — matches the featured-card sample
     data (`resources/design-v2-seven-screens.html`'s `FEATURED` array)."""
     return f"{away_score}–{home_score}"
-
-
-def ordinal(n: int) -> str:
-    """`6 -> "6th"`, `1 -> "1st"`, `11 -> "11th"` — used in player "meta"
-    strings ("6th season · 17 g"). The 11-13 exception is why this isn't a
-    lookup on the last digit alone."""
-    if 11 <= (n % 100) <= 13:
-        suffix = "th"
-    else:
-        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
-    return f"{n}{suffix}"

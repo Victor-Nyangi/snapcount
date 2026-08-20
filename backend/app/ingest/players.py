@@ -152,6 +152,13 @@ def ingest_players(session: Session, season: int, source: NflverseSource) -> int
         # length — a player whose career started before our earliest
         # backfilled season will read as having fewer seasons than they
         # actually have.
+        #
+        # NOTHING RENDERS THIS. The player header and the leader card both
+        # said "3rd season" from it and meant "3rd season we happen to
+        # hold"; they name the season year now. No rookie or entry year is
+        # ingested, so a true career length cannot be derived here — if
+        # one is ever wanted, it has to come from a new source column, not
+        # from counting rows.
         seasons_played = len(prior_seasons_by_player[player_id]) + 1
 
         totals = _season_totals(weeks)

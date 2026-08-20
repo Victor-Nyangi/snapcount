@@ -3,7 +3,6 @@ from sqlmodel import col, select
 
 from app.analytics.leaders import baseline, is_qualified, metric_value
 from app.api.deps import SessionDep
-from app.api.routes._format import ordinal
 from app.api.routes._metrics import METRIC_LABELS, PRECISION
 from app.models import Player, PlayerSeasonStat, Team
 from app.schemas.leaders import LeaderPosition
@@ -74,7 +73,7 @@ def player_page(
     # THE SEASON THE PAGE IS ABOUT. This used to be `stats[-1]`
     # unconditionally, with no `season` parameter at all — so the frontend
     # sent `?season=2024`, the route ignored it, and the entire page (team
-    # chip, team name, position, games, ordinal and every rate card) came
+    # chip, team name, position, games, season label and every rate card) came
     # from the player's LAST ingested season. A 2024 URL rendered Aaron
     # Rodgers on Pittsburgh, his 2025 team, directly beneath a
     # season-scoped picker reading "Aaron Rodgers · NYJ".
@@ -179,7 +178,7 @@ def player_page(
             team_abbr=focus.team,
             team_color=focus_team.color,
             meta=(
-                f"{ordinal(focus.seasons_played)} season · {focus.games} g · "
+                f"{focus.season} season · {focus.games} g · "
                 f"{focus.position} · {focus_team.name}"
             ),
         ),
