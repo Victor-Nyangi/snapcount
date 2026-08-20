@@ -1,9 +1,10 @@
-from sqlmodel import Session, delete, select
+from sqlmodel import Session, select
 
 from app.ingest.aggregate import aggregate_team_seasons
 from app.ingest.games import ingest_games
 from app.ingest.runner import _season_range, ingest_season, parse_args
-from app.models import Game, IngestRun, Player, PlayerSeasonStat, Season, TeamSeasonStat
+from app.models import Game, IngestRun, Season, TeamSeasonStat
+from tests.ingest.conftest import purge_players, purge_season
 from tests.ingest.test_games import _SEASON as _GAMES_FAKE_SEASON
 from tests.ingest.test_games import FakeSource
 
@@ -188,21 +189,6 @@ def test_aggregate_team_seasons_is_a_pure_re_derivation(
     assert bal.wins == 1  # unchanged by the second run
 
 
-def _purge_season(session: Session, season: int) -> None:
-    """`ingest_season` commits for real — that's its actual job, and the
-    only correct behaviour for a production run. So unlike the
-    non-committing calls above (safe to wrap in `isolated_db` and roll
-    back), a test that calls `ingest_season` directly must clean up with
-    an explicit delete instead, or its throwaway fake season lingers in
-    the shared dev DB past this test."""
-    session.exec(delete(Game).where(Game.season == season))
-    session.exec(delete(PlayerSeasonStat).where(PlayerSeasonStat.season == season))
-    session.exec(delete(TeamSeasonStat).where(TeamSeasonStat.season == season))
-    session.exec(delete(IngestRun).where(IngestRun.season == season))
-    session.exec(delete(Season).where(Season.year == season))
-    session.commit()
-
-
 def test_ingest_season_records_an_ok_run_and_stamps_season_freshness(
     db: Session,
 ) -> None:
@@ -219,7 +205,7 @@ def test_ingest_season_records_an_ok_run_and_stamps_season_freshness(
         stored = db.get(IngestRun, run.id)
         assert stored.status == "ok"
     finally:
-        _purge_season(db, _OK_SEASON)
+        purge_season(db, _OK_SEASON)
 
 
 def test_ingest_season_failure_leaves_status_failed_and_no_partial_rows(
@@ -234,7 +220,7 @@ def test_ingest_season_failure_leaves_status_failed_and_no_partial_rows(
         games = db.exec(select(Game).where(Game.season == _FAIL_SEASON)).all()
         assert games == []  # the game inserted before the failure rolled back
     finally:
-        _purge_season(db, _FAIL_SEASON)
+        purge_season(db, _FAIL_SEASON)
 
 
 def test_ingest_season_current_week_reflects_the_schedule_not_player_stats(
@@ -252,9 +238,8 @@ def test_ingest_season_current_week_reflects_the_schedule_not_player_stats(
         assert season is not None
         assert season.current_week == 5  # the REG maximum, not 1
     finally:
-        _purge_season(db, _CURRENT_WEEK_SEASON)
-        db.exec(delete(Player).where(Player.id == "00-CWFAKE"))
-        db.commit()
+        purge_season(db, _CURRENT_WEEK_SEASON)
+        purge_players(db, "00-CWFAKE")
 
 
 def test_parse_args_reads_a_single_season() -> None:
