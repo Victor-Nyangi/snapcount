@@ -16,3 +16,8 @@ resources/*.html
 
 # Transient artifact: scripts/generate-client.sh writes it here before moving it to frontend/
 openapi.json
+
+# Backfill dumps from scripts/dump-backfill.sh. Deliberately not committed:
+# ~420 KB per revision, and stale the moment the current season re-ingests.
+# Generate on demand — see deployment-snapcount.md.
+*.sql.gz

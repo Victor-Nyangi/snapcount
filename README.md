@@ -72,8 +72,8 @@ Runs are recorded in `ingest_run`, and `season.last_ingested_at` is stamped **on
 ### Tests
 
 ```bash
-cd backend && uv run pytest                       # 152 tests
-bun run --filter frontend test:unit               # 306 tests
+cd backend && uv run pytest                       # 166 tests
+bun run --filter frontend test:unit               # 316 tests
 bun run --filter frontend test                    # Playwright e2e (needs the compose stack)
 ./scripts/verification-gate.sh                    # the whole gate at once
 ```
@@ -85,4 +85,5 @@ The backend suite passes from an **empty** database as well as a backfilled one:
 - `CLAUDE.md` — conventions that are not obvious from the code
 - `resources/nfl-implemnentation2.md` — the implementation plan; §1 records every divergence from the design and why, §2 what was deliberately not built
 - `resources/HANDOVER.md` — current state, open decisions, and the failure patterns this project has already paid for
-- `development.md`, `deployment.md` — inherited from the template
+- `deployment-snapcount.md` — the chosen deploy path, and the one thing the template does not do: **production starts with an empty database**
+- `development.md`, `deployment.md`, `deployment-docker-compose.md` — inherited from the template
