@@ -1,6 +1,6 @@
 # Snapcount — session handover
 
-**Written:** 2026-08-20 · **`main`:** `998cb6e` · **No open PRs. Working tree clean.** M0–M6 are merged and the plan is complete; six of the nine review findings are fixed. **Everything still open is a DECISION, not a patch — see §3.**
+**Written:** 2026-08-20 · **branch:** `fix/season-range-saturation-and-labels` (`34d1631`, 4 commits ahead of `main`, **not pushed**) · **Working tree clean.** M0–M6 are merged and the plan is complete. **All nine review findings are now closed, and all four of §3's open decisions are resolved** — see §3 for what was decided and built.
 
 Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~1000 lines — the authoritative record). The plan is `resources/nfl-implemnentation2.md`.
 
@@ -15,18 +15,20 @@ Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger,
 | M0 Scaffold · M1 Design system · M2 Shared components | ✅ |
 | M3 Data model + ingestion | ✅ real 2016–2025 backfill |
 | M4 API · M5 Screens (8/8) · M6 Finishing (4/4) | ✅ |
-| **5.3–5.8 review** | ✅ complete — 6 of 9 findings fixed (§3) |
+| **5.3–5.8 review** | ✅ complete — **all 9 findings fixed** (§3) |
 
-**Tests:** 163 backend · 312 frontend unit · 91 Playwright (a11y, responsive, keyboard, contrast, plus the template's own). Both suites pass **from an empty database** — see §2.
+**Tests:** 166 backend · 316 frontend unit · 91 Playwright (a11y, responsive, keyboard, contrast, plus the template's own). Both suites pass **from an empty database** — see §2.
 
 **Verify before trusting anything below:**
 
 ```bash
-./scripts/verification-gate.sh        # 163 + 312, build, lint, two greps
+./scripts/verification-gate.sh        # 166 + 316, build, lint, two greps
 uv run prek run --all-files           # NOT covered by the gate — see §6
 ```
 
-**Data:** 2,764 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
+**Data:** 2,761 games · 5,480 players · 19,521 player-seasons · 320 team-seasons · 32 teams · 25 champions.
+
+> Games was recorded as 2,764 in every earlier version of this file. The extra three were the **leaked 2099 sentinel games**, counted as if they were backfill. 2,761 is the real figure; the leak is fixed (§3 D).
 
 **Spot-check values — exact, not approximate.** Use them as acceptance checks:
 
@@ -67,37 +69,78 @@ cd backend && uv run python -m tests.fixtures.generate
 
 ---
 
-## 3. START HERE — four open decisions, no open code
+## 3. RESOLVED — all four decisions are decided and built
 
-Nothing is half-finished. `main` is green, there are no open PRs, and every remaining item needs **you** to choose rather than someone to keep typing. In rough order of value:
+Branch `fix/season-range-saturation-and-labels`, four commits, **not pushed and
+no PR yet**. That is the only thing left of §3: push, open a PR, get CI green,
+merge. Everything below is the record of what was decided and why.
 
-### A. Hosting — untouched, and the real question is the data
+### A. Hosting — decided: Docker Compose on our own box · `34d1631`
 
-Two paths ship with the template. The choice is forced by something snapcount-specific, so read this before picking:
+The choice turned on the nightly ingest. It is an `ingest-scheduler`
+**container**, so it works as designed on Compose and would have nowhere to run
+on FastAPI Cloud — that path needs the schedule re-homed to a GitHub Actions
+`schedule:` before it can keep a season current. `deploy.yml` is left in place
+and unused; its `push:` trigger is on `master` against a `main` default branch,
+so it would never fire on its own.
 
-| | FastAPI Cloud (`deploy.yml`) | Docker Compose on your own box (`compose.deploy.yml`) |
-|---|---|---|
-| Trigger | push to **`master`** — but this repo's default branch is **`main`**, so it would never fire. One-line fix. | `workflow_dispatch:` only — manual |
-| Nightly ingest | **Nowhere to run it.** Task 6.3's scheduler is an `ingest-scheduler` *container* running a sleep-loop. Would need re-homing to a GitHub Actions `schedule:`. | Works as designed |
-| TLS / infra | managed | Traefik + Let's Encrypt, you own the box |
+**The real problem was never which host.** `prestart.sh` migrates and creates
+the superuser and stops, and `nightly-ingest.sh` only ingests the CURRENT
+season — so a first deploy renders seven empty states *indefinitely*, and
+waiting does not fix it.
 
-**The bigger question, either path: how does production get its decade of data?** `prestart.sh` runs migrations and creates the superuser, nothing more — so a fresh deploy starts **empty** and renders seven empty states. And `nightly-ingest.sh` deliberately ingests only the **current** season, so it will never backfill history.
+`scripts/dump-backfill.sh` and `scripts/restore-backfill.sh` move the verified
+decade across. Data only (alembic owns the schema), excluding `user`,
+`alembic_version` and `ingestrun`, keeping `Season.last_ingested_at`. The dump
+loop is per-table in **dependency order** — pg_dump emits tables in *name*
+order and does not sort by foreign key, so one command with eight `--table`
+flags loads `champion` and `game` before the `team`/`season` rows they
+reference. The restore reads the target before writing and refuses a populated
+database.
 
-> **Recommendation: `pg_dump` the local database and restore it.** It already holds the verified decade (DET +222, NE 6 titles), which makes the first deploy fast and reproducible. The alternative — running the 2016–2025 backfill against production — is a decade of networked nflverse pulls, the exact thing CI refuses to do.
+Verified end to end rather than written and hoped for: dump → scratch database
+→ `alembic upgrade head` → restore → DET +222, NE 6 titles, 10 seasons, 2761
+games, 19521 player-seasons. The refusal path was exercised too.
 
-### B. Finding 6 — "Nth season" cannot be fixed, only reworded
+**Still to do by hand, and only you can:** register the self-hosted runner,
+point DNS at the box, and set the vars/secrets. `deployment-snapcount.md` lists
+both, and the whole first-deploy order.
 
-The ingest stores **no rookie or entry year**, so a true career length cannot be computed from what exists. The label is correct precisely for players who debuted inside the backfill window and wrong for everyone else: on the 2024 WR board Brian Thomas Jr. reads "1st season" and is right; Mike Evans reads "9th season" and was in his **11th**; Tom Brady in 2017 reads "2nd season".
+### B. Finding 6 — decided: show the season year · `c5f8fb8`
 
-Three options, all copy: drop the ordinal, qualify it ("tracked"), or **show the season year** — the player page is season-scoped now, so that is both true and arguably more useful. Needs a product call.
+`{ordinal(seasons_played)} season` is gone from both the leader card and the
+player header; both now name the season. Nothing stores a rookie year, so the
+ordinal could not be corrected, only replaced. Kirk Cousins in 2018 read "3rd"
+and was in his seventh; Brady in 2017 read "2nd".
 
-### C. Finding 7 — explorer total-column saturation
+`ordinal()` had no other caller and is deleted. The column and its ingest stay
+— the count is not wrong, only the word "season" around it — and
+`ingest/players.py` now records that nothing renders it and that a real career
+length needs a new source column, not a row count.
 
-`domain * 4` = 600 against ten-season totals spanning −1193..1046 clips **9 of 32 teams**, so NYJ (−1193) and CLE (−751) render identically. The arithmetic is easy; what the darkest cell should *mean* over a decade is the design call.
+### C. Finding 7 — decided: scale to the real extremes · `1b3a3cf`
 
-### D. Finding 9 — blocked on leaked test data, deliberately not fixed
+`total_domain` is computed server-side from the rows returned, like every other
+derived value, and replaces the client's `domain * 4`. Measured against the
+live database: **9 of 32 teams saturated → 1**, and strong ink 20 → 9. NYJ
+(−1193) and CLE (−751) are now distinguishable, which was the point.
 
-The explorer's range is `FROM = 2016 / TO = 2025`, correct today but hard-coded. Sourcing it from `/meta/seasons` would pick up the leaked **2099** sentinel — which has a `Season` row and 3 games but **zero `TeamSeasonStat` rows** — so the grid would render an entirely empty extra column, a worse bug than the one being fixed. **The prerequisite is deleting that leaked row from the dev database.** (It also shows up in the season picker now that the picker is data-driven.)
+### D. Finding 9 — decided: derive it, after fixing the blocker · `c250fae` + `1b3a3cf`
+
+Two commits, because the blocker was real. `tests/ingest/test_games.py` had
+been committing three fabricated 2099 games and their Season row into the dev
+database on **every** `pytest` run, for months — it has to commit (the recap
+test proves an editorial value survives a re-ingest) but never cleaned up.
+Reproduced before fixing: delete the rows, run that file alone, they come back.
+`purge_season` now lives in the ingest package conftest and is used by both
+modules.
+
+With 2099 gone, the explorer's range comes from `/meta/seasons` under the
+**same query key as the shell's season picker**, so it costs no extra request.
+The request is held until the range is known — firing on the fallback first
+would mean two requests and an eyebrow that visibly corrects itself. The old
+constants remain as the fallback: ten known seasons beat an empty screen when
+the only thing that failed is the range.
 
 ---
 
@@ -112,11 +155,11 @@ Task 6.2 is merged and its specs are green, but four lessons from it cost real t
 
 ---
 
-## 3b. The 5.3–5.8 review — COMPLETE; 6 of 9 findings fixed
+## 3b. The 5.3–5.8 review — COMPLETE; all 9 findings fixed
 
 Method: **combined per screen** — recompute the spec against the live database *and* render the screen — then **report everything, fix on the user's call**. All six screens done.
 
-**All merged.** 1–3 in `74051aa`, 4/5/8 in `af75bf5`. **6, 7 and 9 stay open as decisions — they are §3 B, C and D.** The table below is kept as the evidence trail: each row records what was measured, so a future change can be checked against it rather than re-derived.
+1–3 in `74051aa`, 4/5/8 in `af75bf5`, and **6, 7 and 9 in the unpushed branch** (`c5f8fb8`, `1b3a3cf`, `c250fae`) — see §3 B, C and D for what each was decided to be. The table below is kept as the evidence trail: each row records what was measured, so a future change can be checked against it rather than re-derived.
 
 ### Findings, ranked
 
@@ -127,10 +170,10 @@ Method: **combined per screen** — recompute the spec against the live database
 | 3 | **High** · ✅ FIXED `74051aa` | **Player rate-card bars are scaled to unqualified outliers.** `scale_max` is an unfiltered max over every player at the position, so a 1–4 game backup sets the scale. The league's **best qualified WR by EPA** (Amon-Ra St. Brown) fills **9.6%** of his bar; his Y/T bar fills 13% because the max is 69.0 y/t (Tyrell Shavers, one target). Rodgers' 2024 EPA bar fills **0.8%**. Affects every player page, 2 of 3 cards. The code's stated intent — "the bar's own player can never exceed its own scale" — is preserved by `max(qualified_max, this_player_value)`. |
 | 4 | Medium · ✅ FIXED `af75bf5` | **Leaders: ties get different ranks and one is silently dropped at the cutoff.** 2017 QB TDs: Roethlisberger/Rivers/Goff all threw 28 → ranks 4, 5, and at Top 5 Goff vanishes. **68 such cases** across the backfill. `qualified.sort()` is stable over a `select()` with **no `ORDER BY`**, so the tiebreak is not deterministic. **The explorer already does this correctly** — BAL and BUF, both +157 in 2024, are both "Ranked #3 of 32". Leaders is inconsistent with a correct pattern already in the codebase. |
 | 5 | Medium · ✅ FIXED `af75bf5` | **Team page caption hard-codes "the 17-game season".** The NFL played 16 games 2016–2020. Wrong on 5 of 10 seasons × 32 teams = **160 team-seasons**. `features/team/hero.tsx:135`. |
-| 6 | Medium | **"Nth season" means "Nth season in our backfill", not career.** Tom Brady in 2017 reads **"2nd season"**. `ingest/players.py` documents the limitation in a comment; the UI states it as fact. Feeds both the leader card and the player page. |
-| 7 | Low | **Explorer total column saturates for the teams you most want to compare.** `domain * 4` = 600 against totals spanning −1193..1046: **9 of 32 teams** saturate, so NYJ (−1193) and CLE (−751) render identically. Season cells at domain 150 saturate 14% of the time, which the plan already ruled acceptable. |
+| 6 | Medium · ✅ FIXED `c5f8fb8` | **"Nth season" means "Nth season in our backfill", not career.** Tom Brady in 2017 reads **"2nd season"**. `ingest/players.py` documents the limitation in a comment; the UI states it as fact. Feeds both the leader card and the player page. |
+| 7 | Low · ✅ FIXED `1b3a3cf` | **Explorer total column saturates for the teams you most want to compare.** `domain * 4` = 600 against totals spanning −1193..1046: **9 of 32 teams** saturate, so NYJ (−1193) and CLE (−751) render identically. Season cells at domain 150 saturate 14% of the time, which the plan already ruled acceptable. |
 | 8 | Low · ✅ FIXED `af75bf5` | **History "most titles" drops a tied team.** Five teams have 2 titles; the cut at 6 cards shows BAL/NYG/PHI/PIT and drops **TB**. Tiebreak is deterministic (alphabetical by abbr), unlike finding 4 — but the row is labelled "most titles" and omits an equally-titled team. |
-| 9 | Low | **Explorer's season range is hard-coded** `FROM = 2016 / TO = 2025` rather than derived from `/meta/seasons`. Same family as 1; a 2026 ingest will not appear until someone edits the constant. |
+| 9 | Low · ✅ FIXED `1b3a3cf` (blocker in `c250fae`) | **Explorer's season range is hard-coded** `FROM = 2016 / TO = 2025` rather than derived from `/meta/seasons`. Same family as 1; a 2026 ingest will not appear until someone edits the constant. |
 
 ### Note on 1 and 2
 
@@ -214,7 +257,7 @@ Each cost at least one fix round. Expect them again.
 - **`mypy` and `ty` only read config from their own working directory.** `backend/pyproject.toml` holds both; run them from `backend/`, never the root, or `strict` and the nflreadpy override silently vanish. The pre-commit hooks now `cd backend` themselves.
 - **`_typos.toml` fully overrides `[tool.typos]` in `pyproject.toml`** — the hook never reads pyproject. `_typos.toml` is a strict superset; add exemptions there.
 - **jsdom normalises colours to `rgb(r, g, b)`** in `style.color` assertions, so comparing against a hex constant fails. `featured-card.test.tsx` has an `asRgb` helper.
-- **Sentinel-season registry** (`tests/api/conftest.py`): 2081 unplayed game · 2082 stale · 2083 fresh · 2084 partial team schedule · 2085 featured recap · 2086/2087 explorer present-vs-missing. Ingest owns 2095–2099. **The dev database has 2099 leaked into it** from an ingest test that commits for real; `tests.fixtures.generate` filters seasons ≥ 2081 out of the slice for exactly this reason.
+- **Sentinel-season registry** (`tests/api/conftest.py`): 2081 unplayed game · 2082 stale · 2083 fresh · 2084 partial team schedule · 2085 featured recap · 2086/2087 explorer present-vs-missing · 2088 failed ingest · 2089 explorer empty range (deliberately has no fixture). Ingest owns 2095–2099. `tests.fixtures.generate` filters seasons ≥ 2081 out of the slice. **2099 used to leak into the dev database on every run** — fixed in `c250fae`; if a season ≥ 2081 ever appears in `SELECT year FROM season`, a cleanup regressed and it is a bug report, not a curiosity.
 - **`.env` is gitignored and holds real secrets.** Never print it, never commit it.
 - **Account-level session limits killed 5 of ~16 implementer dispatches.** What worked every time: **commit after each module goes green**, and keep dispatches small.
 - **`delete_branch_on_merge` is on** — after a merge the remote branch vanishes, so the next push needs plain `-u`, not `--force-with-lease`.
