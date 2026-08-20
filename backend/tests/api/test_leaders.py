@@ -149,9 +149,7 @@ def test_the_board_is_deterministic(client: TestClient) -> None:
     """
     first = client.get(f"{_TIE_URL}&limit=8").json()["rows"]
     second = client.get(f"{_TIE_URL}&limit=8").json()["rows"]
-    assert [r["player"]["id"] for r in first] == [
-        r["player"]["id"] for r in second
-    ]
+    assert [r["player"]["id"] for r in first] == [r["player"]["id"] for r in second]
     # Within the tie the order is by name, which is at least a reason.
     tens = [r["player"]["name"] for r in first if r["value"] == 10]
     assert tens == sorted(tens)
