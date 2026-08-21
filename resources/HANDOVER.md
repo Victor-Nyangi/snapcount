@@ -1,6 +1,6 @@
 # Snapcount — session handover
 
-**Written:** 2026-08-20 · **branch:** `fix/season-range-saturation-and-labels` (`34d1631`, 4 commits ahead of `main`, **not pushed**) · **Working tree clean.** M0–M6 are merged and the plan is complete. **All nine review findings are now closed, and all four of §3's open decisions are resolved** — see §3 for what was decided and built.
+**Written:** 2026-08-21 · **`main`:** `56cd41f` · **No open PRs. Working tree clean.** M0–M6 are merged and the plan is complete. **All nine review findings are closed and all four of §3's open decisions are resolved and merged** (PR #16) — see §3 for what was decided and why. Nothing is half-finished; §3's remaining items are things only you can do.
 
 Read this, then `.superpowers/sdd/nfl-implemnentation2/progress.md` (the ledger, ~1000 lines — the authoritative record). The plan is `resources/nfl-implemnentation2.md`.
 
@@ -69,13 +69,20 @@ cd backend && uv run python -m tests.fixtures.generate
 
 ---
 
-## 3. RESOLVED — all four decisions are decided and built
+## 3. RESOLVED — all four decisions are decided, built and merged
 
-Branch `fix/season-range-saturation-and-labels`, four commits, **not pushed and
-no PR yet**. That is the only thing left of §3: push, open a PR, get CI green,
-merge. Everything below is the record of what was decided and why.
+PR #16, five commits, merged into `main` at `56cd41f` with CI green (backend,
+all four Playwright shards, docker-compose, pre-commit, zizmor; coverage 95%).
+Everything below is the record of what was decided and why.
 
-### A. Hosting — decided: Docker Compose on our own box · `34d1631`
+**What is left is not code.** Only one thing in §3 still needs doing, and only
+you can do it: **A's deploy has never been run.** The path is chosen, the
+scripts are written and verified, and the procedure is in
+`deployment-snapcount.md` — but the self-hosted runner is not registered, DNS
+does not point anywhere, and the vars/secrets are unset. Until then production
+does not exist.
+
+### A. Hosting — decided: Docker Compose on our own box · `d822c3d`
 
 The choice turned on the nightly ingest. It is an `ingest-scheduler`
 **container**, so it works as designed on Compose and would have nowhere to run
@@ -106,7 +113,7 @@ games, 19521 player-seasons. The refusal path was exercised too.
 point DNS at the box, and set the vars/secrets. `deployment-snapcount.md` lists
 both, and the whole first-deploy order.
 
-### B. Finding 6 — decided: show the season year · `c5f8fb8`
+### B. Finding 6 — decided: show the season year · `7be5baf`
 
 `{ordinal(seasons_played)} season` is gone from both the leader card and the
 player header; both now name the season. Nothing stores a rookie year, so the
@@ -118,14 +125,14 @@ and was in his seventh; Brady in 2017 read "2nd".
 `ingest/players.py` now records that nothing renders it and that a real career
 length needs a new source column, not a row count.
 
-### C. Finding 7 — decided: scale to the real extremes · `1b3a3cf`
+### C. Finding 7 — decided: scale to the real extremes · `538c10a`
 
 `total_domain` is computed server-side from the rows returned, like every other
 derived value, and replaces the client's `domain * 4`. Measured against the
 live database: **9 of 32 teams saturated → 1**, and strong ink 20 → 9. NYJ
 (−1193) and CLE (−751) are now distinguishable, which was the point.
 
-### D. Finding 9 — decided: derive it, after fixing the blocker · `c250fae` + `1b3a3cf`
+### D. Finding 9 — decided: derive it, after fixing the blocker · `e0d11ee` + `538c10a`
 
 Two commits, because the blocker was real. `tests/ingest/test_games.py` had
 been committing three fabricated 2099 games and their Season row into the dev
@@ -159,7 +166,7 @@ Task 6.2 is merged and its specs are green, but four lessons from it cost real t
 
 Method: **combined per screen** — recompute the spec against the live database *and* render the screen — then **report everything, fix on the user's call**. All six screens done.
 
-1–3 in `74051aa`, 4/5/8 in `af75bf5`, and **6, 7 and 9 in the unpushed branch** (`c5f8fb8`, `1b3a3cf`, `c250fae`) — see §3 B, C and D for what each was decided to be. The table below is kept as the evidence trail: each row records what was measured, so a future change can be checked against it rather than re-derived.
+1–3 in `74051aa`, 4/5/8 in `af75bf5`, and 6, 7 and 9 in PR #16 (`7be5baf`, `538c10a`, `e0d11ee`) — see §3 B, C and D for what each was decided to be. The table below is kept as the evidence trail: each row records what was measured, so a future change can be checked against it rather than re-derived.
 
 ### Findings, ranked
 
@@ -170,10 +177,10 @@ Method: **combined per screen** — recompute the spec against the live database
 | 3 | **High** · ✅ FIXED `74051aa` | **Player rate-card bars are scaled to unqualified outliers.** `scale_max` is an unfiltered max over every player at the position, so a 1–4 game backup sets the scale. The league's **best qualified WR by EPA** (Amon-Ra St. Brown) fills **9.6%** of his bar; his Y/T bar fills 13% because the max is 69.0 y/t (Tyrell Shavers, one target). Rodgers' 2024 EPA bar fills **0.8%**. Affects every player page, 2 of 3 cards. The code's stated intent — "the bar's own player can never exceed its own scale" — is preserved by `max(qualified_max, this_player_value)`. |
 | 4 | Medium · ✅ FIXED `af75bf5` | **Leaders: ties get different ranks and one is silently dropped at the cutoff.** 2017 QB TDs: Roethlisberger/Rivers/Goff all threw 28 → ranks 4, 5, and at Top 5 Goff vanishes. **68 such cases** across the backfill. `qualified.sort()` is stable over a `select()` with **no `ORDER BY`**, so the tiebreak is not deterministic. **The explorer already does this correctly** — BAL and BUF, both +157 in 2024, are both "Ranked #3 of 32". Leaders is inconsistent with a correct pattern already in the codebase. |
 | 5 | Medium · ✅ FIXED `af75bf5` | **Team page caption hard-codes "the 17-game season".** The NFL played 16 games 2016–2020. Wrong on 5 of 10 seasons × 32 teams = **160 team-seasons**. `features/team/hero.tsx:135`. |
-| 6 | Medium · ✅ FIXED `c5f8fb8` | **"Nth season" means "Nth season in our backfill", not career.** Tom Brady in 2017 reads **"2nd season"**. `ingest/players.py` documents the limitation in a comment; the UI states it as fact. Feeds both the leader card and the player page. |
-| 7 | Low · ✅ FIXED `1b3a3cf` | **Explorer total column saturates for the teams you most want to compare.** `domain * 4` = 600 against totals spanning −1193..1046: **9 of 32 teams** saturate, so NYJ (−1193) and CLE (−751) render identically. Season cells at domain 150 saturate 14% of the time, which the plan already ruled acceptable. |
+| 6 | Medium · ✅ FIXED `7be5baf` | **"Nth season" means "Nth season in our backfill", not career.** Tom Brady in 2017 reads **"2nd season"**. `ingest/players.py` documents the limitation in a comment; the UI states it as fact. Feeds both the leader card and the player page. |
+| 7 | Low · ✅ FIXED `538c10a` | **Explorer total column saturates for the teams you most want to compare.** `domain * 4` = 600 against totals spanning −1193..1046: **9 of 32 teams** saturate, so NYJ (−1193) and CLE (−751) render identically. Season cells at domain 150 saturate 14% of the time, which the plan already ruled acceptable. |
 | 8 | Low · ✅ FIXED `af75bf5` | **History "most titles" drops a tied team.** Five teams have 2 titles; the cut at 6 cards shows BAL/NYG/PHI/PIT and drops **TB**. Tiebreak is deterministic (alphabetical by abbr), unlike finding 4 — but the row is labelled "most titles" and omits an equally-titled team. |
-| 9 | Low · ✅ FIXED `1b3a3cf` (blocker in `c250fae`) | **Explorer's season range is hard-coded** `FROM = 2016 / TO = 2025` rather than derived from `/meta/seasons`. Same family as 1; a 2026 ingest will not appear until someone edits the constant. |
+| 9 | Low · ✅ FIXED `538c10a` (blocker in `e0d11ee`) | **Explorer's season range is hard-coded** `FROM = 2016 / TO = 2025` rather than derived from `/meta/seasons`. Same family as 1; a 2026 ingest will not appear until someone edits the constant. |
 
 ### Note on 1 and 2
 
@@ -257,11 +264,11 @@ Each cost at least one fix round. Expect them again.
 - **`mypy` and `ty` only read config from their own working directory.** `backend/pyproject.toml` holds both; run them from `backend/`, never the root, or `strict` and the nflreadpy override silently vanish. The pre-commit hooks now `cd backend` themselves.
 - **`_typos.toml` fully overrides `[tool.typos]` in `pyproject.toml`** — the hook never reads pyproject. `_typos.toml` is a strict superset; add exemptions there.
 - **jsdom normalises colours to `rgb(r, g, b)`** in `style.color` assertions, so comparing against a hex constant fails. `featured-card.test.tsx` has an `asRgb` helper.
-- **Sentinel-season registry** (`tests/api/conftest.py`): 2081 unplayed game · 2082 stale · 2083 fresh · 2084 partial team schedule · 2085 featured recap · 2086/2087 explorer present-vs-missing · 2088 failed ingest · 2089 explorer empty range (deliberately has no fixture). Ingest owns 2095–2099. `tests.fixtures.generate` filters seasons ≥ 2081 out of the slice. **2099 used to leak into the dev database on every run** — fixed in `c250fae`; if a season ≥ 2081 ever appears in `SELECT year FROM season`, a cleanup regressed and it is a bug report, not a curiosity.
+- **Sentinel-season registry** (`tests/api/conftest.py`): 2081 unplayed game · 2082 stale · 2083 fresh · 2084 partial team schedule · 2085 featured recap · 2086/2087 explorer present-vs-missing · 2088 failed ingest · 2089 explorer empty range (deliberately has no fixture). Ingest owns 2095–2099. `tests.fixtures.generate` filters seasons ≥ 2081 out of the slice. **2099 used to leak into the dev database on every run** — fixed in `e0d11ee`; if a season ≥ 2081 ever appears in `SELECT year FROM season`, a cleanup regressed and it is a bug report, not a curiosity.
 - **`.env` is gitignored and holds real secrets.** Never print it, never commit it.
 - **Account-level session limits killed 5 of ~16 implementer dispatches.** What worked every time: **commit after each module goes green**, and keep dispatches small.
 - **`delete_branch_on_merge` is on** — after a merge the remote branch vanishes, so the next push needs plain `-u`, not `--force-with-lease`.
-- **The branch was squash-merged twice.** A plain `git rebase origin/main` conflicts hard; use `git rebase --onto origin/main <last-squashed-commit>`.
+- **The merge strategy has varied, so never assume it.** The branch was squash-merged twice (a plain `git rebase origin/main` conflicts hard afterwards; use `git rebase --onto origin/main <last-squashed-commit>`), while PR #16 was **rebase**-merged — five commits kept, every SHA rewritten. Two consequences: check `git log` before choosing a rebase base, and **a SHA quoted inside a commit message may not exist on `main`**. PR #16's bodies cite their pre-rebase branch SHAs; the mapping is `c250fae`→`e0d11ee`, `1b3a3cf`→`538c10a`, `c5f8fb8`→`7be5baf`, `34d1631`→`d822c3d`, `8029340`→`56cd41f`. This file quotes the merged ones.
 
 ---
 
