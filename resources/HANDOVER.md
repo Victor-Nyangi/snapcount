@@ -22,7 +22,9 @@ Full procedure: **`deployment-snapcount.md`**. The short version:
 
 | Variables | Secrets |
 |---|---|
-| `DOMAIN`, `PROJECT_NAME`, `FIRST_SUPERUSER`, `SMTP_HOST`, `SMTP_USER`, `EMAILS_FROM_EMAIL`, `SENTRY_DSN` | `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD`, `SMTP_PASSWORD`, `POSTGRES_PASSWORD` |
+| `DOMAIN`, `PROJECT_NAME`, `FIRST_SUPERUSER`, `SMTP_HOST`, `SMTP_USER`, `EMAILS_FROM_EMAIL`, `SENTRY_DSN` | `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD`, `SMTP_PASSWORD`, `POSTGRES_PASSWORD`, `ADMINER_AUTH` |
+
+   `ADMINER_AUTH` guards the publicly-routed Adminer with Traefik basic auth. Generate it with `htpasswd -nbB admin 'password'` and paste the line **verbatim, single `$`** — doubling them is right for an `.env` file on the box and wrong for a repository secret. `deployment-snapcount.md` explains why.
 
 **Then, in order**
 

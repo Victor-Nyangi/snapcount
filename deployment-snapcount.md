@@ -66,7 +66,53 @@ half-configured stack.
 
 | Variables | Secrets |
 |---|---|
-| `DOMAIN`, `PROJECT_NAME`, `FIRST_SUPERUSER`, `SMTP_HOST`, `SMTP_USER`, `EMAILS_FROM_EMAIL`, `SENTRY_DSN` | `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD`, `SMTP_PASSWORD`, `POSTGRES_PASSWORD` |
+| `DOMAIN`, `PROJECT_NAME`, `FIRST_SUPERUSER`, `SMTP_HOST`, `SMTP_USER`, `EMAILS_FROM_EMAIL`, `SENTRY_DSN` | `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD`, `SMTP_PASSWORD`, `POSTGRES_PASSWORD`, `ADMINER_AUTH` |
+
+Seven variables and five secrets. `ADMINER_AUTH` is the newest and the one the
+template does not have; the next section is entirely about it.
+
+### `ADMINER_AUTH`, and the dollar signs that will bite you
+
+Adminer is a full PostgreSQL admin UI, and `compose.deploy.yml` publishes it at
+`adminer.${DOMAIN}` over HTTPS. Without a middleware the only thing between the
+open internet and the database is `POSTGRES_PASSWORD` typed into a login form
+that anyone can load and any scanner can find. So there is a Traefik `basicauth`
+middleware in front of the router, and `ADMINER_AUTH` is the htpasswd line it
+checks against. It is a secret, not a variable, because it carries a password
+hash.
+
+Generate it with `htpasswd` (`apache2-utils` on Debian, `httpd-tools` on RHEL),
+using `-B` for bcrypt:
+
+```bash
+htpasswd -nbB admin 'the-password-you-chose'
+# admin:$2y$05$Ku7L0z...............
+```
+
+Paste that whole line — username, colon, hash — into the repository secret.
+
+**Paste it verbatim, with single dollar signs. Do not double them.** This is
+worth being precise about, because the advice you will find says the opposite,
+and it is right about a different situation. Compose interpolates the *text of
+the compose file*, so a hash written literally into `compose.deploy.yml` would
+need every `$` doubled to `$$` or `$2y$05$...` would be read as three empty
+variables. But the value does not travel that way. It arrives through the
+workflow's `env:` block as a process environment variable, and Compose does not
+re-scan what it substitutes in — interpolation is a single pass. Double the
+dollars in the secret and the middleware receives a hash that literally contains
+`$$`, which matches nothing, and the failure looks like a wrong password rather
+than a mangled one.
+
+The one place doubling *is* required is an `.env` file on the box. Compose does
+interpolate inside `.env`, so a single-`$` hash there silently collapses to
+rubbish. Both behaviours were checked rather than assumed, with
+`docker compose config` against a throwaway file: through the environment the
+value survives byte-for-byte, and through `--env-file` a single-`$` hash comes
+out as `admin:.Kf2/`.
+
+If you lock yourself out, the recovery is `docker compose ... up -d` after
+correcting the secret — the middleware is proxy-side, so nothing about the
+database or its data is involved.
 
 **3. Run the deploy.** Actions → "Deploy with Docker Compose" → Run workflow.
 It is `workflow_dispatch:` only, deliberately: nothing auto-deploys to your box
