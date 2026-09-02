@@ -43,6 +43,11 @@ services:
       - traefik.http.routers.adminer-https.tls=true
       # Use the Let's Encrypt resolver
       - traefik.http.routers.adminer-https.tls.certresolver=le
+      # Adminer is a database admin UI on the public internet. Put HTTP basic
+      # auth in front of it at the proxy, so the front door is Traefik rather
+      # than POSTGRES_PASSWORD on an exposed login form
+      - traefik.http.middlewares.adminer-auth.basicauth.users=${ADMINER_AUTH:?Variable not set}
+      - traefik.http.routers.adminer-https.middlewares=adminer-auth
 
   backend:
     restart: always
