@@ -58,6 +58,12 @@ services:
       db:
         condition: service_healthy
     environment:
+      # The runner imports app.core.config, whose Settings() refuses to
+      # construct without these — the same required set backend gets.
+      PROJECT_NAME: ${PROJECT_NAME:?Variable not set}
+      SECRET_KEY: ${SECRET_KEY:?Variable not set}
+      FIRST_SUPERUSER: ${FIRST_SUPERUSER:?Variable not set}
+      FIRST_SUPERUSER_PASSWORD: ${FIRST_SUPERUSER_PASSWORD:?Variable not set}
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Variable not set}@db:5432/app
       SENTRY_DSN: ${SENTRY_DSN:-}
       INGEST_AT_HOUR_UTC: ${INGEST_AT_HOUR_UTC:-9}
