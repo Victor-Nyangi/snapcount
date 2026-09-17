@@ -1,17 +1,14 @@
-import { FaGithub, FaLinkedinIn } from "react-icons/fa"
-import { FaXTwitter } from "react-icons/fa6"
+import { FaGithub } from "react-icons/fa"
 
+/* The template shipped FastAPI's own GitHub, X and LinkedIn here. The repo
+ * link is now snapcount's; X and LinkedIn are gone rather than repointed,
+ * because snapcount has no account on either and a plausible-looking guess
+ * is worse than no link. Add entries here if those accounts ever exist. */
 const socialLinks = [
   {
     icon: FaGithub,
-    href: "https://github.com/fastapi/fastapi",
+    href: "https://github.com/Victor-Nyangi/snapcount",
     label: "GitHub",
-  },
-  { icon: FaXTwitter, href: "https://x.com/fastapi", label: "X" },
-  {
-    icon: FaLinkedinIn,
-    href: "https://linkedin.com/company/fastapi",
-    label: "LinkedIn",
   },
 ]
 
