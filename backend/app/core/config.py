@@ -5,6 +5,7 @@ from pydantic import (
     EmailStr,
     HttpUrl,
     PostgresDsn,
+    ValidationError,
     computed_field,
     field_validator,
     model_validator,
@@ -88,4 +89,45 @@ class Settings(BaseSettings):
         return self
 
 
-settings = Settings()  # type: ignore
+class SettingsError(RuntimeError):
+    """Configuration is unusable. Names fields, never carries their values."""
+
+
+def describe_settings_error(exc: ValidationError) -> str:
+    """Render a settings `ValidationError` as field names and reasons only.
+
+    pydantic appends `input_value=...` to every error it prints, and for a
+    `missing` error that input is the WHOLE settings dict — so one absent
+    variable makes `str(exc)` print DATABASE_URL, password and all. That is
+    how part of the Postgres password reached four days of container logs:
+    the container crash-looped, and each loop logged the DSN again.
+
+    Only `loc` and `msg` are read here. `input` is deliberately never touched,
+    so no value a validator saw can reach the message, whatever it was.
+    """
+    errors = exc.errors()
+    lines = [
+        f"{len(errors)} invalid setting(s) for {exc.title}. "
+        "Values are omitted from this message on purpose; "
+        "fix these environment variables:"
+    ]
+    for error in errors:
+        # An empty `loc` means a whole-model validator, not a named field.
+        field = ".".join(str(part) for part in error["loc"]) or "<whole model>"
+        lines.append(f"  - {field}: {error['msg']}")
+    return "\n".join(lines)
+
+
+def load_settings() -> Settings:
+    """Build `Settings`, failing fast and loudly but without printing secrets."""
+    try:
+        # bare `type: ignore` (not `[call-arg]`): mypy and ty both honour a
+        # bare one, but ty does not know mypy's error codes.
+        return Settings()  # type: ignore
+    except ValidationError as exc:
+        # `from None`, not `from exc`: chaining would print the very
+        # ValidationError this just redacted, right below the redaction.
+        raise SettingsError(describe_settings_error(exc)) from None
+
+
+settings = load_settings()
