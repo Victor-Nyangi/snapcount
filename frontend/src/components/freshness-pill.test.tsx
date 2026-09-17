@@ -4,7 +4,7 @@ import { FreshnessPill } from "./freshness-pill"
 
 describe("FreshnessPill", () => {
   it("renders whatever label it is given, not a hard-coded string", () => {
-    render(<FreshnessPill status="final" label="Final · updated Feb 9" />)
+    render(<FreshnessPill status="fresh" label="Final · updated Feb 9" />)
     expect(screen.getByText("Final · updated Feb 9")).toBeInTheDocument()
   })
 
@@ -21,8 +21,8 @@ describe("FreshnessPill", () => {
     )
   })
 
-  it("does not pulse the dot when final", () => {
-    render(<FreshnessPill status="final" label="Final" />)
+  it("does not pulse the dot when fresh", () => {
+    render(<FreshnessPill status="fresh" label="Up to date" />)
     expect(screen.getByTestId("freshness-dot")).not.toHaveClass(
       "snap-freshness-dot--live",
     )
@@ -35,7 +35,7 @@ describe("FreshnessPill", () => {
     )
   })
 
-  it("uses emerald tokens for live and final", () => {
+  it("uses emerald tokens for live and fresh", () => {
     render(<FreshnessPill status="live" label="Live" />)
     expect(screen.getByTestId("freshness-dot")).toHaveStyle({
       background: "var(--emerald)",
@@ -62,12 +62,12 @@ describe("FreshnessPill", () => {
     expect(styleTag?.textContent).toContain("prefers-reduced-motion: reduce")
   })
 
-  it("gives stale a container visually distinct from final's — not a green pill with orange contents", () => {
+  it("gives stale a container visually distinct from fresh's — not a green pill with orange contents", () => {
     // Round 1 fix: this is the test that would have caught the original bug
     // — checking only the label text let a mismatched (emerald) container
     // ship under a "stale" status.
     const { unmount: unmountFinal } = render(
-      <FreshnessPill status="final" label="Final" />,
+      <FreshnessPill status="fresh" label="Up to date" />,
     )
     const finalPill = screen.getByTitle("Data freshness")
     const finalBackground = finalPill.style.background
@@ -88,7 +88,7 @@ describe("FreshnessPill", () => {
     expect(stalePill.style.borderColor).toBe("var(--warning-tint-border)")
   })
 
-  it("keeps live and final on the same (emerald) container tint", () => {
+  it("keeps live and fresh on the same (emerald) container tint", () => {
     const { unmount: unmountLive } = render(
       <FreshnessPill status="live" label="Live" />,
     )
@@ -96,9 +96,29 @@ describe("FreshnessPill", () => {
     const liveBackground = livePill.style.background
     unmountLive()
 
-    render(<FreshnessPill status="final" label="Final" />)
+    render(<FreshnessPill status="fresh" label="Up to date" />)
     expect(screen.getByTitle("Data freshness").style.background).toBe(
       liveBackground,
+    )
+  })
+
+  it("renders a complete season settled and neutral — not emerald, not a warning", () => {
+    render(<FreshnessPill status="complete" label="Season complete" />)
+    const pill = screen.getByTitle("Data freshness")
+    expect(pill.style.background).toBe("var(--muted)")
+    expect(pill.style.borderColor).toBe("var(--border)")
+    expect(screen.getByTestId("freshness-dot").style.background).toBe(
+      "var(--muted-foreground)",
+    )
+    expect(screen.getByText("Season complete").style.color).toBe(
+      "var(--secondary-foreground)",
+    )
+  })
+
+  it("does not pulse the dot when complete", () => {
+    render(<FreshnessPill status="complete" label="Season complete" />)
+    expect(screen.getByTestId("freshness-dot")).not.toHaveClass(
+      "snap-freshness-dot--live",
     )
   })
 })

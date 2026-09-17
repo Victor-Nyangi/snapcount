@@ -1,6 +1,20 @@
-from fastapi.testclient import TestClient
+from collections.abc import Generator
+from datetime import UTC, datetime, timedelta
 
-from tests.api.conftest import FAILED_INGEST_SEASON, FRESH_SEASON, STALE_SEASON
+import pytest
+from fastapi.testclient import TestClient
+from sqlmodel import Session, delete
+
+from app.models import IngestRun, Season
+from tests.api.conftest import (
+    FAILED_INGEST_SEASON,
+    FRESH_SEASON,
+    FUTURE_SEASON,
+    STALE_SEASON,
+)
+
+# Free sentinel (2081-2089 are taken by conftest; ingest owns 2095-2099).
+LIVE_INGEST_SEASON = 2090
 
 
 def test_seasons_lists_every_ingested_season(client: TestClient) -> None:
@@ -16,13 +30,13 @@ def test_seasons_lists_every_ingested_season(client: TestClient) -> None:
     assert row_2024["last_ingested_at"] is not None
 
 
-def test_freshness_reports_final_for_a_recently_ingested_season(
+def test_freshness_reports_fresh_for_a_recently_ingested_season(
     client: TestClient,
     fresh_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
 ) -> None:
     body = client.get(f"/api/v1/meta/freshness?season={FRESH_SEASON}").json()
-    assert body["status"] == "final"
-    assert body["label"].startswith("Final")
+    assert body["status"] == "fresh"
+    assert body["label"].startswith("Up to date")
     assert body["last_ingested_at"] is not None
 
 
@@ -56,8 +70,6 @@ def test_a_failed_run_leaves_the_pill_stale_and_names_the_last_SUCCESS(
     the season at the START of a run, or in a `finally`, which would make a
     broken nightly job look like a healthy one.
     """
-    from datetime import UTC, datetime, timedelta
-
     body = client.get(f"/api/v1/meta/freshness?season={FAILED_INGEST_SEASON}").json()
 
     assert body["status"] == "stale"
@@ -88,3 +100,126 @@ def test_seasons_report_the_last_week_that_actually_has_games(
     assert row["current_week"] == 18
     # And the stored constant it replaces is still wrong, which is the point.
     assert row["week_count"] == 18
+
+
+# --- VIC-137: the label reflects the season's state, not only ingest age ---
+#
+# Sentinel seasons sit in 2081-2090, all "in the future" relative to the real
+# calendar, so these tests pin `current_season` rather than depending on
+# today's date. It is patched where the route looks it up.
+
+_CURRENT_SEASON = "app.api.routes.meta.current_season"
+
+
+@pytest.fixture
+def live_ingest_season(db: Session) -> Generator[None]:
+    """A season with data from two days ago AND an ingest running now."""
+    started = datetime.now(UTC)
+    db.add(
+        Season(
+            year=LIVE_INGEST_SEASON,
+            current_week=1,
+            week_count=18,
+            last_ingested_at=started - timedelta(days=2),
+        )
+    )
+    db.add(
+        IngestRun(
+            source="nflreadpy",
+            season=LIVE_INGEST_SEASON,
+            started_at=started,
+            status="running",
+        )
+    )
+    db.commit()
+    try:
+        yield
+    finally:
+        db.exec(delete(IngestRun).where(IngestRun.season == LIVE_INGEST_SEASON))
+        db.commit()
+        db.exec(delete(Season).where(Season.year == LIVE_INGEST_SEASON))
+        db.commit()
+
+
+def test_current_season_with_recent_data_is_fresh(
+    client: TestClient,
+    fresh_season: None,  # noqa: ARG001 — setup/teardown only
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(_CURRENT_SEASON, lambda: FRESH_SEASON)
+    body = client.get(f"/api/v1/meta/freshness?season={FRESH_SEASON}").json()
+    assert body["status"] == "fresh"
+    today = datetime.now(UTC).strftime("%b %-d")
+    assert body["label"] == f"Up to date · {today}"
+
+
+def test_current_season_with_old_data_is_stale(
+    client: TestClient,
+    stale_season: None,  # noqa: ARG001 — setup/teardown only
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(_CURRENT_SEASON, lambda: STALE_SEASON)
+    body = client.get(f"/api/v1/meta/freshness?season={STALE_SEASON}").json()
+    assert body["status"] == "stale"
+    updated = (datetime.now(UTC) - timedelta(days=2)).strftime("%b %-d")
+    assert body["label"] == f"Stale · updated {updated}"
+
+
+def test_a_running_ingest_is_live(
+    client: TestClient,
+    live_ingest_season: None,  # noqa: ARG001 — setup/teardown only
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(_CURRENT_SEASON, lambda: LIVE_INGEST_SEASON)
+    body = client.get(f"/api/v1/meta/freshness?season={LIVE_INGEST_SEASON}").json()
+    assert body["status"] == "live"
+    assert body["label"] == "Live · updating"
+
+
+def test_a_past_season_with_data_is_complete_and_never_stale(
+    client: TestClient,
+    stale_season: None,  # noqa: ARG001 — setup/teardown only
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Two-day-old data would read "stale" for the current season; for a
+    # finished one it must not.
+    monkeypatch.setattr(_CURRENT_SEASON, lambda: STALE_SEASON + 1)
+    body = client.get(f"/api/v1/meta/freshness?season={STALE_SEASON}").json()
+    assert body["status"] == "complete"
+    assert body["label"] == "Season complete"
+    assert body["last_ingested_at"] is not None
+
+
+def test_the_real_2024_backfill_reads_complete(client: TestClient) -> None:
+    # Read-only against the committed backfill, and unpatched: 2024 is behind
+    # the real current season on any date this code will run.
+    body = client.get("/api/v1/meta/freshness?season=2024").json()
+    assert body["status"] == "complete"
+    assert body["label"] == "Season complete"
+
+
+def test_a_past_season_with_no_data_says_so(
+    client: TestClient,
+    seeded_future: None,  # noqa: ARG001 — setup/teardown only
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(_CURRENT_SEASON, lambda: FUTURE_SEASON + 1)
+    body = client.get(f"/api/v1/meta/freshness?season={FUTURE_SEASON}").json()
+    assert body["status"] == "stale"
+    assert body["label"] == "No data ingested yet"
+    assert body["last_ingested_at"] is None
+
+
+@pytest.mark.parametrize("season_fixture", ["fresh_season", "stale_season"])
+def test_a_season_after_the_current_one_is_judged_like_the_current_one(
+    client: TestClient,
+    season_fixture: str,
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request.getfixturevalue(season_fixture)
+    year = FRESH_SEASON if season_fixture == "fresh_season" else STALE_SEASON
+    monkeypatch.setattr(_CURRENT_SEASON, lambda: year - 1)
+    body = client.get(f"/api/v1/meta/freshness?season={year}").json()
+    # Never "complete" — it has not happened yet.
+    assert body["status"] == ("fresh" if season_fixture == "fresh_season" else "stale")

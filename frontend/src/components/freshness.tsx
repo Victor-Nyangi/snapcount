@@ -1,6 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import { MetaService } from "@/client"
-import { FreshnessPill } from "@/components/freshness-pill"
+import {
+  FreshnessPill,
+  type FreshnessStatus,
+} from "@/components/freshness-pill"
 import { useSeasonWeek } from "@/components/season-week-picker"
 
 /**
@@ -9,7 +12,7 @@ import { useSeasonWeek } from "@/components/season-week-picker"
  * It had been hard-coded to `status="final" label="Final · updated Feb 9"`
  * since Task 2.3 — the mockup's literal sample text, behind a comment
  * reading "Placeholder until Task 4.1 wires GET /meta/freshness". Task 4.1
- * built the endpoint (live / final / stale, with the label fully formed
+ * built the endpoint (now live / fresh / stale / complete, with the label fully formed
  * server-side) but the call site was never changed, so the app claimed its
  * data was current on a fixed February date no matter what the database
  * actually held.
@@ -34,16 +37,13 @@ export function Freshness() {
   if (isError || !data) {
     return (
       <FreshnessPill
-        status={isError ? "stale" : "final"}
+        status={isError ? "stale" : "fresh"}
         label={isError ? "Freshness unknown" : "Checking…"}
       />
     )
   }
 
   return (
-    <FreshnessPill
-      status={data.status as "live" | "final" | "stale"}
-      label={data.label}
-    />
+    <FreshnessPill status={data.status as FreshnessStatus} label={data.label} />
   )
 }

@@ -21,6 +21,6 @@ class FreshnessResponse(SQLModel):
     """`GET /meta/freshness?season=`. `label` is fully formed server-side —
     the freshness pill renders it verbatim."""
 
-    status: str  # "live" | "final" | "stale"
+    status: str  # "live" | "fresh" | "stale" | "complete"
     label: str
     last_ingested_at: datetime | None

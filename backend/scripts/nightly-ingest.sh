@@ -12,6 +12,7 @@
 # season that does not exist yet.
 set -euo pipefail
 
+# Mirrored in Python by app/core/season.py `current_season()` — keep them in step.
 month=$(date -u +%m)
 year=$(date -u +%Y)
 if [ "$((10#$month))" -lt 8 ]; then

@@ -1,4 +1,4 @@
-export type FreshnessStatus = "live" | "final" | "stale"
+export type FreshnessStatus = "live" | "fresh" | "stale" | "complete"
 
 /**
  * Data-freshness indicator for the header's right rail. Geometry and colors
@@ -8,7 +8,7 @@ export type FreshnessStatus = "live" | "final" | "stale"
  * what "current" means. The label text comes from the API
  * (`GET /meta/freshness`, Task 4.1), never hard-coded here.
  *
- * The mockup only ever renders the `final`/`live` (emerald) styling — it has
+ * The mockup only ever renders the `fresh`/`live` (emerald) styling — it has
  * no `stale` markup to copy from. The design system had no "warning tint"
  * background/border pair, so `theme.css` now derives one (§1.9a): the same
  * lightness/chroma formula the emerald tint pair uses, applied at
@@ -17,6 +17,12 @@ export type FreshnessStatus = "live" | "final" | "stale"
  * dot and `--warning-ink` label, so all three states are internally
  * consistent pill+dot+label triples rather than a green pill with orange
  * contents.
+ *
+ * `complete` (a finished past season, VIC-137) is neither current nor a
+ * problem, so it is neutral: the `--muted` pill and `--border` edge, a
+ * `--muted-foreground` dot, and `--secondary-foreground` for the label.
+ * The label deliberately does NOT use `--muted-foreground` — gray-500 on
+ * gray-100 is ~4.4:1 and fails AA at this 11px size; gray-600 clears it.
  *
  * The `live` dot's pulse is applied via a *class*, not an inline `animation`
  * style, and suppressed for `prefers-reduced-motion` in this component's own
@@ -30,6 +36,33 @@ export type FreshnessStatus = "live" | "final" | "stale"
  * correctly by source order without needing `!important` or a change to the
  * global stylesheet, which is out of this task's file scope.
  */
+const EMERALD = {
+  dotColor: "var(--emerald)",
+  inkColor: "var(--emerald-ink)",
+  bgColor: "var(--emerald-tint-strong)",
+  borderColor: "var(--emerald-tint-border)",
+}
+
+const PALETTE: Record<
+  FreshnessStatus,
+  { dotColor: string; inkColor: string; bgColor: string; borderColor: string }
+> = {
+  live: EMERALD,
+  fresh: EMERALD,
+  stale: {
+    dotColor: "var(--warning)",
+    inkColor: "var(--warning-ink)",
+    bgColor: "var(--warning-tint-strong)",
+    borderColor: "var(--warning-tint-border)",
+  },
+  complete: {
+    dotColor: "var(--muted-foreground)",
+    inkColor: "var(--secondary-foreground)",
+    bgColor: "var(--muted)",
+    borderColor: "var(--border)",
+  },
+}
+
 export function FreshnessPill({
   status,
   label,
@@ -37,15 +70,7 @@ export function FreshnessPill({
   status: FreshnessStatus
   label: string
 }) {
-  const isStale = status === "stale"
-  const dotColor = isStale ? "var(--warning)" : "var(--emerald)"
-  const inkColor = isStale ? "var(--warning-ink)" : "var(--emerald-ink)"
-  const bgColor = isStale
-    ? "var(--warning-tint-strong)"
-    : "var(--emerald-tint-strong)"
-  const borderColor = isStale
-    ? "var(--warning-tint-border)"
-    : "var(--emerald-tint-border)"
+  const { dotColor, inkColor, bgColor, borderColor } = PALETTE[status]
 
   return (
     <div

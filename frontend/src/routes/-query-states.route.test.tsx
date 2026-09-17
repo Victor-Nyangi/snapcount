@@ -53,8 +53,8 @@ beforeEach(() => {
   listPlayers.mockResolvedValue({ data: [] })
   freshness.mockResolvedValue({
     data: {
-      status: "final",
-      label: "Final · updated Aug 17",
+      status: "fresh",
+      label: "Up to date · Aug 17",
       last_ingested_at: null,
     },
   })
@@ -121,9 +121,7 @@ describe("the freshness pill reports the API, not a fixed date", () => {
     })
     await renderRouteAt("/standings?season=2024")
 
-    expect(
-      await screen.findByText("Final · updated Aug 17"),
-    ).toBeInTheDocument()
+    expect(await screen.findByText("Up to date · Aug 17")).toBeInTheDocument()
     expect(screen.queryByText("Final · updated Feb 9")).toBeNull()
     expect(freshness).toHaveBeenCalledWith({ query: { season: 2024 } })
   })
@@ -155,6 +153,6 @@ describe("the freshness pill reports the API, not a fixed date", () => {
     await renderRouteAt("/standings?season=2024")
 
     expect(await screen.findByText("Freshness unknown")).toBeInTheDocument()
-    expect(screen.queryByText(/Final/)).toBeNull()
+    expect(screen.queryByText(/Final|Up to date/)).toBeNull()
   })
 })
