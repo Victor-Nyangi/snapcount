@@ -6,10 +6,14 @@
 # a worker pool would be more moving parts than the thing they schedule.
 #
 # The season is DERIVED, not configured: an NFL season is named for the
-# calendar year it starts in and runs from September into the February
-# after. So from January to July we are still finishing last year's season,
-# and a naive `date +%Y` would spend seven months of every year ingesting a
-# season that does not exist yet.
+# calendar year it starts in. So from January to July we are still finishing
+# last year's season, and a naive `date +%Y` would spend seven months of
+# every year ingesting a season that does not exist yet.
+#
+# The rollover is AUGUST 1, not kickoff: `month < 8 → year - 1, else year`,
+# on the UTC date. August is deliberately on the new season's side — camp,
+# preseason and the schedule are already published under the new name, so
+# that is when there is something to ingest.
 set -euo pipefail
 
 # Mirrored in Python by app/core/season.py `current_season()` — keep them in step.
