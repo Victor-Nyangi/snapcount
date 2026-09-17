@@ -226,7 +226,7 @@ def featured_with_recap(db: Session) -> Generator[None]:
 
 @pytest.fixture
 def fresh_season(db: Session) -> Generator[None]:
-    """A `Season` row ingested just now, so freshness reads "final".
+    """A `Season` row ingested just now, so freshness reads "fresh".
 
     Deliberately a sentinel rather than a read of 2024: "recently ingested"
     decays. Asserting it against whatever the database happens to hold

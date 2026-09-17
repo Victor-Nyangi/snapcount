@@ -84,7 +84,7 @@ describe("/explorer route", () => {
       ]),
     })
     freshness.mockResolvedValue({
-      data: { status: "final", label: "Final · updated Aug 16" },
+      data: { status: "fresh", label: "Up to date · Aug 16" },
     })
   })
 

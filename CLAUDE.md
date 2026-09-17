@@ -44,7 +44,7 @@ Never introduce a raw colour or a bracketed pixel value in `frontend/src`. `lib/
 Power score, standings, streaks, leaderboard baselines, cumulative differentials, ranks-within-a-season, freshness status and every display **label** are produced by the API. The frontend formats and arranges; it does not derive. Two consequences:
 
 - If a number looks wrong, fix it in `app/analytics/` — not in a component.
-- Labels arrive fully formed (`"Final · updated Aug 17"`, `"QB 14+ games"`, `"BAL -3.5"`). Do not reconstruct them client-side; a label that disagrees with the value beside it is the defect class this project has hit most.
+- Labels arrive fully formed (`"Up to date · Aug 17"`, `"QB 14+ games"`, `"BAL -3.5"`). Do not reconstruct them client-side; a label that disagrees with the value beside it is the defect class this project has hit most.
 
 The one deliberate exception is the explorer's rank-within-a-season, computed client-side because the response already carries every value a ranking needs.
 

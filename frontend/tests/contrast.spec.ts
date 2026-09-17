@@ -140,7 +140,7 @@ test("every diverging cell on the standings board clears AA", async ({
   assertAllPass(cells, "diverging cells")
 })
 
-test("the freshness pill clears AA in all three of its states", async ({
+test("the freshness pill clears AA in all four of its states", async ({
   page,
 }) => {
   // Driven through the API rather than whatever the database happens to
@@ -150,8 +150,9 @@ test("the freshness pill clears AA in all three of its states", async ({
   // and three did not.
   for (const [status, label] of [
     ["live", "Live · updated just now"],
-    ["final", "Final · updated Aug 17"],
+    ["fresh", "Up to date · Aug 17"],
     ["stale", "Stale · updated Aug 16"],
+    ["complete", "Season complete"],
   ]) {
     await page.route("**/api/v1/meta/freshness*", (route) =>
       route.fulfill({

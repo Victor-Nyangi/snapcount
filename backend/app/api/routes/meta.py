@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from sqlmodel import col, func, select
 
 from app.api.deps import SessionDep
+from app.core.season import current_season
 from app.models import Game, IngestRun, Season
 from app.schemas.meta import FreshnessResponse, SeasonSummary
 
@@ -66,12 +67,23 @@ def freshness(session: SessionDep, season: int) -> FreshnessResponse:
             status="stale", label="No data ingested yet", last_ingested_at=None
         )
 
+    # A season that finished before the current one never changes again, so
+    # "stale" would be a false alarm forever. A season AFTER the current one
+    # cannot be complete — it has not started — so it is judged like the
+    # current season, by ingest age.
+    if season < current_season():
+        return FreshnessResponse(
+            status="complete",
+            label="Season complete",
+            last_ingested_at=row.last_ingested_at,
+        )
+
     age = datetime.now(UTC) - row.last_ingested_at
     updated = row.last_ingested_at.strftime("%b %-d")
     if age <= _STALE_AFTER:
         return FreshnessResponse(
-            status="final",
-            label=f"Final · updated {updated}",
+            status="fresh",
+            label=f"Up to date · {updated}",
             last_ingested_at=row.last_ingested_at,
         )
     return FreshnessResponse(
