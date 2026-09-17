@@ -1,11 +1,6 @@
 import { Link } from "@tanstack/react-router"
 
-import { useTheme } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
-import icon from "/assets/images/fastapi-icon.svg"
-import iconLight from "/assets/images/fastapi-icon-light.svg"
-import logo from "/assets/images/fastapi-logo.svg"
-import logoLight from "/assets/images/fastapi-logo-light.svg"
 
 interface LogoProps {
   variant?: "full" | "icon" | "responsive"
@@ -13,43 +8,75 @@ interface LogoProps {
   asLink?: boolean
 }
 
+/* The mark is TYPE, not an image.
+ *
+ * This replaced the template's `fastapi-logo.svg` / `fastapi-logo-light.svg`
+ * pair, which also meant carrying a light and a dark file and a `useTheme()`
+ * read to pick between them. A wordmark needs neither: `data-display` is
+ * theme.css's existing hook for the display face (Archivo, `--stretch-display`,
+ * weight 700), and the colour is inherited from whatever the mark sits in, so
+ * it follows the foreground in both themes with no second asset and no
+ * per-theme branch. No new font is loaded — Archivo is already the h1/h2 face.
+ *
+ * Sizes are the type scale, chosen to keep the old images' boxes: `text-2xl`
+ * with `leading-none` is a 24px box where the full logo was `h-6`, and the
+ * monogram is centred in a `size-5` square where the icon was `size-5`.
+ */
+
+function Wordmark({ className }: { className?: string }) {
+  return (
+    <span
+      data-display="1"
+      className={cn(
+        "inline-flex items-center text-2xl leading-none tracking-tight",
+        className,
+      )}
+    >
+      snapcount
+    </span>
+  )
+}
+
+function Monogram({ className }: { className?: string }) {
+  return (
+    <span
+      data-display="1"
+      className={cn(
+        "inline-flex size-5 items-center justify-center text-lg leading-none tracking-tight",
+        className,
+      )}
+    >
+      {/* The collapsed sidebar shows two letters; screen readers still get the
+       * whole name, so the link's accessible name does not change with the
+       * sidebar's width. */}
+      <span aria-hidden="true">sc</span>
+      <span className="sr-only">snapcount</span>
+    </span>
+  )
+}
+
 export function Logo({
   variant = "full",
   className,
   asLink = true,
 }: LogoProps) {
-  const { resolvedTheme } = useTheme()
-  const isDark = resolvedTheme === "dark"
-
-  const fullLogo = isDark ? logoLight : logo
-  const iconLogo = isDark ? iconLight : icon
-
   const content =
     variant === "responsive" ? (
       <>
-        <img
-          src={fullLogo}
-          alt="FastAPI"
-          className={cn(
-            "h-6 w-auto group-data-[collapsible=icon]:hidden",
-            className,
-          )}
+        <Wordmark
+          className={cn("group-data-[collapsible=icon]:hidden", className)}
         />
-        <img
-          src={iconLogo}
-          alt="FastAPI"
+        <Monogram
           className={cn(
-            "size-5 hidden group-data-[collapsible=icon]:block",
+            "hidden group-data-[collapsible=icon]:inline-flex",
             className,
           )}
         />
       </>
+    ) : variant === "full" ? (
+      <Wordmark className={className} />
     ) : (
-      <img
-        src={variant === "full" ? fullLogo : iconLogo}
-        alt="FastAPI"
-        className={cn(variant === "full" ? "h-6 w-auto" : "size-5", className)}
-      />
+      <Monogram className={className} />
     )
 
   if (!asLink) {
