@@ -88,6 +88,111 @@ services:
       context: .
       dockerfile: backend/Dockerfile
 
+  # A nightly pg_dump, kept on the box. Before this service there were no
+  # backups of any kind — no crontab, no timer, no provider snapshot — so a
+  # dropped table or a bad migration had no recovery path at all. Alembic owns
+  # the schema and the current season re-ingests nightly, so a total loss costs
+  # time rather than data; a partial loss is the case this exists for.
+  #
+  # DELIBERATELY *NOT* THE BACKEND IMAGE, unlike ingest-scheduler. pg_dump needs
+  # a Postgres client, not the application, and the app image would drag along
+  # SECRET_KEY, FIRST_SUPERUSER_PASSWORD and the rest. A process whose whole job
+  # is to write the database to a file has no business holding the signing key.
+  # postgres:18 matches the server version in `db`, which is what pg_dump wants.
+  db-backup:
+    image: postgres:18
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - db-backups:/backups
+    environment:
+      # Connection only — the standard libpq variables, so the pg_dump line
+      # below carries no credentials of its own. POSTGRES_PASSWORD is
+      # interpolated the same way `db` and `backend` do it.
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: app
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Variable not set}
+      # 03:00 UTC: six hours clear of the 09:00 ingest, so a dump is never
+      # taken while the ingest is mid-write, and late enough in the US night
+      # that the database is settled.
+      BACKUP_AT_HOUR_UTC: ${BACKUP_AT_HOUR_UTC:-3}
+      # How many dumps to keep. One dump a night, so 14 is a fortnight.
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      # Set to 1 to take a single backup and exit instead of looping — for
+      # `docker compose run --rm -e BACKUP_ONCE=1 db-backup`, i.e. "back up
+      # right now, before I run this migration".
+      BACKUP_ONCE: ${BACKUP_ONCE:-}
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -uo pipefail
+
+        # THIS IS NOT scripts/dump-backfill.sh, and the two must not be merged.
+        # That one is data-only on purpose: it seeds a fresh deploy whose schema
+        # Alembic has already created, so it excludes the schema, `user` and
+        # `alembic_version`. This is disaster recovery and must be able to
+        # rebuild the database from nothing, so it dumps everything, in
+        # pg_dump's custom format (-Fc: compressed, and restorable table by
+        # table with pg_restore).
+        run_backup() {
+          stamp=$$(date -u +%Y%m%dT%H%M%SZ)
+          out="/backups/snapcount-$${stamp}.dump"
+          echo "[db-backup] $${stamp} starting dump -> $${out}"
+
+          # Written as .partial and renamed only on success, so a pull from the
+          # box can never pick up a half-written file: the final name does not
+          # exist until the dump is complete.
+          if ! pg_dump -Fc -f "$${out}.partial"; then
+            rm -f "$${out}.partial"
+            echo "[db-backup] FAILED: pg_dump exited non-zero; no dump written, nothing pruned" >&2
+            return 1
+          fi
+          mv "$${out}.partial" "$${out}"
+          echo "[db-backup] ok $${out} ($$(stat -c %s "$${out}") bytes)"
+
+          # Retention runs ONLY here, after a dump has landed. A failed dump
+          # returns above and deletes nothing — the one rule this loop must
+          # never break is thinning the backups on a day it produced none.
+          keep=$${BACKUP_KEEP_DAYS}
+          if ! [ "$${keep}" -ge 1 ] 2>/dev/null; then
+            echo "[db-backup] BACKUP_KEEP_DAYS=$${keep} is not a positive integer; keeping 14" >&2
+            keep=14
+          fi
+          # The timestamp format sorts lexicographically, so plain `sort` is
+          # oldest-first and `head -n -N` is "everything but the newest N".
+          ls -1 /backups/snapcount-*.dump 2>/dev/null | sort | head -n "-$${keep}" | while read -r old; do
+            rm -f -- "$${old}" && echo "[db-backup] pruned $${old}"
+          done
+        }
+
+        # A .partial can only be the wreckage of a container killed mid-dump.
+        # It is not a backup and nothing will ever finish it.
+        for stale in /backups/*.partial; do
+          [ -e "$${stale}" ] && rm -f -- "$${stale}" && echo "[db-backup] removed stale $${stale}"
+        done
+
+        if [ -n "$${BACKUP_ONCE:-}" ]; then
+          run_backup
+          exit $$?
+        fi
+
+        while true; do
+          now=$$(date -u +%s)
+          target=$$(date -u -d "today $${BACKUP_AT_HOUR_UTC}:00" +%s)
+          if [ "$$target" -le "$$now" ]; then
+            target=$$(date -u -d "tomorrow $${BACKUP_AT_HOUR_UTC}:00" +%s)
+          fi
+          echo "[db-backup] sleeping until $$(date -u -d "@$$target" +%FT%TZ)"
+          sleep "$$(( target - now ))"
+          # A failed dump must not take the loop down: yesterday's backups are
+          # still on disk and tonight's failure should not cost tomorrow's run.
+          run_backup || echo "[db-backup] continuing; next attempt tomorrow"
+        done
+
   backend:
     image: backend:latest
     depends_on:
@@ -128,3 +233,6 @@ services:
 
 volumes:
   app-db-data:
+  # Separate from app-db-data on purpose: a backup that lives inside the
+  # volume it is a backup of is not a backup.
+  db-backups:
