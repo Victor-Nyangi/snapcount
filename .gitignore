@@ -21,3 +21,7 @@ openapi.json
 # ~420 KB per revision, and stale the moment the current season re-ingests.
 # Generate on demand — see deployment-snapcount.md.
 *.sql.gz
+
+# Dumps pulled off the box by scripts/pull-backup.sh. These are the real
+# database, secrets and all — they belong on your disk, never in the repo.
+backups/
