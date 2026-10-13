@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+import emails
 from fastapi.testclient import TestClient
 from pwdlib.hashers.bcrypt import BcryptHasher
 from sqlmodel import Session
@@ -49,9 +50,15 @@ def test_use_access_token(
 def test_recovery_password(
     client: TestClient, normal_user_token_headers: dict[str, str]
 ) -> None:
+    # Pin every setting `emails_enabled` reads, rather than inheriting
+    # EMAILS_FROM_EMAIL from the shell: unset, `send_email` asserted and the
+    # route 500'd; set, the request opened a real SMTP connection. The
+    # transport is stubbed so neither shell can change what this test does.
     with (
         patch("app.core.config.settings.SMTP_HOST", "smtp.example.com"),
         patch("app.core.config.settings.SMTP_USER", "admin@example.com"),
+        patch("app.core.config.settings.EMAILS_FROM_EMAIL", "noreply@example.com"),
+        patch.object(emails.message.Message, "send") as send,
     ):
         email = "test@example.com"
         r = client.post(
@@ -62,6 +69,8 @@ def test_recovery_password(
         assert r.json() == {
             "message": "If that email is registered, we sent a password recovery link"
         }
+        send.assert_called_once()
+        assert send.call_args.kwargs["to"] == email
 
 
 def test_recovery_password_user_not_exits(

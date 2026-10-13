@@ -5,6 +5,7 @@ loop logged pydantic's `input_value={'DATABASE_URL': 'postgre...'}`, putting
 part of the Postgres password into four days of container logs.
 """
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -24,22 +25,22 @@ from app.core.config import (
 _CANARY_PASSWORD = "pw-leak-canary"
 _FAKE_DSN = f"postgresql://u:{_CANARY_PASSWORD}@h/d"
 
-# Every variable `Settings` requires. Cleared so the failure below is the
-# real one from the incident: DATABASE_URL present, the rest absent.
-_REQUIRED_VARS = (
-    "SECRET_KEY",
-    "PROJECT_NAME",
-    "DATABASE_URL",
-    "FIRST_SUPERUSER",
-    "FIRST_SUPERUSER_PASSWORD",
-)
+# Every variable `Settings` reads, matched the way pydantic-settings matches
+# them (case-insensitively). Clearing only the REQUIRED ones was not enough:
+# any optional one left in the shell — EMAILS_FROM_EMAIL, say — joins the
+# `input_value` dict after DATABASE_URL, pushes the DSN into the middle of
+# the repr, and pydantic's truncation cuts the canary out. Cleared, the
+# failure below is the real one from the incident: DATABASE_URL present,
+# everything else absent, whatever the developer's shell holds.
+_SETTINGS_VARS = frozenset(name.upper() for name in Settings.model_fields)
 
 
 @pytest.fixture
 def settings_failure(monkeypatch: pytest.MonkeyPatch) -> ValidationError:
     """A real `Settings` validation failure carrying a fake connection string."""
-    for var in _REQUIRED_VARS:
-        monkeypatch.delenv(var, raising=False)
+    for var in list(os.environ):
+        if var.upper() in _SETTINGS_VARS:
+            monkeypatch.delenv(var)
     monkeypatch.setenv("DATABASE_URL", _FAKE_DSN)
 
     with pytest.raises(ValidationError) as exc_info:
