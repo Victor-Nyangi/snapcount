@@ -37,10 +37,16 @@ def test_get_users_normal_user_me(
 def test_create_user_new_email(
     client: TestClient, superuser_token_headers: dict[str, str], db: Session
 ) -> None:
+    # Patch `send_email` where the route looks it up: `users.py` imports it
+    # by name, so patching `app.utils.send_email` replaced a reference the
+    # route never reads. EMAILS_FROM_EMAIL is pinned for the same reason as
+    # in test_login: unset, the email branch was skipped entirely; set, the
+    # unpatched `send_email` opened a real SMTP connection.
     with (
-        patch("app.utils.send_email", return_value=None),
+        patch("app.api.routes.users.send_email", return_value=None) as send,
         patch("app.core.config.settings.SMTP_HOST", "smtp.example.com"),
         patch("app.core.config.settings.SMTP_USER", "admin@example.com"),
+        patch("app.core.config.settings.EMAILS_FROM_EMAIL", "noreply@example.com"),
     ):
         username = random_email()
         password = random_lower_string()
@@ -55,6 +61,8 @@ def test_create_user_new_email(
         user = crud.get_user_by_email(session=db, email=username)
         assert user
         assert user.email == created_user["email"]
+        send.assert_called_once()
+        assert send.call_args.kwargs["email_to"] == username
 
 
 def test_get_existing_user_as_superuser(
