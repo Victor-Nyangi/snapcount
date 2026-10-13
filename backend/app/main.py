@@ -18,9 +18,19 @@ def custom_generate_unique_id(route: APIRoute) -> str:
 if settings.SENTRY_DSN and settings.FASTAPI_ENV != "development":
     sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)
 
+# Swagger UI, ReDoc and the schema are development tools. In production they
+# were a public, FastAPI-branded page on snapcount.nyangi.dev that nothing
+# needs: the frontend client is generated at build time from a schema that
+# scripts/generate-client.sh dumps locally, never fetched at runtime. Same
+# switch as Sentry above and the private router: compose.override.yml and
+# `fastapi dev` set FASTAPI_ENV, the production compose files do not.
+_serve_docs = settings.FASTAPI_ENV == "development"
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    openapi_url=f"{settings.API_V1_STR}/openapi.json" if _serve_docs else None,
+    docs_url="/docs" if _serve_docs else None,
+    redoc_url="/redoc" if _serve_docs else None,
     generate_unique_id_function=custom_generate_unique_id,
 )
 
