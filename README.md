@@ -4,6 +4,7 @@ An NFL analysis platform: ten seasons of real play-by-play-derived data behind s
 
 [![Test Docker Compose](../../actions/workflows/test-docker-compose.yml/badge.svg)](../../actions/workflows/test-docker-compose.yml)
 [![Test Backend](../../actions/workflows/test-backend.yml/badge.svg)](../../actions/workflows/test-backend.yml)
+[![Test Frontend](../../actions/workflows/test-frontend.yml/badge.svg)](../../actions/workflows/test-frontend.yml)
 
 FastAPI + SQLModel + PostgreSQL on the backend; React 19 + Vite + TanStack Router/Query on the frontend, served by the same FastAPI app in production. Built from the `full-stack-fast` template.
 
