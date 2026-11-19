@@ -1,9 +1,9 @@
-"""Cache-Control on what production actually serves.
+"""Compression and Cache-Control on what production actually serves.
 
 Production serves the SPA from FastAPI itself (`app.frontend("/")` in
 app/main.py, the build copied into the backend image), so the headers a
 browser sees are decided here, not by a separate web server. Measured before
-this existed: no Cache-Control on any of the ~18
+this existed: no Content-Encoding and no Cache-Control on any of the ~18
 JS/CSS files or on the API.
 
 The suite never builds the frontend, so each test points the real
@@ -65,6 +65,51 @@ def served(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
     module: ModuleType = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return TestClient(module.app)
+
+
+# --- compression -----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("path", "content_type"),
+    [
+        ("/assets/index-abc123.js", "text/javascript"),
+        ("/assets/index-abc123.css", "text/css"),
+        ("/assets/logo-abc123.svg", "image/svg+xml"),
+        ("/", "text/html"),
+    ],
+)
+def test_frontend_files_are_gzipped(
+    served: TestClient, path: str, content_type: str
+) -> None:
+    response = served.get(path, headers={"accept-encoding": "gzip"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(content_type)
+    assert response.headers["content-encoding"] == "gzip"
+    assert "accept-encoding" in response.headers["vary"].lower()
+
+
+def test_no_compression_without_accept_encoding(served: TestClient) -> None:
+    response = served.get(
+        "/assets/index-abc123.js", headers={"accept-encoding": "identity"}
+    )
+
+    assert response.status_code == 200
+    assert "content-encoding" not in response.headers
+    assert response.text == _JS
+
+
+def test_api_json_is_gzipped_and_keeps_its_caching(served: TestClient) -> None:
+    response = served.get(
+        f"{settings.API_V1_STR}/standings/2024", headers={"accept-encoding": "gzip"}
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/json"
+    assert response.headers["content-encoding"] == "gzip"
+    # API caching is the routes' business; the frontend policy must not leak.
+    assert "cache-control" not in response.headers
 
 
 # --- cache-control ---------------------------------------------------------
