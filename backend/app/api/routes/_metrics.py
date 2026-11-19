@@ -11,7 +11,14 @@ are presentation data, not analytics, so they live here rather than in
 
 from __future__ import annotations
 
-from app.analytics.leaders import QUALIFIER_THRESHOLD_BY_POSITION
+from sqlmodel import Session, col, func, select
+
+from app.analytics.leaders import (
+    QUALIFIER_THRESHOLD_BY_POSITION,
+    SeasonProgress,
+    qualifier_threshold,
+)
+from app.models import Game
 
 # position -> metric -> label, e.g. QB's "epa" reads "EPA per play" but
 # RB's reads "EPA per rush".
@@ -71,5 +78,42 @@ QUALIFIER_NOUN = {"QB": "games", "RB": "carries", "WR": "targets", "TE": "target
 QUALIFIER_THRESHOLD = QUALIFIER_THRESHOLD_BY_POSITION
 
 
-def qualifier_label(position: str) -> str:
-    return f"{position} {QUALIFIER_THRESHOLD[position]}+ {QUALIFIER_NOUN[position]}"
+# The statuses `app.ingest.games._status` writes for a game with a score.
+_FINAL_STATUSES = ("final", "final_ot")
+
+
+def season_progress(session: Session, season: int) -> SeasonProgress | None:
+    """How much of `season`'s regular season is final, read off its games.
+
+    One grouped read: the last regular-season week on the schedule, and
+    the last one with a final score. `None` when the season has no
+    regular-season games at all — progress is then unknown, and
+    `qualifier_threshold` keeps the full-season numbers rather than
+    guessing. (The committed test slice carries games for 2024 only, so
+    this is also what keeps every other fixture season on full thresholds.)
+    """
+    weeks_total, weeks_played = session.exec(
+        select(
+            func.max(col(Game.week)),
+            func.max(col(Game.week)).filter(col(Game.status).in_(_FINAL_STATUSES)),
+        ).where(Game.season == season, Game.game_type == "REG")
+    ).one()
+    if weeks_total is None:
+        return None
+    return SeasonProgress(weeks_played=weeks_played or 0, weeks_total=weeks_total)
+
+
+def qualifier_label(position: str, progress: SeasonProgress | None = None) -> str:
+    """The qualifier the board actually applied, as the reader sees it.
+
+    A completed season reads exactly as it always has ("QB 14+ games"). A
+    season in progress names the pro-rated number AND where it came from —
+    "QB 8+ games" alone would look like a typo for 14.
+    """
+    threshold = qualifier_threshold(position, progress)
+    label = f"{position} {threshold}+ {QUALIFIER_NOUN[position]}"
+    if progress is not None and not progress.complete:
+        label += (
+            f" · pro-rated to week {progress.weeks_played} of {progress.weeks_total}"
+        )
+    return label

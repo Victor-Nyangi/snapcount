@@ -3,7 +3,13 @@ from sqlmodel import col, select
 
 from app.analytics.leaders import baseline, is_qualified, metric_value
 from app.api.deps import SessionDep
-from app.api.routes._metrics import METRIC_LABELS, PRECISION, UNITS, qualifier_label
+from app.api.routes._metrics import (
+    METRIC_LABELS,
+    PRECISION,
+    UNITS,
+    qualifier_label,
+    season_progress,
+)
 from app.models import Player, PlayerSeasonStat, Team
 from app.schemas.leaders import (
     LeaderMetric,
@@ -38,7 +44,10 @@ def leaders(
     if not stats:
         raise HTTPException(status_code=404, detail="No data for that season")
 
-    qualified = [s for s in stats if is_qualified(s)]
+    # Thresholds scale with how much of the regular season is final, so a
+    # week-10 board is not judged against a full season's volume.
+    progress = season_progress(session, season)
+    qualified = [s for s in stats if is_qualified(s, progress)]
 
     # Names for EVERY qualified player, not just the ones that make the
     # board, because the name is part of the sort key below and the cut
@@ -76,7 +85,7 @@ def leaders(
         ).all()
     }
 
-    line_baseline = baseline(stats, metric.value)
+    line_baseline = baseline(stats, metric.value, progress)
     # `metric == "yds"` gets a TD secondary; every other metric gets YDS —
     # matches the design mockup's leader-card rule exactly.
     if metric == LeaderMetric.yds:
@@ -130,6 +139,6 @@ def leaders(
         unit=UNITS[position.value][metric.value],
         precision=PRECISION[metric.value],
         baseline=line_baseline,
-        qualifier_label=qualifier_label(position.value),
+        qualifier_label=qualifier_label(position.value, progress),
         rows=rows,
     )

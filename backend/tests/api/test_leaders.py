@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
 
+from tests.api.conftest import MID_SEASON, MID_SEASON_BACKUP, MID_SEASON_STARTER
+
 
 def test_leaders_respects_the_limit_and_ranks_by_the_named_metric(
     client: TestClient,
@@ -156,3 +158,35 @@ def test_the_board_is_deterministic(client: TestClient) -> None:
     # Within the tie the order is by name, which is at least a reason.
     tens = [r["player"]["name"] for r in first if r["value"] == 10]
     assert tens == sorted(tens)
+
+
+# --- Pro-rated qualifiers (mid-season) --------------------------------------
+
+
+def test_a_mid_season_qb_board_is_not_empty(
+    client: TestClient,
+    mid_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
+) -> None:
+    """The 2026 QB board shipped EMPTY at week 10: the qualifier was the
+    full-season 14 games, which nobody can have played in ten weeks."""
+    body = client.get(
+        f"/api/v1/leaders/{MID_SEASON}?position=QB&metric=td&limit=5"
+    ).json()
+    ids = [r["player"]["id"] for r in body["rows"]]
+    assert ids == [MID_SEASON_STARTER]
+    assert MID_SEASON_BACKUP not in ids  # 3 games is still under 8
+
+
+def test_a_mid_season_qualifier_label_states_the_pro_rated_number(
+    client: TestClient,
+    mid_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
+) -> None:
+    body = client.get(f"/api/v1/leaders/{MID_SEASON}?position=QB&metric=epa").json()
+    # The number on the label is the number the filter used, and it says
+    # why it is not 14.
+    assert body["qualifier_label"] == "QB 8+ games · pro-rated to week 10 of 18"
+
+
+def test_a_completed_season_label_is_unchanged(client: TestClient) -> None:
+    body = client.get("/api/v1/leaders/2024?position=WR&metric=yds").json()
+    assert body["qualifier_label"] == "WR 50+ targets"

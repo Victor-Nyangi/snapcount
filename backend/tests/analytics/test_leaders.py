@@ -2,9 +2,11 @@ import pytest
 
 from app.analytics.leaders import (
     SUPPORTED_METRICS,
+    SeasonProgress,
     baseline,
     is_qualified,
     metric_value,
+    qualifier_threshold,
 )
 from app.models import PlayerSeasonStat
 
@@ -119,3 +121,66 @@ def test_baseline_is_the_mean_across_qualified_players_only():
 )
 def test_qualifier_thresholds_come_from_the_design(position, field, value, qualified):
     assert is_qualified(stat_with(position, **{field: value})) is qualified
+
+
+# --- Pro-rated qualifiers -------------------------------------------------
+#
+# The thresholds above are FULL-SEASON numbers. Applied at week 10 of 18
+# they emptied the 2026 QB board outright: nobody can have played 14 games
+# in ten weeks. They now scale with the share of the regular season played.
+
+MID_SEASON = SeasonProgress(weeks_played=10, weeks_total=18)
+
+
+@pytest.mark.parametrize(
+    ("position", "expected"),
+    [
+        # 14 x 10/18 = 7.8 -> 8; 120 x 10/18 = 66.7 -> 67; 50 x 10/18 = 27.8 -> 28.
+        # Rounded UP: a fractional game cannot be played, and rounding down
+        # would let a player in on less than the pro-rated share.
+        ("QB", 8),
+        ("RB", 67),
+        ("WR", 28),
+        ("TE", 28),
+    ],
+)
+def test_mid_season_thresholds_scale_with_weeks_played(position, expected):
+    assert qualifier_threshold(position, MID_SEASON) == expected
+
+
+@pytest.mark.parametrize(
+    "progress",
+    [
+        None,  # progress unknown (no schedule ingested): full season
+        SeasonProgress(weeks_played=18, weeks_total=18),
+        SeasonProgress(weeks_played=17, weeks_total=17),  # 2016-2020 seasons
+    ],
+)
+def test_a_completed_season_keeps_the_full_season_thresholds(progress):
+    assert {
+        position: qualifier_threshold(position, progress)
+        for position in ("QB", "RB", "WR", "TE")
+    } == {"QB": 14, "RB": 120, "WR": 50, "TE": 50}
+
+
+def test_thresholds_never_fall_to_zero_before_a_week_is_played():
+    # Preseason: the schedule is in, nothing is final. Zero would qualify
+    # every row in the table, which is a board of noise, not leaders.
+    preseason = SeasonProgress(weeks_played=0, weeks_total=18)
+    assert qualifier_threshold("QB", preseason) == 1
+    assert qualifier_threshold("RB", preseason) == 1
+
+
+def test_a_mid_season_qb_on_eight_games_qualifies_only_when_pro_rated():
+    qb = stat_with("QB", games=8)
+    assert is_qualified(qb, MID_SEASON) is True
+    assert is_qualified(qb) is False  # the full-season 14 still applies
+
+
+def test_the_baseline_pool_uses_the_same_pro_rated_qualifier():
+    starter = stat_with("QB", player_id="a", games=9, attempts=300, passing_epa=30.0)
+    backup = stat_with("QB", player_id="b", games=2, attempts=40, passing_epa=20.0)
+    # Mid-season the starter is the whole pool; at full-season thresholds
+    # there is no pool at all and the baseline is 0.0.
+    assert baseline([starter, backup], "epa", MID_SEASON) == pytest.approx(0.1)
+    assert baseline([starter, backup], "epa") == 0.0

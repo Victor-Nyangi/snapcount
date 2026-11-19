@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from app.models import PlayerSeasonStat
 
@@ -20,7 +21,9 @@ _ATTEMPTS_FIELD_BY_POSITION = {
 }
 
 # Qualifier thresholds, stated verbatim on the Leaders mockup:
-# "QB 14+ starts, RB 120+ carries, WR/TE 50+ targets".
+# "QB 14+ starts, RB 120+ carries, WR/TE 50+ targets". These are FULL-SEASON
+# numbers; `qualifier_threshold` scales them to the share of the regular
+# season played, so a board in week 10 is not judged against week 18.
 _QUALIFIER_FIELD_BY_POSITION = {
     "QB": "games",
     "RB": "carries",
@@ -99,24 +102,71 @@ def metric_value(stat: PlayerSeasonStat, metric: str) -> float:
     raise ValueError(f"unknown metric: {metric!r}")
 
 
-def is_qualified(stat: PlayerSeasonStat) -> bool:
-    """Whether `stat` clears its position's leader-board volume threshold."""
+@dataclass(frozen=True)
+class SeasonProgress:
+    """How far a season's regular season has got, from its schedule.
+
+    `weeks_played` is the latest regular-season week with a final score;
+    `weeks_total` is the last regular-season week on the schedule (17
+    through 2020, 18 from 2021). The schedule is published whole, so the
+    total is known from the first ingest of a season.
+    """
+
+    weeks_played: int
+    weeks_total: int
+
+    @property
+    def complete(self) -> bool:
+        return self.weeks_played >= self.weeks_total
+
+
+def qualifier_threshold(position: str, progress: SeasonProgress | None = None) -> int:
+    """`position`'s volume threshold, pro-rated to `progress`.
+
+    `full x weeks_played / weeks_total`, rounded UP — a fractional game
+    cannot be played, and rounding down would admit a player on less than
+    the pro-rated share. Integer arithmetic, so a completed season returns
+    the full-season number exactly rather than 13.999…
+
+    `None` (no schedule ingested for the season) and a completed season
+    both keep the full-season threshold. The floor is 1: before a week is
+    final the share is zero, and a threshold of zero qualifies every row in
+    the table.
+    """
+    full = QUALIFIER_THRESHOLD_BY_POSITION[position]
+    if progress is None or progress.complete or progress.weeks_total <= 0:
+        return full
+    scaled = -(-full * progress.weeks_played // progress.weeks_total)  # ceil
+    return max(1, scaled)
+
+
+def is_qualified(
+    stat: PlayerSeasonStat, progress: SeasonProgress | None = None
+) -> bool:
+    """Whether `stat` clears its position's leader-board volume threshold,
+    pro-rated to `progress` (see `qualifier_threshold`)."""
     field_name = _QUALIFIER_FIELD_BY_POSITION.get(stat.position)
     if field_name is None:
         return False
-    threshold = QUALIFIER_THRESHOLD_BY_POSITION[stat.position]
+    threshold = qualifier_threshold(stat.position, progress)
     return _int_field(stat, field_name) >= threshold
 
 
-def baseline(stats: Sequence[PlayerSeasonStat], metric: str) -> float:
+def baseline(
+    stats: Sequence[PlayerSeasonStat],
+    metric: str,
+    progress: SeasonProgress | None = None,
+) -> float:
     """Mean `metric` value across QUALIFIED players only.
 
     An unqualified outlier (three carries and a freak long run) would
     otherwise drag the positional baseline every leader card is measured
-    against.
+    against. Qualification is pro-rated by `progress`, the same as the
+    board's own rows, so the baseline is always the mean of a pool the
+    reader can see.
     """
     qualified_values = [
-        metric_value(stat, metric) for stat in stats if is_qualified(stat)
+        metric_value(stat, metric) for stat in stats if is_qualified(stat, progress)
     ]
     if not qualified_values:
         return 0.0

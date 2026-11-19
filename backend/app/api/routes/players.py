@@ -3,7 +3,7 @@ from sqlmodel import col, select
 
 from app.analytics.leaders import baseline, is_qualified, metric_value
 from app.api.deps import SessionDep
-from app.api.routes._metrics import METRIC_LABELS, PRECISION
+from app.api.routes._metrics import METRIC_LABELS, PRECISION, season_progress
 from app.models import Player, PlayerSeasonStat, Team
 from app.schemas.leaders import LeaderPosition
 from app.schemas.players import (
@@ -114,10 +114,14 @@ def player_page(
         )
     ).all()
 
+    # Pro-rated exactly as the leaderboard pro-rates it, so a mid-season
+    # page compares against the same qualified pool the board shows.
+    progress = season_progress(session, focus.season)
+
     rate_cards = []
     for metric in _RATE_CARD_METRICS:
         value = metric_value(focus, metric)
-        line_baseline = baseline(position_pool, metric)
+        line_baseline = baseline(position_pool, metric, progress)
         # QUALIFIED max, floored by this player's own value.
         #
         # An unfiltered max made the bar unreadable: rate metrics are per
@@ -132,7 +136,7 @@ def player_page(
         # there for and which the old comment stated — the bar's own player
         # can never exceed its own scale — including on the pages of the
         # unqualified outliers themselves, whose value IS the maximum.
-        qualified = [s for s in position_pool if is_qualified(s)]
+        qualified = [s for s in position_pool if is_qualified(s, progress)]
         scale_max = max(
             (metric_value(s, metric) for s in qualified),
             default=value,
