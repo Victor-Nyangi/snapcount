@@ -9,14 +9,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Kept deliberately — binds `dark:` to a class that is never applied, making
-   shadcn's baked-in `dark:` utilities permanently inert. Nothing in the app
-   ever adds `.dark` (Task 0.1 pinned the theme provider to
-   forcedTheme="light"), so this variant can never match.
-   Removing this line does NOT disable dark mode — it ENABLES it, by falling
-   back to Tailwind's default `dark:` variant, `@media (prefers-color-scheme:
-   dark)`, which is reachable by any visitor with an OS dark-mode preference
-   even though no dark palette exists. */
+/* Binds `dark:` to the `.dark` class on <html>, which index.html's inline
+   script and components/theme-provider set from the user's choice
+   (light / dark / system). Without this line Tailwind falls back to
+   `@media (prefers-color-scheme: dark)`, and shadcn's `dark:` utilities
+   would follow the OS even when the user picked "light". The dark palette
+   itself is the `:root.dark` block in styles/theme.css (§1.2). */
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

@@ -41,10 +41,11 @@ export function TeamHero({ data }: { data: TeamPageResponse }) {
         border: "1px solid var(--gray-200)",
         borderRadius: "var(--radius-xl)",
         overflow: "hidden",
-        boxShadow: "var(--shadow-light-sm)",
+        boxShadow: "var(--shadow-feature)",
       }}
     >
       <div
+        data-team-banner=""
         style={{
           background: data.team.color,
           padding: "26px 28px 28px",

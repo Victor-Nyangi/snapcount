@@ -152,7 +152,10 @@ function positionTabStyle(active: boolean): React.CSSProperties {
     // The mockup's literals resolve to existing tokens exactly:
     // its dark orchid is --orchid-900 and its pale orchid ink is
     // --accent-secondary-ink.
-    background: active ? "var(--orchid-900)" : "transparent",
+    // --tab-active-bg IS --orchid-900 in light; in dark it is the cyan
+    // gradient the header nav's active tab wears (theme.css §1.15).
+    background: active ? "var(--tab-active-bg)" : "transparent",
+    boxShadow: active ? "var(--tab-active-glow)" : "none",
     color: active ? "var(--accent-secondary-ink)" : "var(--gray-600)",
     transition: "background 120ms ease",
   }

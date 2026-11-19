@@ -117,7 +117,9 @@ describe("LeaderCard", () => {
     const { container } = renderCard(row({ rank: 1 }))
     const card = container.querySelector("article")!
     expect(card.style.border).toContain("var(--emerald-tint-border)")
-    expect(card.style.boxShadow).toContain("oklch(0.72 0.10 155 / 0.22)")
+    // The glow is a token now (theme.css §1.15) so it can change per theme;
+    // its light value is the mockup's 0 4px 18px emerald at 22%.
+    expect(card.style.boxShadow).toBe("var(--glow-leader)")
   })
 
   it("gives every other rank the plain border and shadow", () => {

@@ -16,7 +16,7 @@ const arrowButtonStyle: React.CSSProperties = {
   height: 42,
   borderRadius: 10,
   border: "1px solid var(--gray-300)",
-  background: "var(--white)",
+  background: "var(--card)",
   fontSize: 17,
   color: "var(--gray-700)",
   flexShrink: 0,

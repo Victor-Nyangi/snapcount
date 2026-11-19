@@ -27,10 +27,13 @@ export function FeaturedCard({ game }: { game: FeaturedGame }) {
         border: "1px solid var(--gray-200)",
         borderRadius: "var(--radius-xl)",
         overflow: "hidden",
-        boxShadow: "var(--shadow-light-sm)",
+        boxShadow: "var(--shadow-feature)",
       }}
     >
-      <div style={{ background: game.banner_color, padding: "20px 22px 22px" }}>
+      <div
+        data-team-banner=""
+        style={{ background: game.banner_color, padding: "20px 22px 22px" }}
+      >
         <span
           style={{
             fontSize: 11,

@@ -2,6 +2,7 @@ import type { CSSProperties } from "react"
 import type { ScheduleRowOut } from "@/client"
 import type { StatColumn } from "@/components/stat-table"
 import { TeamChip } from "@/components/team-chip"
+import { useTheme } from "@/components/theme-provider"
 import { divergingCell } from "@/lib/diverging"
 import { formatDiff } from "@/lib/format"
 
@@ -33,6 +34,26 @@ const monoCellStyle: CSSProperties = {
  * already fixed twice in this codebase — once in the standings streak
  * column, once on the week screen's game cards.
  */
+/** A component, not inline JSX in `render`, because the diverging colours
+ * depend on the resolved theme and `render` is a plain callback. */
+function MarginBadge({ margin }: { margin: number }) {
+  const { resolvedTheme } = useTheme()
+  return (
+    <span
+      className="tabular"
+      style={{
+        ...monoCellStyle,
+        fontWeight: 700,
+        padding: "3px 8px",
+        borderRadius: 6,
+        ...divergingCell(margin, MARGIN_DOMAIN, resolvedTheme),
+      }}
+    >
+      {formatDiff(margin)}
+    </span>
+  )
+}
+
 function resultStyle(result: string | null): CSSProperties {
   const base: CSSProperties = {
     fontFamily: "var(--font-body)",
@@ -46,7 +67,7 @@ function resultStyle(result: string | null): CSSProperties {
     justifyContent: "center",
   }
   if (result === "W") {
-    return { ...base, background: "var(--emerald)", color: "var(--white)" }
+    return { ...base, background: "var(--emerald)", color: "var(--on-emerald)" }
   }
   if (result === "L") {
     return { ...base, background: "var(--gray-300)", color: "var(--gray-700)" }
@@ -144,20 +165,7 @@ export function getScheduleColumns(): StatColumn<ScheduleRowOut>[] {
       align: "right",
       value: (row) => row.margin ?? "",
       render: (row) =>
-        row.margin === null ? null : (
-          <span
-            className="tabular"
-            style={{
-              ...monoCellStyle,
-              fontWeight: 700,
-              padding: "3px 8px",
-              borderRadius: 6,
-              ...divergingCell(row.margin, MARGIN_DOMAIN),
-            }}
-          >
-            {formatDiff(row.margin)}
-          </span>
-        ),
+        row.margin === null ? null : <MarginBadge margin={row.margin} />,
     },
     {
       key: "cumulative",
