@@ -42,6 +42,12 @@ def _kickoff_at(gameday: str, gametime: str | None) -> datetime:
     return datetime.combine(d, t, tzinfo=_FEED_TZ)
 
 
+# Every status `_status` can write for a game that has a score. Readers
+# that ask "has this been played?" (season progress, the last played week)
+# import this rather than restating the two strings.
+FINAL_STATUSES = ("final", "final_ot")
+
+
 def _status(
     away_score: int | None, home_score: int | None, overtime: int | bool | None
 ) -> str:

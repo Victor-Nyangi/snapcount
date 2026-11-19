@@ -18,6 +18,7 @@ from app.analytics.leaders import (
     SeasonProgress,
     qualifier_threshold,
 )
+from app.ingest.games import FINAL_STATUSES
 from app.models import Game
 
 # position -> metric -> label, e.g. QB's "epa" reads "EPA per play" but
@@ -78,10 +79,6 @@ QUALIFIER_NOUN = {"QB": "games", "RB": "carries", "WR": "targets", "TE": "target
 QUALIFIER_THRESHOLD = QUALIFIER_THRESHOLD_BY_POSITION
 
 
-# The statuses `app.ingest.games._status` writes for a game with a score.
-_FINAL_STATUSES = ("final", "final_ot")
-
-
 def season_progress(session: Session, season: int) -> SeasonProgress | None:
     """How much of `season`'s regular season is final, read off its games.
 
@@ -95,7 +92,7 @@ def season_progress(session: Session, season: int) -> SeasonProgress | None:
     weeks_total, weeks_played = session.exec(
         select(
             func.max(col(Game.week)),
-            func.max(col(Game.week)).filter(col(Game.status).in_(_FINAL_STATUSES)),
+            func.max(col(Game.week)).filter(col(Game.status).in_(FINAL_STATUSES)),
         ).where(Game.season == season, Game.game_type == "REG")
     ).one()
     if weeks_total is None:
