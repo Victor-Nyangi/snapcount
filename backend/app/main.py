@@ -7,6 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.api.main import api_router
 from app.core.config import settings
+from app.core.static_cache import FrontendCacheControlMiddleware
 
 FRONTEND_DIR = Path(__file__).parent / "frontend"
 
@@ -41,6 +42,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Hashed /assets/* for a year, index.html revalidated every time. The API is
+# left alone. See app/core/static_cache.py.
+app.add_middleware(FrontendCacheControlMiddleware, api_prefix=settings.API_V1_STR)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 app.frontend("/", directory=FRONTEND_DIR)
