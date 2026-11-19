@@ -10,6 +10,7 @@ from tests.api.conftest import (
     FAILED_INGEST_SEASON,
     FRESH_SEASON,
     FUTURE_SEASON,
+    MID_SEASON,
     STALE_SEASON,
 )
 
@@ -223,3 +224,42 @@ def test_a_season_after_the_current_one_is_judged_like_the_current_one(
     body = client.get(f"/api/v1/meta/freshness?season={year}").json()
     # Never "complete" — it has not happened yet.
     assert body["status"] == ("fresh" if season_fixture == "fresh_season" else "stale")
+
+
+# --- last_played_week: what the app opens on ------------------------------
+
+
+def test_last_played_week_is_the_latest_week_with_a_final_score(
+    client: TestClient,
+    mid_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
+) -> None:
+    """The frontend opens on the newest season at its latest played week.
+
+    Neither existing field can say which week that is: the schedule is
+    ingested whole, so `current_week` and `max_week` are both 18 for a
+    season stopped at week 10 — opening there would show eight weeks of
+    unplayed games.
+    """
+    rows = {r["year"]: r for r in client.get("/api/v1/meta/seasons").json()}
+    row = rows[MID_SEASON]
+    assert row["last_played_week"] == 10
+    assert row["current_week"] == 18
+    assert row["max_week"] == 18
+
+
+def test_a_completed_seasons_last_played_week_is_the_super_bowl(
+    client: TestClient,
+) -> None:
+    rows = {r["year"]: r for r in client.get("/api/v1/meta/seasons").json()}
+    assert rows[2024]["last_played_week"] == 22
+
+
+def test_a_season_with_nothing_played_has_no_last_played_week(
+    client: TestClient,
+    seeded_future: None,  # noqa: ARG001 — fixture used for setup/teardown only
+) -> None:
+    # Null, not 0 or 1: "nothing has been played" is a different fact from
+    # "week 1 has been played", and the frontend skips such a season when
+    # it picks the default.
+    rows = {r["year"]: r for r in client.get("/api/v1/meta/seasons").json()}
+    assert rows[FUTURE_SEASON]["last_played_week"] is None

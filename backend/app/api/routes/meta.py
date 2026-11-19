@@ -5,6 +5,7 @@ from sqlmodel import col, func, select
 
 from app.api.deps import SessionDep
 from app.core.season import current_season
+from app.ingest.games import FINAL_STATUSES
 from app.models import Game, IngestRun, Season
 from app.schemas.meta import FreshnessResponse, SeasonSummary
 
@@ -19,11 +20,15 @@ def list_seasons(session: SessionDep) -> list[SeasonSummary]:
     # One grouped query rather than one per season: the selector asks for
     # every season at once and this endpoint is on the app shell, so it
     # runs on every screen.
-    last_week = dict(
-        session.exec(
-            select(Game.season, func.max(col(Game.week))).group_by(col(Game.season))
-        ).all()
-    )
+    weeks = session.exec(
+        select(
+            Game.season,
+            func.max(col(Game.week)),
+            func.max(col(Game.week)).filter(col(Game.status).in_(FINAL_STATUSES)),
+        ).group_by(col(Game.season))
+    ).all()
+    last_week = {season: last for season, last, _ in weeks}
+    last_played = {season: played for season, _, played in weeks}
     return [
         SeasonSummary(
             year=s.year,
@@ -34,6 +39,7 @@ def list_seasons(session: SessionDep) -> list[SeasonSummary]:
             # rather than emitting a 0 the selector would render as an
             # empty week list.
             max_week=last_week.get(s.year) or s.current_week,
+            last_played_week=last_played.get(s.year),
             last_ingested_at=s.last_ingested_at,
         )
         for s in seasons
