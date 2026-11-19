@@ -343,7 +343,21 @@ function LeadersScreen() {
         </p>
       )}
 
-      <div style={{ display: "grid", gap: 12 }}>
+      {/* `minmax(0, 1fr)`, not the implicit `auto` track: a grid item will
+          not shrink below its min-content, and a card's min-content is its
+          name and meta line unbroken. The mixed-position boards' longer
+          meta ("2026 season · DE · 9 g") beside a long name ("Will
+          Anderson Jr.") pushed 390px pages 20-27px sideways — measured,
+          every DEF and ALL board, no offence board. With the track allowed
+          to shrink, the name truncates exactly as it already did on the
+          QB board. */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr)",
+          gap: 12,
+        }}
+      >
         {rows.map((row) => (
           <LeaderCard
             key={row.player.id}
