@@ -2,8 +2,9 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useEffect, useMemo } from "react"
 import { z } from "zod"
-import { type LeaderPosition, PlayersService } from "@/client"
+import { type PlayerPosition, PlayersService } from "@/client"
 import { QueryError } from "@/components/query-error"
+import { useSeasonWeek } from "@/components/season-week-picker"
 import { StatTable } from "@/components/stat-table"
 import { TeamChip } from "@/components/team-chip"
 import {
@@ -41,7 +42,8 @@ const selectTriggerStyle: React.CSSProperties = {
 
 function PlayerScreen() {
   const { playerId } = Route.useParams()
-  const { season, position } = Route.useSearch()
+  const { position } = Route.useSearch()
+  const { season } = useSeasonWeek()
   const navigate = useNavigate()
 
   const { data: roster = [] } = useQuery({
@@ -49,7 +51,7 @@ function PlayerScreen() {
     queryFn: async () =>
       (
         await PlayersService.listPlayers({
-          query: { season, position: position as LeaderPosition },
+          query: { season, position: position as PlayerPosition },
         })
       ).data ?? [],
   })

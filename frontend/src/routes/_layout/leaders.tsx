@@ -7,6 +7,7 @@ import {
   LeadersService,
 } from "@/client"
 import { QueryError } from "@/components/query-error"
+import { useSeasonWeek } from "@/components/season-week-picker"
 import {
   Select,
   SelectContent,
@@ -118,7 +119,8 @@ const selectTriggerStyle: React.CSSProperties = {
 function LeadersScreen() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const { season, position, metric, top } = search
+  const { position, metric, top } = search
+  const { season } = useSeasonWeek()
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["leaders", season, position, metric, top],

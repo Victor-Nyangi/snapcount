@@ -5,6 +5,7 @@ import { z } from "zod"
 import { StandingsService } from "@/client"
 import { filterPillStyle } from "@/components/filter-pill"
 import { QueryError } from "@/components/query-error"
+import { useSeasonWeek } from "@/components/season-week-picker"
 import { type SortState, StatTable } from "@/components/stat-table"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -91,7 +92,7 @@ function FormulaParagraph({ label }: { label: string }) {
 function StandingsScreen() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const { season } = search
+  const { season } = useSeasonWeek()
 
   // `useQuery` refetches on season/conference only — the server already
   // does the conference filter (StandingsService's `conference` query

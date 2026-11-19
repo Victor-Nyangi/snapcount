@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import { getRouteApi, useSearch } from "@tanstack/react-router"
+import { useEffect, useMemo, useRef } from "react"
 import { z } from "zod"
 
-import { MetaService } from "@/client"
+import { MetaService, type SeasonSummary } from "@/client"
 
 import {
   Select,
@@ -22,16 +23,29 @@ import {
  *
  * Colocated here rather than duplicated between this file and the route
  * file, and imported into `_layout.tsx`'s `validateSearch`.
+ *
+ * NO DEFAULTS IN THE SCHEMA. They used to be `.default(2025)` and
+ * `.default(15)`, which left the site opening on last season with 2026
+ * ingested every night. A schema default cannot be the answer: the router
+ * writes validated search into the URL on mount and on every navigation,
+ * so a default is indistinguishable from a season the user chose. Absent
+ * stays absent here, and `useSeasonWeekDefaults` fills the URL from
+ * `/meta/seasons` — the newest played season at its last played week —
+ * before any screen renders. Screens read the value through
+ * `useSeasonWeek`, which is never undefined.
  */
 export const seasonWeekSearchSchema = z.object({
-  season: z.coerce.number().int().min(1999).max(2100).default(2025),
-  week: z.coerce.number().int().min(1).max(22).default(15),
+  season: z.coerce.number().int().min(1999).max(2100).optional(),
+  week: z.coerce.number().int().min(1).max(22).optional(),
 })
 
 export type SeasonWeekSearch = z.infer<typeof seasonWeekSearchSchema>
 
-const DEFAULT_SEASON = seasonWeekSearchSchema.shape.season.parse(undefined)
-const DEFAULT_WEEK = seasonWeekSearchSchema.shape.week.parse(undefined)
+// Used ONLY when `/meta/seasons` fails or holds no seasons, so that a
+// broken metadata request degrades to a plausible screen rather than none.
+// Never what the app opens on while the API is healthy.
+const FALLBACK_SEASON = 2025
+const FALLBACK_WEEK = 15
 
 // `_layout` is where `seasonWeekSearchSchema` is registered as
 // `validateSearch` (see `_layout.tsx`), and `SeasonWeekPicker`/
@@ -55,19 +69,122 @@ export function useSeasonWeek() {
   const search = useSearch({ strict: false }) as Partial<SeasonWeekSearch>
   const navigate = routeApi.useNavigate()
 
+  // `unsafeRelative: "path"` keeps the CURRENT page. Without it the
+  // navigation resolves from `/_layout` — a pathless route whose path is
+  // "/" — so changing the week on /leaders landed on the template's
+  // dashboard at "/". The picker tests never saw it: their harness mounts
+  // the layout at a real "/_layout" path, where staying put and going to
+  // the layout are the same URL.
   const setSeason = (season: number) => {
-    navigate({ search: (prev) => ({ ...prev, season }) })
+    navigate({
+      search: (prev) => ({ ...prev, season }),
+      unsafeRelative: "path",
+    })
   }
   const setWeek = (week: number) => {
-    navigate({ search: (prev) => ({ ...prev, week }) })
+    navigate({ search: (prev) => ({ ...prev, week }), unsafeRelative: "path" })
   }
 
   return {
-    season: search.season ?? DEFAULT_SEASON,
-    week: search.week ?? DEFAULT_WEEK,
+    season: search.season ?? FALLBACK_SEASON,
+    week: search.week ?? FALLBACK_WEEK,
     setSeason,
     setWeek,
   }
+}
+
+/**
+ * `/meta/seasons`, under the one query key every caller shares — the
+ * shell's picker, the default below and the explorer's range all read the
+ * same cached response, so the endpoint is fetched once per session.
+ */
+export const seasonsQueryOptions = {
+  queryKey: ["meta", "seasons"],
+  queryFn: async () => (await MetaService.listSeasons()).data,
+  staleTime: Number.POSITIVE_INFINITY,
+  // The first screen waits on this request (see `useSeasonWeekDefaults`),
+  // so a failure must reach the fallback quickly rather than after the
+  // default three retries with backoff.
+  retry: 1,
+} as const
+
+/**
+ * The season and week the app should show for `explicit` — whatever the
+ * URL already names, with the gaps filled from `seasons`.
+ *
+ * The default season is the newest one with a played week, NOT simply the
+ * newest row: from August 1 the next season's schedule is ingested, so a
+ * season with no final score and no player stats exists for a month every
+ * year. The default week is that season's last played week (the Super
+ * Bowl for a finished season), and week 1 if nothing at all is played.
+ *
+ * `null` means there is nothing to resolve against; the caller keeps the
+ * fallback.
+ */
+export function latestSeasonWeek(
+  seasons: SeasonSummary[] | undefined,
+  explicit: { season?: number; week?: number },
+): { season: number; week: number } | null {
+  if (!seasons?.length) return null
+  const newestFirst = [...seasons].sort((a, b) => b.year - a.year)
+  const played = newestFirst.find((s) => s.last_played_week != null)
+  const season = explicit.season ?? (played ?? newestFirst[0]).year
+  const row = seasons.find((s) => s.year === season)
+  const week = explicit.week ?? row?.last_played_week ?? 1
+  return { season, week }
+}
+
+/**
+ * Completes a URL that names no season or week with `latestSeasonWeek`,
+ * as a REPLACE navigation — the URL is the only home for this state, so
+ * the page that opened is exactly the page a copied link reproduces, and
+ * Back does not return to the bare URL only to be redirected again.
+ *
+ * Returns whether the screens may render. Until the seasons arrive they
+ * may not: rendering on the fallback and correcting it afterwards fires
+ * every screen's request twice and shows the wrong year first. A URL that
+ * already names both is ready at once, with no wait on the request. A
+ * failed request, or an empty season list, is ready on the fallback.
+ */
+export function useSeasonWeekDefaults(): boolean {
+  const search = useSearch({ strict: false }) as SeasonWeekSearch
+  const navigate = routeApi.useNavigate()
+  const { data: seasons, isError } = useQuery(seasonsQueryOptions)
+  // LATCHED, because the error does not stay put. A query with no data
+  // goes back to `pending` whenever another component mounts it and
+  // refetches — the explorer does, the moment the gate opens — which
+  // closed the gate, unmounted the explorer, failed again and reopened it,
+  // forever. Once the seasons have failed, the fallback stands.
+  const failed = useRef(false)
+  if (isError) failed.current = true
+
+  const complete = search.season !== undefined && search.week !== undefined
+  // Memoised so the effect below fires once per change of the answer, not
+  // once per render while the navigation is in flight.
+  const resolved = useMemo(
+    () =>
+      complete
+        ? null
+        : latestSeasonWeek(seasons, {
+            season: search.season,
+            week: search.week,
+          }),
+    [complete, seasons, search.season, search.week],
+  )
+
+  useEffect(() => {
+    if (resolved === null) return
+    navigate({
+      search: (prev) => ({ ...prev, ...resolved }),
+      replace: true,
+      // Stay on the page being completed — see `useSeasonWeek`.
+      unsafeRelative: "path",
+    })
+  }, [navigate, resolved])
+
+  return (
+    complete || failed.current || (seasons !== undefined && resolved === null)
+  )
 }
 
 /**
@@ -129,11 +246,7 @@ export function SeasonWeekPicker() {
   // schema docstring reads "populates the season selector" — and was never
   // wired up. `max_week` is derived there from the games themselves;
   // `week_count` is a stored constant of 18 and describes nothing.
-  const { data: seasons } = useQuery({
-    queryKey: ["meta", "seasons"],
-    queryFn: async () => (await MetaService.listSeasons()).data,
-    staleTime: Number.POSITIVE_INFINITY,
-  })
+  const { data: seasons } = useQuery(seasonsQueryOptions)
 
   // Newest first, matching the old list's order and the way anyone reads a
   // season picker. Falls back to the season in the URL so the control still

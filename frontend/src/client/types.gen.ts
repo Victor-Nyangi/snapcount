@@ -289,8 +289,11 @@ export type HistoryResponse = {
 
 /**
  * LeaderMetric
+ *
+ * Every metric any board offers. Which board offers which is
+ * `app.analytics.leaders.BOARD_METRICS`; a pair outside it is a 422.
  */
-export type LeaderMetric = 'epa' | 'yds' | 'td' | 'rate';
+export type LeaderMetric = 'epa' | 'yds' | 'td' | 'rate' | 'tackles' | 'sacks' | 'tfl' | 'qb_hits' | 'interceptions' | 'passes_defended';
 
 /**
  * LeaderPlayer
@@ -320,8 +323,12 @@ export type LeaderPlayer = {
 
 /**
  * LeaderPosition
+ *
+ * A leaderboard: four positions, every defender (DEF), or every
+ * position (ALL). See `app.analytics.leaders` for why defence is one
+ * board rather than DL/LB/DB groups.
  */
-export type LeaderPosition = 'QB' | 'RB' | 'WR' | 'TE';
+export type LeaderPosition = 'QB' | 'RB' | 'WR' | 'TE' | 'DEF' | 'ALL';
 
 /**
  * LeaderRow
@@ -394,6 +401,10 @@ export type LeadersResponse = {
      */
     qualifier_label: string;
     /**
+     * Note
+     */
+    note?: string | null;
+    /**
      * Rows
      */
     rows: Array<LeaderRow>;
@@ -455,6 +466,15 @@ export type PlayerPageResponse = {
      */
     seasons: Array<PlayerSeasonRow>;
 };
+
+/**
+ * PlayerPosition
+ *
+ * The positions with a player page. Its own enum, no longer an alias
+ * of `LeaderPosition`: the leaderboards gained DEF and ALL, which are
+ * boards, not positions a player list can be filtered to.
+ */
+export type PlayerPosition = 'QB' | 'RB' | 'WR' | 'TE';
 
 /**
  * PlayerRef
@@ -659,6 +679,10 @@ export type SeasonSummary = {
      * Max Week
      */
     max_week: number;
+    /**
+     * Last Played Week
+     */
+    last_played_week: number | null;
     /**
      * Last Ingested At
      */
@@ -1781,7 +1805,7 @@ export type playersListPlayersData = {
          * Season
          */
         season: number;
-        position: LeaderPosition;
+        position: PlayerPosition;
     };
     url: '/api/v1/players';
 };

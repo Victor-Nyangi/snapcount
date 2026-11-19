@@ -6,6 +6,7 @@ import { WeeksService } from "@/client"
 import { CardRail } from "@/components/card-rail"
 import { filterPillStyle } from "@/components/filter-pill"
 import { QueryError } from "@/components/query-error"
+import { useSeasonWeek } from "@/components/season-week-picker"
 import { StatTable } from "@/components/stat-table"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { FeaturedCard } from "@/features/week/featured-card"
@@ -34,7 +35,7 @@ export const Route = createFileRoute("/_layout/week")({
 function WeekScreen() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const { season, week } = search
+  const { season, week } = useSeasonWeek()
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["week", season, week],

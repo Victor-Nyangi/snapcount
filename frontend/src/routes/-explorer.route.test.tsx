@@ -2,7 +2,11 @@ import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { ExplorerResponse } from "@/client"
-import { renderRouteAt, searchOf } from "./-route-harness"
+import { renderRouteAt as renderAt, searchOf } from "./-route-harness"
+
+// This file is about `/meta/seasons`, so it fetches it (mocked above)
+// rather than taking the harness's empty seed.
+const renderRouteAt = (url: string) => renderAt(url, { fetchSeasons: true })
 
 vi.mock("@/hooks/useAuth", () => ({
   default: () => ({
@@ -116,7 +120,10 @@ describe("/explorer route", () => {
       )
 
       await renderRouteAt("/explorer")
-      await screen.findAllByTestId("explorer-skeleton-row")
+      // The shell holds every screen until the seasons arrive (it picks
+      // the default season from them), so there is no explorer skeleton
+      // to wait for any more — only the pending request.
+      await waitFor(() => expect(listSeasons).toHaveBeenCalled())
       expect(differentials).not.toHaveBeenCalled()
 
       release({ data: seasonList([2019, 2020, 2021]) })
