@@ -59,6 +59,29 @@ player_stats() columns (133 total) include every name the mapper needs:
        live at kickoff. Only "LA" (Rams) needs remapping in player_stats;
        applying the full ABBR_MAP to both sources is harmless (OAK/SD
        simply never appear there, so the map is a no-op for those keys).
+
+--------------------------------------------------------------------------
+Defence and kicking (2026-11-19, nflreadpy==0.1.5) — the same weekly file
+(`stats_player_week_{season}`, 150 columns for both 2024 and 2026) already
+carries them; nothing new is downloaded. Observed types:
+
+  Int32:   def_tackles_solo, def_tackles_with_assist, def_tackle_assists,
+           def_tackles_for_loss, def_qb_hits, def_interceptions,
+           def_pass_defended, def_fumbles_forced, def_tds, fg_made, fg_att,
+           fg_long
+  Float64: def_sacks (half sacks: Hendrickson 2024 = 17.5)
+
+  Checked against published 2024 totals, not assumed:
+    - Combined tackles = solo + with_assist + assists. Solo + assists alone
+      reads Zaire Franklin 155 and Bobby Wagner 123; the three-way sum
+      gives the official 173 and 132.
+    - Sacks leader Hendrickson 17.5, interceptions leader Kerby Joseph 9.
+    - `fg_long` is NULL on every week without an attempt (17,624 rows of
+      18,983 in 2024) and is a per-week max, so the season value is a max.
+
+  `position` for defenders is the roster position and is not normalised:
+  LB, OLB, ILB, MLB, DE, DT, DL, NT, CB, SAF, S, FS, SS, DB all occur, and
+  the same edge rusher is "OLB" in a 3-4 and "DE" in a 4-3. Kickers are K.
 --------------------------------------------------------------------------
 """
 

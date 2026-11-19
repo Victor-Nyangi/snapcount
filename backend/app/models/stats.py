@@ -53,6 +53,32 @@ class PlayerSeasonStat(SQLModel, table=True):
     receiving_yards: int = 0
     receiving_tds: int = 0
     receiving_epa: float = 0.0
+    # DEFENCE AND KICKING — on this table, not a sibling one. It already
+    # carries every column family for every position (a receiver's
+    # passing_* are zeros, not absent), is keyed (season, player_id), and is
+    # written by one upsert from one weekly file; these columns come from
+    # that same file. A second table would need a second upsert, a join on
+    # every leaderboard read and its own fixture slice, for no reader that
+    # wants defence without the rest of the line.
+    #
+    # Names are the feed's own (`stats_player_week_{season}`), so the
+    # mapper reads them without a translation table. Total tackles is NOT a
+    # column: it is derived — solo + with_assist + assists, which is the
+    # only sum that reproduces the official combined count (Zaire Franklin
+    # 2024: 75 + 18 + 80 = 173) — in `app.analytics.leaders`.
+    def_tackles_solo: int = 0
+    def_tackles_with_assist: int = 0
+    def_tackle_assists: int = 0
+    def_tackles_for_loss: int = 0
+    def_sacks: float = 0.0  # half sacks exist — Hendrickson 2024 is 17.5
+    def_qb_hits: int = 0
+    def_interceptions: int = 0
+    def_pass_defended: int = 0
+    def_fumbles_forced: int = 0
+    def_tds: int = 0
+    fg_made: int = 0
+    fg_att: int = 0
+    fg_long: int = 0  # season MAX, not a sum; 0 means no made field goal
 
 
 class Champion(SQLModel, table=True):
