@@ -1,3 +1,4 @@
+import { useTheme } from "@/components/theme-provider"
 import { divergingCell } from "@/lib/diverging"
 import { formatDiff } from "@/lib/format"
 
@@ -19,7 +20,8 @@ export function DiffCell({
   value: number
   domain?: number
 }) {
-  const { background, color } = divergingCell(value, domain)
+  const { resolvedTheme } = useTheme()
+  const { background, color } = divergingCell(value, domain, resolvedTheme)
 
   return (
     <span
