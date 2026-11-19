@@ -20,7 +20,7 @@ undone by an explicit delete afterward, the same way
 
 Sentinel seasons: 2081 (unplayed game), 2082 (stale freshness), 2083 (fresh
 freshness), 2084 (partial team schedule), 2086/2087 (explorer present vs
-missing), 2089 (explorer empty range). Ingest's own tests own 2095-2099;
+missing), 2089 (explorer empty range), 2091 (a season stopped at week 10). Ingest's own tests own 2095-2099;
 picked clear of that range on purpose.
 """
 
@@ -30,7 +30,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlmodel import Session, delete
 
-from app.models import Game, Season, TeamSeasonStat
+from app.models import Game, Player, PlayerSeasonStat, Season, TeamSeasonStat
 
 FUTURE_SEASON = 2081
 STALE_SEASON = 2082
@@ -45,6 +45,8 @@ EXPLORER_MISSING_SEASON = 2087
 # Deliberately has NO fixture: the point of this one is a range the
 # database holds nothing in, which is what makes every total 0.
 EXPLORER_EMPTY_SEASON = 2089
+# 2090 is test_meta.py's LIVE_INGEST_SEASON.
+MID_SEASON = 2091
 
 
 @pytest.fixture
@@ -318,4 +320,105 @@ def season_with_a_failed_ingest(db: Session) -> Generator[None]:
         db.exec(delete(IngestRun).where(IngestRun.season == FAILED_INGEST_SEASON))
         db.commit()
         db.exec(delete(Season).where(Season.year == FAILED_INGEST_SEASON))
+        db.commit()
+
+
+def _mid_season_stat(
+    player_id: str, position: str, team: str, **totals: float
+) -> PlayerSeasonStat:
+    return PlayerSeasonStat(
+        season=MID_SEASON,
+        player_id=player_id,
+        team=team,
+        position=position,
+        seasons_played=1,
+        **totals,
+    )
+
+
+# Named so a test can read them back; every id is fake and purged.
+MID_SEASON_STARTER = "00-SENT091-QB1"
+MID_SEASON_BACKUP = "00-SENT091-QB2"
+
+
+@pytest.fixture
+def mid_season(db: Session) -> Generator[None]:
+    """A season stopped after week 10 of 18 — the shape of every season
+    from September to January, which the real backfill (all complete
+    seasons) never has.
+
+    The schedule runs to week 18, weeks 1-10 are final and 11-18 are not.
+    The QB starter has played 9 games (a bye): qualified once thresholds
+    are pro-rated to 10/18 (QB 8+), never under the full-season 14.
+    """
+    db.add(Season(year=MID_SEASON, current_week=18, week_count=18))
+    db.commit()
+
+    def game(week: int, away: str, home: str, final: bool) -> Game:
+        return Game(
+            id=f"{MID_SEASON}_{week:02d}_{away}_{home}",
+            season=MID_SEASON,
+            week=week,
+            game_type="REG",
+            kickoff_at=datetime(MID_SEASON, 9, 7, 17, 0, tzinfo=UTC)
+            + timedelta(days=7 * (week - 1)),
+            away_team=away,
+            home_team=home,
+            away_score=20 if final else None,
+            home_score=17 if final else None,
+            status="final" if final else "scheduled",
+        )
+
+    db.add_all(
+        [
+            game(9, "KC", "LV", final=True),
+            game(10, "LV", "KC", final=True),
+            game(11, "KC", "DEN", final=False),
+            game(18, "DEN", "KC", final=False),
+        ]
+    )
+    db.add_all(
+        [
+            Player(
+                id=MID_SEASON_STARTER, name="Sentinel Starter", position="QB", team="KC"
+            ),
+            Player(
+                id=MID_SEASON_BACKUP, name="Sentinel Backup", position="QB", team="LV"
+            ),
+        ]
+    )
+    db.commit()
+    db.add_all(
+        [
+            _mid_season_stat(
+                MID_SEASON_STARTER,
+                "QB",
+                "KC",
+                games=9,
+                attempts=300,
+                passing_yards=2400,
+                passing_tds=18,
+                passing_epa=30.0,
+            ),
+            _mid_season_stat(
+                MID_SEASON_BACKUP,
+                "QB",
+                "LV",
+                games=3,
+                attempts=40,
+                passing_yards=250,
+                passing_tds=1,
+                passing_epa=-2.0,
+            ),
+        ]
+    )
+    db.commit()
+    try:
+        yield
+    finally:
+        db.exec(delete(PlayerSeasonStat).where(PlayerSeasonStat.season == MID_SEASON))
+        db.exec(delete(Game).where(Game.season == MID_SEASON))
+        db.commit()
+        db.exec(delete(Player).where(Player.id.startswith("00-SENT091-")))  # type: ignore[attr-defined]
+        db.exec(delete(Season).where(Season.year == MID_SEASON))
         db.commit()

@@ -1,4 +1,7 @@
+import pytest
 from fastapi.testclient import TestClient
+
+from tests.api.conftest import MID_SEASON, MID_SEASON_STARTER
 
 # Kirk Cousins — a real QB in the backfill with a full ten-season run
 # (2016-2025), so `seasons` and `is_latest` have something real to prove.
@@ -202,3 +205,20 @@ def test_rate_card_scale_still_covers_an_unqualified_player_s_own_value(
     body = client.get(f"/api/v1/players/{mullens['id']}?season=2024").json()
     epa = next(c for c in body["rate_cards"] if c["key"] == "epa")
     assert epa["scale_max"] >= epa["value"]
+
+
+def test_player_rate_cards_use_the_pro_rated_pool_mid_season(
+    client: TestClient,
+    mid_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
+) -> None:
+    """The player page measures a player against the same pool the
+    leaderboard does. Mid-season, the starter IS the qualified QB pool, so
+    every card's baseline is his own value; under the full-season 14-game
+    qualifier the pool was empty and every baseline read 0."""
+    body = client.get(
+        f"/api/v1/players/{MID_SEASON_STARTER}?season={MID_SEASON}"
+    ).json()
+    epa = next(card for card in body["rate_cards"] if card["key"] == "epa")
+    assert epa["value"] == pytest.approx(0.1)
+    assert epa["baseline"] == pytest.approx(0.1)
+    assert epa["delta"] == pytest.approx(0.0)
