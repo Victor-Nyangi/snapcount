@@ -1,6 +1,17 @@
+import pytest
 from fastapi.testclient import TestClient
 
-from tests.api.conftest import MID_SEASON, MID_SEASON_BACKUP, MID_SEASON_STARTER
+from tests.api.conftest import (
+    MID_SEASON,
+    MID_SEASON_BACK,
+    MID_SEASON_BACKUP,
+    MID_SEASON_EDGE,
+    MID_SEASON_LINEBACKER,
+    MID_SEASON_RECEIVER,
+    MID_SEASON_RESERVE,
+    MID_SEASON_SAFETY,
+    MID_SEASON_STARTER,
+)
 
 
 def test_leaders_respects_the_limit_and_ranks_by_the_named_metric(
@@ -190,3 +201,126 @@ def test_a_mid_season_qualifier_label_states_the_pro_rated_number(
 def test_a_completed_season_label_is_unchanged(client: TestClient) -> None:
     body = client.get("/api/v1/leaders/2024?position=WR&metric=yds").json()
     assert body["qualifier_label"] == "WR 50+ targets"
+
+
+# --- The defence board -----------------------------------------------------
+
+
+def _board(client: TestClient, position: str, metric: str, limit: int = 12) -> dict:
+    response = client.get(
+        f"/api/v1/leaders/{MID_SEASON}?position={position}&metric={metric}&limit={limit}"
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_one_defence_board_ranks_every_defender_by_total_tackles(
+    client: TestClient,
+    mid_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
+) -> None:
+    body = _board(client, "DEF", "tackles")
+    assert [r["player"]["id"] for r in body["rows"]] == [
+        MID_SEASON_LINEBACKER,  # 52 + 1 + 28 = 81
+        MID_SEASON_SAFETY,  # 44
+        MID_SEASON_EDGE,  # 38
+    ]
+    assert [r["value"] for r in body["rows"]] == [81, 44, 38]
+    assert body["metric_label"] == "Total tackles"
+    assert body["unit"] == "TKL"
+    assert body["precision"] == 0
+    # Offence never reaches the board, however the pool is built.
+    assert MID_SEASON_BACK not in {r["player"]["id"] for r in body["rows"]}
+
+
+def test_the_defence_qualifier_is_pro_rated_tackles(
+    client: TestClient,
+    mid_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
+) -> None:
+    body = _board(client, "DEF", "interceptions")
+    assert (
+        body["qualifier_label"] == "Defenders 12+ tackles · pro-rated to week 10 of 18"
+    )
+    ids = [r["player"]["id"] for r in body["rows"]]
+    # 7 tackles: two interceptions, but not a qualified defender.
+    assert MID_SEASON_RESERVE not in ids
+    assert ids[0] == MID_SEASON_SAFETY
+    assert body["rows"][0]["value"] == 6
+
+
+def test_sacks_keep_their_half_sacks(
+    client: TestClient,
+    mid_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
+) -> None:
+    body = _board(client, "DEF", "sacks")
+    assert body["precision"] == 1
+    assert body["unit"] == "SCK"
+    assert [r["value"] for r in body["rows"]] == [10.5, 4.5, 1.0]
+    # The baseline is the mean of the three qualified defenders: 16 / 3.
+    assert body["baseline"] == pytest.approx(16 / 3)
+
+
+def test_a_mixed_position_board_names_each_players_position(
+    client: TestClient,
+    mid_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
+) -> None:
+    rows = _board(client, "DEF", "sacks")["rows"]
+    edge = next(r for r in rows if r["player"]["id"] == MID_SEASON_EDGE)
+    assert edge["player"]["meta"] == f"{MID_SEASON} season · OLB · 9 g"
+    # The secondary readout is a whole count: tackles, beside sacks.
+    assert edge["secondary"] == {"key": "TKL", "value": 38}
+
+
+def test_the_tackles_board_shows_tackles_for_loss_beside_it(
+    client: TestClient,
+    mid_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
+) -> None:
+    top = _board(client, "DEF", "tackles")["rows"][0]
+    assert top["secondary"] == {"key": "TFL", "value": 8}
+
+
+# --- The all-positions touchdowns board -----------------------------------
+
+
+def test_the_touchdowns_board_counts_scrimmage_touchdowns_at_any_position(
+    client: TestClient,
+    mid_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
+) -> None:
+    body = _board(client, "ALL", "td")
+    assert [(r["player"]["id"], r["value"]) for r in body["rows"]] == [
+        (MID_SEASON_BACK, 11),  # 9 rushing + 2 receiving
+        (MID_SEASON_RECEIVER, 8),
+        # 2 rushing. With his 18 passing TDs this board would read 20 and
+        # put a quarterback first; passing TDs are the QB board's.
+        (MID_SEASON_STARTER, 2),
+    ]
+    assert body["metric_label"] == "Scrimmage touchdowns"
+    assert body["unit"] == "TD"
+    assert body["note"] == (
+        "Rushing plus receiving touchdowns, any position. "
+        "Passing touchdowns are on the QB board."
+    )
+    assert body["qualifier_label"] == (
+        "Any position 28+ carries + targets · pro-rated to week 10 of 18"
+    )
+    # The secondary is scrimmage yards, not the QB's passing yards.
+    starter = body["rows"][2]
+    assert starter["secondary"] == {"key": "YDS", "value": 150}
+    assert starter["player"]["meta"] == f"{MID_SEASON} season · QB · 9 g"
+
+
+def test_the_offence_boards_carry_no_note(client: TestClient) -> None:
+    body = client.get("/api/v1/leaders/2024?position=QB&metric=td").json()
+    assert body["note"] is None
+    # ...and their meta line still omits a position it would only repeat.
+    assert body["rows"][0]["player"]["meta"].count("·") == 1
+
+
+def test_a_metric_the_board_does_not_offer_is_rejected(
+    client: TestClient,
+    mid_season: None,  # noqa: ARG001 — fixture used for setup/teardown only
+) -> None:
+    for position, metric in (("DEF", "epa"), ("QB", "sacks"), ("ALL", "rate")):
+        response = client.get(
+            f"/api/v1/leaders/{MID_SEASON}?position={position}&metric={metric}"
+        )
+        assert response.status_code == 422, (position, metric)

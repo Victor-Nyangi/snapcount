@@ -339,6 +339,143 @@ def _mid_season_stat(
 # Named so a test can read them back; every id is fake and purged.
 MID_SEASON_STARTER = "00-SENT091-QB1"
 MID_SEASON_BACKUP = "00-SENT091-QB2"
+MID_SEASON_EDGE = "00-SENT091-D1"
+MID_SEASON_LINEBACKER = "00-SENT091-D2"
+MID_SEASON_SAFETY = "00-SENT091-D3"
+MID_SEASON_RESERVE = "00-SENT091-D4"
+MID_SEASON_BACK = "00-SENT091-RB1"
+MID_SEASON_RECEIVER = "00-SENT091-WR1"
+
+# (id, name, position, team, season totals). Pro-rated to week 10 of 18
+# the qualifiers are QB 8 games, RB 67 carries, WR 28 targets, defenders 12
+# tackles, any-position 28 carries + targets — each row below sits on a
+# deliberate side of its line.
+_MID_SEASON_ROSTER: list[tuple[str, str, str, str, dict[str, float]]] = [
+    # 9 games (a bye): in at 8, out at the full-season 14. Also carries the
+    # ball, so he is on the scrimmage board — with 2 rushing TDs, NOT the
+    # 20 he would have if his 18 passing TDs leaked into it.
+    (
+        MID_SEASON_STARTER,
+        "Sentinel Starter",
+        "QB",
+        "KC",
+        {
+            "games": 9,
+            "attempts": 300,
+            "passing_yards": 2400,
+            "passing_tds": 18,
+            "passing_epa": 30.0,
+            "carries": 40,
+            "rushing_yards": 150,
+            "rushing_tds": 2,
+        },
+    ),
+    (
+        MID_SEASON_BACKUP,
+        "Sentinel Backup",
+        "QB",
+        "LV",
+        {
+            "games": 3,
+            "attempts": 40,
+            "passing_yards": 250,
+            "passing_tds": 1,
+            "passing_epa": -2.0,
+        },
+    ),
+    # Defenders under four different roster labels — the feed's own — on
+    # one board. 38 tackles = 20 solo + 1 with assist + 17 assists.
+    (
+        MID_SEASON_EDGE,
+        "Sentinel Edge",
+        "OLB",
+        "KC",
+        {
+            "games": 9,
+            "def_tackles_solo": 20,
+            "def_tackles_with_assist": 1,
+            "def_tackle_assists": 17,
+            "def_sacks": 10.5,
+            "def_tackles_for_loss": 13,
+            "def_qb_hits": 20,
+            "def_pass_defended": 1,
+        },
+    ),
+    (
+        MID_SEASON_LINEBACKER,
+        "Sentinel Linebacker",
+        "LB",
+        "LV",
+        {
+            "games": 10,
+            "def_tackles_solo": 52,
+            "def_tackles_with_assist": 1,
+            "def_tackle_assists": 28,
+            "def_sacks": 4.5,
+            "def_tackles_for_loss": 8,
+            "def_qb_hits": 6,
+            "def_interceptions": 1,
+            "def_pass_defended": 3,
+        },
+    ),
+    (
+        MID_SEASON_SAFETY,
+        "Sentinel Safety",
+        "SAF",
+        "DEN",
+        {
+            "games": 10,
+            "def_tackles_solo": 24,
+            "def_tackles_with_assist": 1,
+            "def_tackle_assists": 19,
+            "def_sacks": 1.0,
+            "def_interceptions": 6,
+            "def_pass_defended": 9,
+        },
+    ),
+    # 7 tackles: under the pro-rated 12, so his 2 INTs stay off the board.
+    (
+        MID_SEASON_RESERVE,
+        "Sentinel Reserve",
+        "CB",
+        "KC",
+        {
+            "games": 4,
+            "def_tackles_solo": 5,
+            "def_tackle_assists": 2,
+            "def_interceptions": 2,
+        },
+    ),
+    (
+        MID_SEASON_BACK,
+        "Sentinel Back",
+        "RB",
+        "KC",
+        {
+            "games": 10,
+            "carries": 150,
+            "targets": 30,
+            "receptions": 25,
+            "rushing_yards": 700,
+            "rushing_tds": 9,
+            "receiving_yards": 200,
+            "receiving_tds": 2,
+        },
+    ),
+    (
+        MID_SEASON_RECEIVER,
+        "Sentinel Receiver",
+        "WR",
+        "LV",
+        {
+            "games": 10,
+            "targets": 80,
+            "receptions": 55,
+            "receiving_yards": 900,
+            "receiving_tds": 8,
+        },
+    ),
+]
 
 
 @pytest.fixture
@@ -348,8 +485,8 @@ def mid_season(db: Session) -> Generator[None]:
     seasons) never has.
 
     The schedule runs to week 18, weeks 1-10 are final and 11-18 are not.
-    The QB starter has played 9 games (a bye): qualified once thresholds
-    are pro-rated to 10/18 (QB 8+), never under the full-season 14.
+    See `_MID_SEASON_ROSTER` for who is on which side of each pro-rated
+    qualifier, and why.
     """
     db.add(Season(year=MID_SEASON, current_week=18, week_count=18))
     db.commit()
@@ -379,37 +516,15 @@ def mid_season(db: Session) -> Generator[None]:
     )
     db.add_all(
         [
-            Player(
-                id=MID_SEASON_STARTER, name="Sentinel Starter", position="QB", team="KC"
-            ),
-            Player(
-                id=MID_SEASON_BACKUP, name="Sentinel Backup", position="QB", team="LV"
-            ),
+            Player(id=player_id, name=name, position=position, team=team)
+            for player_id, name, position, team, _ in _MID_SEASON_ROSTER
         ]
     )
     db.commit()
     db.add_all(
         [
-            _mid_season_stat(
-                MID_SEASON_STARTER,
-                "QB",
-                "KC",
-                games=9,
-                attempts=300,
-                passing_yards=2400,
-                passing_tds=18,
-                passing_epa=30.0,
-            ),
-            _mid_season_stat(
-                MID_SEASON_BACKUP,
-                "QB",
-                "LV",
-                games=3,
-                attempts=40,
-                passing_yards=250,
-                passing_tds=1,
-                passing_epa=-2.0,
-            ),
+            _mid_season_stat(player_id, position, team, **totals)
+            for player_id, _, position, team, totals in _MID_SEASON_ROSTER
         ]
     )
     db.commit()

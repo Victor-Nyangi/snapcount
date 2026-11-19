@@ -1,8 +1,17 @@
+from enum import StrEnum
+
 from sqlmodel import SQLModel
 
-from app.schemas.leaders import LeaderPosition
 
-PlayerPosition = LeaderPosition
+class PlayerPosition(StrEnum):
+    """The positions with a player page. Its own enum, no longer an alias
+    of `LeaderPosition`: the leaderboards gained DEF and ALL, which are
+    boards, not positions a player list can be filtered to."""
+
+    QB = "QB"
+    RB = "RB"
+    WR = "WR"
+    TE = "TE"
 
 
 class PlayerRef(SQLModel):
