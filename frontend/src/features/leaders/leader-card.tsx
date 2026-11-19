@@ -117,9 +117,7 @@ export function LeaderCard({
         }`,
         borderRadius: 14,
         padding: "16px 20px",
-        boxShadow: isLeader
-          ? "0 4px 18px oklch(0.72 0.10 155 / 0.22)"
-          : "var(--shadow-light-sm)",
+        boxShadow: isLeader ? "var(--glow-leader)" : "var(--shadow-light-sm)",
       }}
     >
       <div

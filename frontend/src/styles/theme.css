@@ -4,16 +4,21 @@
  * DECISIONS (full rationale in resources/nfl-implemnentation2.md §1):
  * 1.1 Design overrides DS fonts: Archivo / IBM Plex Sans / IBM Plex Mono.
  *     Playfair Display, Manrope, JetBrains Mono are never loaded.
- * 1.2 LIGHT ONLY. No dark block, no theme toggle. The diverging scale generates
- *     L 0.75-0.97 backgrounds, unusable on the DS's #0A0A0C dark canvas.
- *     Dark mode needs a design pass, not a token remap.
- *     index.css keeps `@custom-variant dark (&:is(.dark *));` — deliberately.
- *     Nothing ever adds a `.dark` class, so it binds shadcn's baked-in `dark:`
- *     utilities to a selector that can never match, making them permanently
- *     inert. Deleting that line does not disable dark mode, it enables it via
- *     `@media (prefers-color-scheme: dark)`, Tailwind's default fallback —
- *     which would be reachable by OS dark-mode visitors against a palette
- *     that was never designed for it. Do not delete it.
+ * 1.2 TWO THEMES: light (the design) and "dark navy" (ours). Until the
+ *     dark pass this app was light-only, because the diverging scale's
+ *     L 0.75-0.97 tints are unusable on a dark canvas. The dark theme
+ *     answers that in lib/diverging.ts with its OWN ramp (low lightness,
+ *     light ink), not by reusing the light one; contrast.test.ts fails if
+ *     a dark step reuses a light background or drops below AA.
+ *     The dark palette is the `:root.dark` block at the end of this file.
+ *     It redefines the primitives the components already read (the gray
+ *     ramp inverts toward navy, the orchid accent becomes electric cyan,
+ *     tints become low-lightness washes) so no screen needed a fork.
+ *     `.dark`/`.light` is set on <html> by the inline script in index.html
+ *     before first paint, then kept in sync by components/theme-provider.
+ *     index.css keeps `@custom-variant dark (&:is(.dark *));` so shadcn's
+ *     `dark:` utilities follow the CLASS (the user's choice), never the
+ *     OS media query directly — "system" is resolved to a class too.
  * 1.3 Canvas is --app-canvas (#FAF9F6), not --bone (#F4F1EA). Different colors.
  * 1.5 ~12 colors used by the design were absent from the DS token files;
  *     they live in tokens.app.css, not here, so re-import regenerates them.
@@ -112,6 +117,39 @@ body {
   color: var(--text-primary-light);
 }
 
+/* The canvas glow is painted on body only, and fixed, so it reads as light
+ * falling on the page rather than as part of any one card. `none` in light. */
+body {
+  background-image: var(--canvas-glow);
+  background-attachment: fixed;
+}
+
+/*
+ * §1.15 — theme-aware chrome tokens.
+ *
+ * Values the components used to write inline (the header's translucent
+ * white, the leader card's emerald glow) or that only make sense per theme
+ * (the active-tab glow). Light values are exactly what was inline before,
+ * so the light theme renders unchanged; `.dark` below redefines them.
+ */
+:root {
+  --header-bg: oklch(1 0 0 / 0.97);
+  --header-shadow: 0 1px 0 oklch(0.13 0.004 285 / 0.04);
+  --header-backdrop: none;
+  --canvas-glow: none;
+  /* Active nav tab / segmented control. Light: the design's solid
+   * orchid-900. A gradient is a valid `background`, so dark can glow. */
+  --tab-active-bg: var(--orchid-900);
+  --tab-active-glow: none;
+  /* The #1 leader card and the hero/featured banners. */
+  --glow-leader: 0 4px 18px oklch(0.72 0.1 155 / 0.22);
+  --shadow-feature: var(--shadow-light-sm);
+  --series-glow: none;
+  /* Ink on an emerald FILL (the W badge, the form dots). White in light, as
+   * the design has it; dark brightens --emerald, so its ink goes dark. */
+  --on-emerald: var(--white);
+}
+
 .tabular {
   font-variant-numeric: tabular-nums;
 } /* §1.9: no slashed-zero */
@@ -172,4 +210,132 @@ h2,
  */
 :root {
   --lift-hover: 3px;
+}
+
+/*
+ * §1.2 (cont.) — DARK NAVY.
+ *
+ * Deep navy canvas (hue 258, the #0A1628-#0F1F3A range), surfaces stepping
+ * up in lightness as they layer (canvas 0.185 → card 0.235 → zebra 0.255 →
+ * muted 0.285), near-white ink, and an electric cyan (hue ~210) where the
+ * light theme spends orchid: active tabs, links, sort indicators, the focus
+ * ring and the trend line. Glow is reserved for those accents, the #1
+ * leader and the hero banners — never on body text.
+ *
+ * `:root.dark` (0,2,0) rather than `.dark` so it outranks the generated
+ * token files' `:root` (0,1,0) regardless of import order. Everything
+ * derived in `:root` above (--card, --primary, --ring, ...) recomputes from
+ * these on <html>, so the shadcn layer follows without being restated.
+ *
+ * Every text/background pair below is measured by contrast.test.ts, which
+ * reads THIS file — change a value and the test re-checks it.
+ */
+:root.dark {
+  color-scheme: dark;
+
+  /* surfaces */
+  --app-canvas: oklch(0.185 0.04 258);
+  --surface-card-light: oklch(0.235 0.05 258);
+  --app-row-zebra: oklch(0.255 0.05 258);
+  --surface-border-light: var(--gray-200);
+
+  /* The neutral ramp, inverted: --gray-100 is still "the quiet fill" and
+   * --gray-500 still "the label gray", they just sit on navy now. */
+  --gray-50: oklch(0.25 0.05 258);
+  --gray-100: oklch(0.285 0.05 258);
+  --gray-200: oklch(0.33 0.05 258);
+  --gray-300: oklch(0.42 0.045 258);
+  --gray-400: oklch(0.6 0.035 256);
+  --gray-500: oklch(0.74 0.03 255);
+  --gray-600: oklch(0.82 0.025 255);
+  --gray-700: oklch(0.89 0.02 255);
+  --gray-800: oklch(0.94 0.01 255);
+  --gray-900: oklch(0.97 0.005 255);
+
+  --text-primary-light: oklch(0.97 0.01 250);
+  --text-secondary-light: oklch(0.82 0.025 255);
+  --text-tertiary-light: oklch(0.7 0.03 255);
+
+  /* orchid → electric cyan. Same roles, same names. */
+  --orchid: oklch(0.83 0.14 210);
+  --orchid-light: oklch(0.88 0.11 205);
+  --orchid-dark: oklch(0.65 0.15 225);
+  --orchid-900: oklch(0.8 0.15 215);
+  --orchid-700: oklch(0.7 0.16 225);
+  --orchid-600: oklch(0.66 0.15 235);
+  --orchid-tint: oklch(0.32 0.07 222);
+  --accent-secondary-ink: oklch(0.18 0.05 258);
+
+  /* emerald, brightened to hold its own on navy */
+  --emerald: oklch(0.74 0.17 155);
+  --emerald-light: oklch(0.82 0.15 155);
+  --emerald-dark: oklch(0.62 0.15 155);
+  --emerald-ink: oklch(0.85 0.13 155);
+  --emerald-tint: oklch(0.32 0.065 158);
+  --emerald-tint-strong: oklch(0.3 0.055 158);
+  --emerald-tint-border: oklch(0.5 0.1 157);
+  --row-highlight: oklch(0.3 0.06 160);
+  --on-emerald: oklch(0.18 0.05 258);
+
+  /* negative + warning inks, lifted for a dark ground */
+  --ink-negative: oklch(0.76 0.15 25);
+  --ink-negative-mid: oklch(0.8 0.12 25);
+  --ink-negative-strong: oklch(0.95 0.03 25);
+  /* Lifted so error text clears AA on navy. shadcn's destructive button
+   * paints it at 60% under white ink in dark (`dark:bg-destructive/60`). */
+  --danger: oklch(0.68 0.19 25);
+  --warning-ink: oklch(0.88 0.12 85);
+  --warning-tint-strong: oklch(0.31 0.06 82);
+  --warning-tint-border: oklch(0.5 0.09 82);
+
+  /* lib/diverging.ts's dark ramp inks (dark only; the light ramp reuses
+   * --emerald-ink / --ink-negative-* as the design does) */
+  --diff-ink-pos: oklch(0.88 0.11 155);
+  --diff-ink-pos-strong: oklch(0.97 0.035 155);
+  --diff-ink-neg: oklch(0.87 0.08 25);
+  --diff-ink-neg-strong: oklch(0.97 0.02 25);
+
+  --chart-rule: oklch(0.45 0.04 258);
+
+  /* shadcn's --accent is a hover fill in menus and selects; emerald with
+   * dark ink there would be the loudest thing in a dark dropdown. */
+  --accent: var(--orchid-tint);
+  --accent-foreground: var(--text-primary-light);
+
+  /* depth: shadows do little on navy, so cards get a hairline top light */
+  --shadow-light-sm:
+    inset 0 1px 0 oklch(1 0 0 / 0.04), 0 1px 3px oklch(0.08 0.03 258 / 0.6);
+  --shadow-light-md:
+    0 0 0 1px oklch(0.83 0.14 210 / 0.28),
+    0 12px 32px oklch(0.08 0.03 258 / 0.6);
+
+  /* §1.15 chrome */
+  --header-bg: oklch(0.2 0.045 258 / 0.82);
+  --header-shadow:
+    0 1px 0 oklch(0.83 0.14 210 / 0.14), 0 8px 24px oklch(0.08 0.03 258 / 0.45);
+  --header-backdrop: blur(12px) saturate(1.3);
+  --canvas-glow:
+    radial-gradient(
+      70rem 34rem at 50% -12rem,
+      oklch(0.42 0.13 245 / 0.32),
+      transparent 70%
+    ),
+    radial-gradient(
+      40rem 26rem at 100% 0,
+      oklch(0.5 0.12 210 / 0.12),
+      transparent 70%
+    );
+  --tab-active-bg: linear-gradient(
+    135deg,
+    oklch(0.87 0.13 200),
+    oklch(0.74 0.16 232)
+  );
+  --tab-active-glow:
+    0 0 0 1px oklch(0.88 0.12 205 / 0.55), 0 0 18px oklch(0.78 0.15 215 / 0.45);
+  --glow-leader:
+    0 0 0 1px oklch(0.74 0.17 155 / 0.35), 0 0 28px oklch(0.74 0.17 155 / 0.22);
+  --shadow-feature:
+    0 0 0 1px oklch(0.83 0.14 210 / 0.2),
+    0 18px 48px -12px oklch(0.6 0.16 230 / 0.45);
+  --series-glow: drop-shadow(0 0 6px oklch(0.83 0.14 210 / 0.55));
 }

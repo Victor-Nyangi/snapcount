@@ -105,6 +105,8 @@ export function TrendLine({
           strokeWidth="2.5"
           strokeLinejoin="round"
           strokeLinecap="round"
+          // `none` in light; a soft cyan glow on the series in dark.
+          style={{ filter: "var(--series-glow)" }}
         />
       )}
     </svg>
