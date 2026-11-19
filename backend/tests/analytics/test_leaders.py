@@ -1,6 +1,8 @@
 import pytest
 
 from app.analytics.leaders import (
+    BOARD_METRICS,
+    DEFENSIVE_POSITIONS,
     SUPPORTED_METRICS,
     SeasonProgress,
     baseline,
@@ -84,8 +86,19 @@ def test_metric_value_raises_on_an_unknown_metric():
 
 def test_supported_metrics_matches_the_frontend_enum():
     # keeps app.analytics.leaders from drifting from the frontend search
-    # schema's z.enum(['epa', 'yds', 'td', 'rate'])
-    assert SUPPORTED_METRICS == {"epa", "yds", "td", "rate"}
+    # schema's metric enum (routes/_layout/leaders.tsx)
+    assert SUPPORTED_METRICS == {
+        "epa",
+        "yds",
+        "td",
+        "rate",
+        "tackles",
+        "sacks",
+        "tfl",
+        "qb_hits",
+        "interceptions",
+        "passes_defended",
+    }
 
 
 def test_baseline_is_the_mean_across_qualified_players_only():
@@ -184,3 +197,102 @@ def test_the_baseline_pool_uses_the_same_pro_rated_qualifier():
     # there is no pool at all and the baseline is 0.0.
     assert baseline([starter, backup], "epa", MID_SEASON) == pytest.approx(0.1)
     assert baseline([starter, backup], "epa") == 0.0
+
+
+# --- Defence and all-position boards --------------------------------------
+
+
+def test_board_metrics_name_what_each_board_offers():
+    offence = ("epa", "yds", "td", "rate")
+    assert BOARD_METRICS == {
+        "QB": offence,
+        "RB": offence,
+        "WR": offence,
+        "TE": offence,
+        "DEF": (
+            "tackles",
+            "sacks",
+            "tfl",
+            "qb_hits",
+            "interceptions",
+            "passes_defended",
+        ),
+        "ALL": ("td", "yds"),
+    }
+
+
+def test_the_defence_board_covers_every_defensive_roster_label():
+    # The feed's own labels, observed in 2024 and 2026. Edge rushers are DE
+    # in a 4-3 and OLB in a 3-4; safeties are SAF, S, FS and SS.
+    assert {
+        "DE",
+        "DT",
+        "DL",
+        "NT",
+        "LB",
+        "OLB",
+        "ILB",
+        "MLB",
+        "CB",
+        "DB",
+        "SAF",
+        "S",
+        "FS",
+        "SS",
+    } == DEFENSIVE_POSITIONS
+    assert not DEFENSIVE_POSITIONS & {"QB", "RB", "WR", "TE", "K", "P", "LS", "FB"}
+
+
+def test_total_tackles_is_solo_plus_with_assist_plus_assists():
+    # Zaire Franklin, 2024: the only sum that reproduces his official 173.
+    stat = stat_with(
+        "OLB", def_tackles_solo=75, def_tackles_with_assist=18, def_tackle_assists=80
+    )
+    assert metric_value(stat, "tackles", "DEF") == 173
+
+
+@pytest.mark.parametrize(
+    ("metric", "field", "value"),
+    [
+        ("sacks", "def_sacks", 17.5),
+        ("tfl", "def_tackles_for_loss", 19),
+        ("qb_hits", "def_qb_hits", 30),
+        ("interceptions", "def_interceptions", 9),
+        ("passes_defended", "def_pass_defended", 14),
+    ],
+)
+def test_defensive_metrics_read_their_own_column(metric, field, value):
+    assert metric_value(stat_with("DE", **{field: value}), metric, "DEF") == value
+
+
+def test_scrimmage_touchdowns_are_rushing_plus_receiving_never_passing():
+    qb = stat_with("QB", passing_tds=40, rushing_tds=3, receiving_tds=1)
+    assert metric_value(qb, "td", "ALL") == 4
+    rb = stat_with("RB", rushing_yards=1200, receiving_yards=350)
+    assert metric_value(rb, "yds", "ALL") == 1550
+
+
+def test_an_offensive_metric_on_the_defence_board_is_an_error():
+    with pytest.raises(ValueError, match="unknown metric"):
+        metric_value(stat_with("LB"), "epa", "DEF")
+    with pytest.raises(ValueError, match="unknown metric"):
+        metric_value(stat_with("RB"), "rate", "ALL")
+
+
+@pytest.mark.parametrize(
+    ("board", "totals", "full", "mid"),
+    [
+        # Defenders qualify on total tackles: 20 full season, 12 at week 10.
+        ("DEF", {"def_tackles_solo": 12}, False, True),
+        ("DEF", {"def_tackles_solo": 11}, False, False),
+        ("DEF", {"def_tackles_solo": 15, "def_tackle_assists": 5}, True, True),
+        # Any position qualifies on carries + targets: 50 full, 28 at week 10.
+        ("ALL", {"carries": 20, "targets": 8}, False, True),
+        ("ALL", {"carries": 20, "targets": 7}, False, False),
+        ("ALL", {"carries": 30, "targets": 20}, True, True),
+    ],
+)
+def test_board_qualifiers_pro_rate_like_the_position_ones(board, totals, full, mid):
+    stat = stat_with("LB" if board == "DEF" else "RB", **totals)
+    assert is_qualified(stat, board=board) is full
+    assert is_qualified(stat, MID_SEASON, board=board) is mid

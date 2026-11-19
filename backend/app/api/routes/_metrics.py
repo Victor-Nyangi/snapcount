@@ -48,6 +48,19 @@ METRIC_LABELS: dict[str, dict[str, str]] = {
         "td": "Touchdowns",
         "rate": "Yards per target",
     },
+    # No mockup for these two boards; worded to say what is counted.
+    "DEF": {
+        "tackles": "Total tackles",
+        "sacks": "Sacks",
+        "tfl": "Tackles for loss",
+        "qb_hits": "QB hits",
+        "interceptions": "Interceptions",
+        "passes_defended": "Passes defended",
+    },
+    "ALL": {
+        "td": "Scrimmage touchdowns",
+        "yds": "Scrimmage yards",
+    },
 }
 
 # position -> metric -> unit. The mockup keeps ONE global table here, with
@@ -63,10 +76,44 @@ _RATE_UNIT = {"QB": "Y/A", "RB": "Y/C", "WR": "Y/T", "TE": "Y/T"}
 UNITS: dict[str, dict[str, str]] = {
     position: {"epa": "EPA", "yds": "YDS", "td": "TD", "rate": rate_unit}
     for position, rate_unit in _RATE_UNIT.items()
+} | {
+    "DEF": {
+        "tackles": "TKL",
+        "sacks": "SCK",
+        "tfl": "TFL",
+        "qb_hits": "QBH",
+        "interceptions": "INT",
+        "passes_defended": "PD",
+    },
+    "ALL": {"td": "TD", "yds": "YDS"},
 }
 
 # Fixed per metric — precision is a column property, not a per-cell choice.
-PRECISION = {"epa": 3, "yds": 0, "td": 0, "rate": 1}
+# Sacks are the one count with a decimal: a shared sack is half each.
+PRECISION = {
+    "epa": 3,
+    "yds": 0,
+    "td": 0,
+    "rate": 1,
+    "tackles": 0,
+    "sacks": 1,
+    "tfl": 0,
+    "qb_hits": 0,
+    "interceptions": 0,
+    "passes_defended": 0,
+}
+
+# Said under the board when the label cannot say it alone. Keyed
+# (board, metric); anything absent has no note.
+NOTES: dict[tuple[str, str], str] = {
+    ("ALL", "td"): (
+        "Rushing plus receiving touchdowns, any position. "
+        "Passing touchdowns are on the QB board."
+    ),
+    ("ALL", "yds"): "Rushing plus receiving yards, any position.",
+    ("DEF", "tackles"): "Solo plus assisted tackles, as the league counts them.",
+    ("DEF", "sacks"): "A shared sack counts half to each player.",
+}
 
 # The noun each position's qualifier threshold counts, stated verbatim on
 # the leaders label. QB reads "games", not "starts" — `PlayerSeasonStat`
@@ -75,7 +122,17 @@ PRECISION = {"epa": 3, "yds": 0, "td": 0, "rate": 1}
 # `app.analytics.leaders`, the one place that actually applies them
 # (`is_qualified`), so a changed threshold can't silently desync from the
 # label describing it.
-QUALIFIER_NOUN = {"QB": "games", "RB": "carries", "WR": "targets", "TE": "targets"}
+QUALIFIER_NOUN = {
+    "QB": "games",
+    "RB": "carries",
+    "WR": "targets",
+    "TE": "targets",
+    "DEF": "tackles",
+    "ALL": "carries + targets",
+}
+# How the qualifier label names a board. The positions name themselves;
+# "DEF 20+ tackles" and "ALL 50+ carries + targets" read as codes.
+_QUALIFIER_SUBJECT = {"DEF": "Defenders", "ALL": "Any position"}
 QUALIFIER_THRESHOLD = QUALIFIER_THRESHOLD_BY_POSITION
 
 
@@ -108,7 +165,8 @@ def qualifier_label(position: str, progress: SeasonProgress | None = None) -> st
     "QB 8+ games" alone would look like a typo for 14.
     """
     threshold = qualifier_threshold(position, progress)
-    label = f"{position} {threshold}+ {QUALIFIER_NOUN[position]}"
+    subject = _QUALIFIER_SUBJECT.get(position, position)
+    label = f"{subject} {threshold}+ {QUALIFIER_NOUN[position]}"
     if progress is not None and not progress.complete:
         label += (
             f" · pro-rated to week {progress.weeks_played} of {progress.weeks_total}"

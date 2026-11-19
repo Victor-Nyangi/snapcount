@@ -5,10 +5,10 @@ from app.analytics.leaders import baseline, is_qualified, metric_value
 from app.api.deps import SessionDep
 from app.api.routes._metrics import METRIC_LABELS, PRECISION, season_progress
 from app.models import Player, PlayerSeasonStat, Team
-from app.schemas.leaders import LeaderPosition
 from app.schemas.players import (
     PlayerListRow,
     PlayerPageResponse,
+    PlayerPosition,
     PlayerRef,
     PlayerSeasonRow,
     RateCard,
@@ -40,7 +40,7 @@ _SUPPORTED_POSITIONS = frozenset({"QB", "RB", "WR", "TE"})
 
 @router.get("")
 def list_players(
-    session: SessionDep, season: int, position: LeaderPosition
+    session: SessionDep, season: int, position: PlayerPosition
 ) -> list[PlayerListRow]:
     rows = session.exec(
         select(PlayerSeasonStat, Player)

@@ -1,10 +1,17 @@
 from fastapi import APIRouter, HTTPException
 from sqlmodel import col, select
 
-from app.analytics.leaders import baseline, is_qualified, metric_value
+from app.analytics.leaders import (
+    BOARD_METRICS,
+    DEFENSIVE_POSITIONS,
+    baseline,
+    is_qualified,
+    metric_value,
+)
 from app.api.deps import SessionDep
 from app.api.routes._metrics import (
     METRIC_LABELS,
+    NOTES,
     PRECISION,
     UNITS,
     qualifier_label,
@@ -22,6 +29,21 @@ from app.schemas.leaders import (
 
 router = APIRouter(prefix="/leaders", tags=["leaders"])
 
+# Boards whose rows mix positions, and so name each player's position on
+# the card. A QB board saying "QB" on every row would only repeat the tab.
+_MIXED_POSITION_BOARDS = frozenset({LeaderPosition.DEF, LeaderPosition.ALL})
+
+# The card's secondary readout is always a whole count (see LeaderCard),
+# so it is never sacks. Per board: (metric shown, key) when the rank metric
+# is `primary`, else the fallback pair.
+_SECONDARY: dict[str, tuple[str, tuple[str, str], tuple[str, str]]] = {
+    # `metric == "yds"` gets a TD secondary; every other metric gets YDS —
+    # matches the design mockup's leader-card rule exactly. ALL follows the
+    # same rule with scrimmage totals.
+    "offence": ("yds", ("td", "TD"), ("yds", "YDS")),
+    "DEF": ("tackles", ("tfl", "TFL"), ("tackles", "TKL")),
+}
+
 
 @router.get("/{season}")
 def leaders(
@@ -31,23 +53,35 @@ def leaders(
     metric: LeaderMetric,
     limit: int = 5,
 ) -> LeadersResponse:
-    # `PlayerSeasonStat` holds every position; `metric_value` raises for
-    # anything outside QB/RB/WR/TE, so the position filter has to happen
-    # in the query, not in Python — the (season, position) index exists
-    # for exactly this.
-    stats = session.exec(
-        select(PlayerSeasonStat).where(
-            PlayerSeasonStat.season == season,
-            PlayerSeasonStat.position == position.value,
+    board = position.value
+    # A pair the board does not offer is the caller's error, not a board
+    # of zeros: "QB sacks" would rank every quarterback at 0.0.
+    if metric.value not in BOARD_METRICS[board]:
+        raise HTTPException(
+            status_code=422,
+            detail=f"The {board} board offers {', '.join(BOARD_METRICS[board])}",
         )
-    ).all()
+
+    # `PlayerSeasonStat` holds every position; `metric_value` reads the
+    # columns of the BOARD, so the pool has to be filtered in the query —
+    # the (season, position) index exists for exactly this. DEF is every
+    # defensive roster label; ALL is the whole season.
+    query = select(PlayerSeasonStat).where(PlayerSeasonStat.season == season)
+    if position == LeaderPosition.DEF:
+        query = query.where(col(PlayerSeasonStat.position).in_(DEFENSIVE_POSITIONS))
+    elif position != LeaderPosition.ALL:
+        query = query.where(PlayerSeasonStat.position == board)
+    stats = session.exec(query).all()
     if not stats:
         raise HTTPException(status_code=404, detail="No data for that season")
 
     # Thresholds scale with how much of the regular season is final, so a
     # week-10 board is not judged against a full season's volume.
     progress = season_progress(session, season)
-    qualified = [s for s in stats if is_qualified(s, progress)]
+    qualified = [s for s in stats if is_qualified(s, progress, board)]
+
+    def value_of(stat: PlayerSeasonStat, name: str = metric.value) -> float:
+        return metric_value(stat, name, board)
 
     # Names for EVERY qualified player, not just the ones that make the
     # board, because the name is part of the sort key below and the cut
@@ -64,9 +98,7 @@ def leaders(
     # `ORDER BY` — and Postgres promises nothing there, so the same URL
     # could produce a different board. Name is the tiebreak: arbitrary, but
     # a reason, and the same one the reader sees.
-    qualified.sort(
-        key=lambda s: (-metric_value(s, metric.value), players[s.player_id].name)
-    )
+    qualified.sort(key=lambda s: (-value_of(s), players[s.player_id].name))
 
     # CARRY THE TIE PAST THE CUTOFF. `qualified[:limit]` cut mid-tie: 2024
     # receiving touchdowns has Brian Thomas Jr., Justin Jefferson and Tee
@@ -76,8 +108,8 @@ def leaders(
     # cannot be justified by the metric on screen.
     top = qualified[:limit]
     if len(qualified) > limit:
-        edge = metric_value(qualified[limit - 1], metric.value)
-        top += [s for s in qualified[limit:] if metric_value(s, metric.value) == edge]
+        edge = value_of(qualified[limit - 1])
+        top += [s for s in qualified[limit:] if value_of(s) == edge]
     teams = {
         t.abbr: t
         for t in session.exec(
@@ -85,13 +117,11 @@ def leaders(
         ).all()
     }
 
-    line_baseline = baseline(stats, metric.value, progress)
-    # `metric == "yds"` gets a TD secondary; every other metric gets YDS —
-    # matches the design mockup's leader-card rule exactly.
-    if metric == LeaderMetric.yds:
-        secondary_metric, secondary_key = "td", "TD"
-    else:
-        secondary_metric, secondary_key = "yds", "YDS"
+    line_baseline = baseline(stats, metric.value, progress, board)
+    primary, when_primary, otherwise = _SECONDARY.get(board, _SECONDARY["offence"])
+    secondary_metric, secondary_key = (
+        when_primary if metric.value == primary else otherwise
+    )
 
     rows = []
     # COMPETITION RANKING: equal values share the lowest rank and the next
@@ -102,8 +132,8 @@ def leaders(
     # "Ranked #3 of 32" — and the leaderboard disagreed with it.
     ranks: list[int] = []
     for index, stat in enumerate(top):
-        value = metric_value(stat, metric.value)
-        if index and value == metric_value(top[index - 1], metric.value):
+        value = value_of(stat)
+        if index and value == value_of(top[index - 1]):
             ranks.append(ranks[-1])
         else:
             ranks.append(index + 1)
@@ -111,7 +141,10 @@ def leaders(
     for rank, stat in zip(ranks, top, strict=True):
         player = players[stat.player_id]
         team = teams[stat.team]
-        value = metric_value(stat, metric.value)
+        value = value_of(stat)
+        meta = f"{stat.season} season · {stat.games} g"
+        if position in _MIXED_POSITION_BOARDS:
+            meta = f"{stat.season} season · {stat.position} · {stat.games} g"
         rows.append(
             LeaderRow(
                 rank=rank,
@@ -120,12 +153,12 @@ def leaders(
                     name=player.name,
                     team_abbr=team.abbr,
                     team_color=team.color,
-                    meta=f"{stat.season} season · {stat.games} g",
+                    meta=meta,
                 ),
                 value=value,
                 secondary=LeaderSecondary(
                     key=secondary_key,
-                    value=int(metric_value(stat, secondary_metric)),
+                    value=int(value_of(stat, secondary_metric)),
                 ),
                 vs_baseline=value - line_baseline,
             )
@@ -135,10 +168,11 @@ def leaders(
         season=season,
         position=position.value,
         metric=metric.value,
-        metric_label=METRIC_LABELS[position.value][metric.value],
-        unit=UNITS[position.value][metric.value],
+        metric_label=METRIC_LABELS[board][metric.value],
+        unit=UNITS[board][metric.value],
         precision=PRECISION[metric.value],
         baseline=line_baseline,
-        qualifier_label=qualifier_label(position.value, progress),
+        qualifier_label=qualifier_label(board, progress),
+        note=NOTES.get((board, metric.value)),
         rows=rows,
     )
