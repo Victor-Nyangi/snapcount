@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react"
+import { useTheme } from "@/components/theme-provider"
 import { divergingCell } from "@/lib/diverging"
 import { formatDiff } from "@/lib/format"
 
@@ -33,6 +34,7 @@ export function DifferentialCell({
   cellRef: (el: HTMLButtonElement | null) => void
   onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void
 }) {
+  const { resolvedTheme } = useTheme()
   const base: CSSProperties = {
     fontFamily: "var(--font-mono)",
     fontVariantNumeric: "tabular-nums",
@@ -75,7 +77,7 @@ export function DifferentialCell({
       onKeyDown={onKeyDown}
       aria-pressed={selected}
       title={`${teamName} · ${season} · ${formatDiff(value)} point differential`}
-      style={{ ...base, ...divergingCell(value, domain) }}
+      style={{ ...base, ...divergingCell(value, domain, resolvedTheme) }}
     >
       {formatDiff(value)}
     </button>
