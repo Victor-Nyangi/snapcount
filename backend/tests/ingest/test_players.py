@@ -203,3 +203,139 @@ def test_seasons_played_counts_prior_ingested_seasons_for_the_player(
     ingest_players(isolated_db, _SEASON + 1, next_season_source)
     second = isolated_db.get(PlayerSeasonStat, (_SEASON + 1, "00-FAKE001"))
     assert second.seasons_played == 2
+
+
+# --- Defence and kicking season totals ------------------------------------
+#
+# Same weekly file, same REG-only filter, same null-player drop as the
+# offensive columns above. The column names are the feed's own, verified
+# against nflverse's `stats_player_week_2026` (150 columns) — see
+# source.py's module docstring.
+
+_DEFENDER = "00-FAKE003"
+_KICKER = "00-FAKE004"
+
+
+def _defender_row(**overrides):
+    return _row(
+        player_id=_DEFENDER,
+        player_name="L.Fake",
+        player_display_name="Lou Fakebacker",
+        position="OLB",
+        team="IND",
+        game_id=f"{_SEASON}_01_IND_HOU",
+        **overrides,
+    )
+
+
+def _kicker_row(**overrides):
+    return _row(
+        player_id=_KICKER,
+        player_name="K.Fake",
+        player_display_name="Kip Fakeleg",
+        position="K",
+        team="DAL",
+        game_id=f"{_SEASON}_01_DAL_NYG",
+        **overrides,
+    )
+
+
+class DefenceAndKickingSource:
+    def schedules(self, season):
+        return []
+
+    def player_stats(self, season):
+        return [
+            _defender_row(
+                week=1,
+                def_tackles_solo=6,
+                def_tackles_with_assist=1,
+                def_tackle_assists=4,
+                def_tackles_for_loss=1,
+                def_sacks=0.5,  # a half sack — the reason sacks are a float
+                def_qb_hits=2,
+                def_interceptions=0,
+                def_pass_defended=1,
+                def_fumbles_forced=1,
+                def_tds=0,
+                fg_long=None,  # the feed's value for a non-kicker
+            ),
+            _defender_row(
+                week=2,
+                def_tackles_solo=5,
+                def_tackles_with_assist=2,
+                def_tackle_assists=3,
+                def_tackles_for_loss=2,
+                def_sacks=1.0,
+                def_qb_hits=1,
+                def_interceptions=1,
+                def_pass_defended=2,
+                def_fumbles_forced=0,
+                def_tds=1,
+                fg_long=None,
+            ),
+            # Postseason: must not reach the season line.
+            _defender_row(
+                week=19,
+                season_type="POST",
+                def_tackles_solo=99,
+                def_sacks=9.0,
+                def_interceptions=9,
+            ),
+            _kicker_row(week=1, fg_made=3, fg_att=3, fg_long=52),
+            _kicker_row(week=2, fg_made=1, fg_att=2, fg_long=38),
+            # A week with no field-goal attempt: the feed's fg_long is null.
+            _kicker_row(week=3, fg_made=0, fg_att=0, fg_long=None),
+            # Postseason long — would be the max if POST leaked in.
+            _kicker_row(week=19, season_type="POST", fg_made=1, fg_att=1, fg_long=61),
+        ]
+
+
+def test_defensive_weeks_are_summed_regular_season_only(
+    isolated_db: Session,
+) -> None:
+    ingest_players(isolated_db, _SEASON, DefenceAndKickingSource())
+    stat = isolated_db.get(PlayerSeasonStat, (_SEASON, _DEFENDER))
+    assert stat.games == 2  # POST week excluded
+    assert stat.def_tackles_solo == 11
+    assert stat.def_tackles_with_assist == 3
+    assert stat.def_tackle_assists == 7
+    assert stat.def_tackles_for_loss == 3
+    assert stat.def_sacks == 1.5  # half sacks survive — not truncated to 1
+    assert stat.def_qb_hits == 3
+    assert stat.def_interceptions == 1
+    assert stat.def_pass_defended == 3
+    assert stat.def_fumbles_forced == 1
+    assert stat.def_tds == 1
+
+
+def test_field_goal_long_is_the_season_max_not_a_sum(isolated_db: Session) -> None:
+    ingest_players(isolated_db, _SEASON, DefenceAndKickingSource())
+    stat = isolated_db.get(PlayerSeasonStat, (_SEASON, _KICKER))
+    assert stat.games == 3
+    assert stat.fg_made == 4
+    assert stat.fg_att == 5
+    # 52 is the longest regular-season make. A sum would read 90; letting
+    # the 61-yarder from the postseason in would read 61.
+    assert stat.fg_long == 52
+
+
+def test_a_player_with_no_kicks_has_a_zero_long_not_a_null(
+    isolated_db: Session,
+) -> None:
+    ingest_players(isolated_db, _SEASON, DefenceAndKickingSource())
+    stat = isolated_db.get(PlayerSeasonStat, (_SEASON, _DEFENDER))
+    assert stat.fg_long == 0
+    assert stat.fg_made == 0
+
+
+def test_offensive_rows_without_defensive_columns_default_to_zero(
+    isolated_db: Session,
+) -> None:
+    # FakeSource's rows predate the defensive columns entirely — an older
+    # feed, or a test written before them, must not crash the mapper.
+    ingest_players(isolated_db, _SEASON, FakeSource())
+    stat = isolated_db.get(PlayerSeasonStat, (_SEASON, "00-FAKE001"))
+    assert stat.def_tackles_solo == 0
+    assert stat.def_sacks == 0.0
+    assert stat.fg_long == 0

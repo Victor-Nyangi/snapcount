@@ -33,8 +33,9 @@ from app.ingest.games import ensure_season_exists
 from app.ingest.source import NflverseSource
 from app.models import Player, PlayerSeasonStat
 
-# Season-total columns, split by whether the feed/model type is int or
-# float — PlayerSeasonStat's EPA columns are the only floats.
+# Season-total columns, split by how a week folds into the season: summed
+# ints, summed floats (EPA, and sacks — half sacks are real), and the one
+# column that is a season MAX rather than a sum (a kicker's long).
 _INT_FIELDS = (
     "attempts",
     "carries",
@@ -46,12 +47,27 @@ _INT_FIELDS = (
     "rushing_tds",
     "receiving_yards",
     "receiving_tds",
+    "def_tackles_solo",
+    "def_tackles_with_assist",
+    "def_tackle_assists",
+    "def_tackles_for_loss",
+    "def_qb_hits",
+    "def_interceptions",
+    "def_pass_defended",
+    "def_fumbles_forced",
+    "def_tds",
+    "fg_made",
+    "fg_att",
 )
-_FLOAT_FIELDS = ("passing_epa", "rushing_epa", "receiving_epa")
+_FLOAT_FIELDS = ("passing_epa", "rushing_epa", "receiving_epa", "def_sacks")
+# `fg_long` is null in the feed for every week without a field-goal
+# attempt (17,624 of 17,661 null rows in 2024 are exactly those weeks), so
+# the max is over the non-null weeks and a season with none reads 0.
+_MAX_FIELDS = ("fg_long",)
 
 
 class SeasonTotals(TypedDict):
-    """The `_INT_FIELDS`/`_FLOAT_FIELDS` totals, spelled out per field so
+    """The `_INT_FIELDS`/`_FLOAT_FIELDS`/`_MAX_FIELDS` totals, spelled out per field so
     `**totals` into `PlayerSeasonStat(...)` type-checks — a plain
     `dict[str, int | float]` widens every int column to `int | float`."""
 
@@ -65,22 +81,38 @@ class SeasonTotals(TypedDict):
     rushing_tds: int
     receiving_yards: int
     receiving_tds: int
+    def_tackles_solo: int
+    def_tackles_with_assist: int
+    def_tackle_assists: int
+    def_tackles_for_loss: int
+    def_qb_hits: int
+    def_interceptions: int
+    def_pass_defended: int
+    def_fumbles_forced: int
+    def_tds: int
+    fg_made: int
+    fg_att: int
     passing_epa: float
     rushing_epa: float
     receiving_epa: float
+    def_sacks: float
+    fg_long: int
 
 
 def _season_totals(weeks: Sequence[dict[str, Any]]) -> SeasonTotals:
     # Accumulated by field name, so the dict is built dynamically and only
     # narrowed to SeasonTotals once, here, where the key set is known to
-    # match _INT_FIELDS + _FLOAT_FIELDS exactly.
+    # match _INT_FIELDS + _FLOAT_FIELDS + _MAX_FIELDS exactly.
     totals: dict[str, Any] = dict.fromkeys(_INT_FIELDS, 0)
     totals.update(dict.fromkeys(_FLOAT_FIELDS, 0.0))
+    totals.update(dict.fromkeys(_MAX_FIELDS, 0))
     for row in weeks:
         for field in _INT_FIELDS:
             totals[field] += int(row.get(field) or 0)
         for field in _FLOAT_FIELDS:
             totals[field] += float(row.get(field) or 0.0)
+        for field in _MAX_FIELDS:
+            totals[field] = max(totals[field], int(row.get(field) or 0))
     return cast(SeasonTotals, totals)
 
 
