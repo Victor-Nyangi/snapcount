@@ -200,9 +200,8 @@ describe("/leaders route", () => {
   })
 
   it("keeps the chosen metric when the position changes", async () => {
-    // The brief asked to reproduce the mockup's fall-back-to-`epa`. That
-    // branch is dead — every position offers all four metrics, on both
-    // sides — so switching position must simply keep the metric.
+    // Every OFFENSIVE position offers the same four metrics, so switching
+    // between them keeps the metric.
     const { router } = await renderRouteAt(
       "/leaders?season=2024&position=QB&metric=rate",
     )
@@ -308,5 +307,193 @@ describe("/leaders route", () => {
     const { router } = await renderRouteAt("/leaders?season=2024&top=999")
     await cards()
     expect(searchOf(router).top).toBe(5)
+  })
+})
+
+/** `/api/v1/leaders/2026?position=DEF&metric=sacks`, trimmed — real
+ * week-10 data, half sacks and a pro-rated qualifier included. */
+const DEF_SACKS: LeadersResponse = {
+  season: 2026,
+  position: "DEF",
+  metric: "sacks",
+  metric_label: "Sacks",
+  unit: "SCK",
+  precision: 1,
+  baseline: 1.11,
+  qualifier_label: "Defenders 12+ tackles · pro-rated to week 10 of 18",
+  note: "A shared sack counts half to each player.",
+  rows: [
+    {
+      rank: 1,
+      player: player(
+        "00-0039108",
+        "Will Anderson Jr.",
+        "HOU",
+        "#03202F",
+        "2026 season · DE · 9 g",
+      ),
+      value: 10.5,
+      secondary: { key: "TKL", value: 38 },
+      vs_baseline: 9.39,
+    },
+    {
+      rank: 2,
+      player: player(
+        "00-0035272",
+        "Andrew Van Ginkel",
+        "MIN",
+        "#4F2683",
+        "2026 season · OLB · 9 g",
+      ),
+      value: 8.5,
+      secondary: { key: "TKL", value: 28 },
+      vs_baseline: 7.39,
+    },
+  ],
+}
+
+const ALL_TD: LeadersResponse = {
+  season: 2026,
+  position: "ALL",
+  metric: "td",
+  metric_label: "Scrimmage touchdowns",
+  unit: "TD",
+  precision: 0,
+  baseline: 2.9,
+  qualifier_label:
+    "Any position 28+ carries + targets · pro-rated to week 10 of 18",
+  note: "Rushing plus receiving touchdowns, any position. Passing touchdowns are on the QB board.",
+  rows: [
+    {
+      rank: 1,
+      player: player(
+        "00-0039139",
+        "Jahmyr Gibbs",
+        "DET",
+        "#0076B6",
+        "2026 season · RB · 9 g",
+      ),
+      value: 13,
+      secondary: { key: "YDS", value: 1384 },
+      vs_baseline: 10.1,
+    },
+  ],
+}
+
+describe("/leaders — the defence and all-positions boards", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    leaders.mockResolvedValue({ data: QB_EPA })
+  })
+
+  it("offers a Defence board and an all-positions board beside the four", async () => {
+    await renderRouteAt("/leaders?season=2026")
+    await cards()
+    for (const name of ["QB", "RB", "WR", "TE", "DEF", "ALL"]) {
+      expect(screen.getByRole("button", { name })).toBeInTheDocument()
+    }
+  })
+
+  it("switches to the board's first metric when the old one is not offered", async () => {
+    // QB EPA has no defensive meaning; the mockup's fall-back branch,
+    // dead while every board offered the same four, is live now.
+    const { router } = await renderRouteAt("/leaders?season=2026&metric=epa")
+    await cards()
+
+    leaders.mockResolvedValue({ data: DEF_SACKS })
+    await userEvent.click(screen.getByRole("button", { name: "DEF" }))
+
+    await waitFor(() => expect(searchOf(router).position).toBe("DEF"))
+    expect(searchOf(router).metric).toBe("tackles")
+    expect(leaders).toHaveBeenLastCalledWith({
+      path: { season: 2026 },
+      query: { position: "DEF", metric: "tackles", limit: 5 },
+    })
+  })
+
+  it("keeps a metric the new board also offers", async () => {
+    // Touchdowns exist on both the QB board and the all-positions one.
+    const { router } = await renderRouteAt(
+      "/leaders?season=2026&position=QB&metric=td",
+    )
+    await cards()
+
+    leaders.mockResolvedValue({ data: ALL_TD })
+    await userEvent.click(screen.getByRole("button", { name: "ALL" }))
+
+    await waitFor(() => expect(searchOf(router).position).toBe("ALL"))
+    expect(searchOf(router).metric).toBe("td")
+  })
+
+  it("lists the defensive metrics for the Defence board", async () => {
+    leaders.mockResolvedValue({ data: DEF_SACKS })
+    await renderRouteAt("/leaders?season=2026&position=DEF&metric=sacks")
+    await cards()
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Metric" }))
+    const options = await screen.findByRole("listbox")
+    expect(
+      within(options)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual([
+      "Total tackles",
+      "Sacks",
+      "Tackles for loss",
+      "QB hits",
+      "Interceptions",
+      "Passes defended",
+    ])
+  })
+
+  it("never sends a pair the board does not offer, even from a hand-edited URL", async () => {
+    // The API answers DEF + epa with a 422; the screen asks for the
+    // board's first metric instead of rendering an error.
+    leaders.mockResolvedValue({ data: DEF_SACKS })
+    await renderRouteAt("/leaders?season=2026&position=DEF&metric=epa")
+    await cards()
+
+    expect(leaders).toHaveBeenCalledWith({
+      path: { season: 2026 },
+      query: { position: "DEF", metric: "tackles", limit: 5 },
+    })
+  })
+
+  it("renders half sacks at the board's precision and names each position", async () => {
+    leaders.mockResolvedValue({ data: DEF_SACKS })
+    await renderRouteAt("/leaders?season=2026&position=DEF&metric=sacks")
+    const [first, second] = await cards()
+
+    expect(within(first).getByText("10.5")).toBeInTheDocument()
+    expect(
+      within(first).getByText("2026 season · DE · 9 g"),
+    ).toBeInTheDocument()
+    expect(
+      within(second).getByText("2026 season · OLB · 9 g"),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/Defenders 12\+ tackles · pro-rated to week 10 of 18/),
+    ).toBeInTheDocument()
+  })
+
+  it("states what the all-positions board counts, in the API's words", async () => {
+    leaders.mockResolvedValue({ data: ALL_TD })
+    await renderRouteAt("/leaders?season=2026&position=ALL&metric=td")
+    await cards()
+
+    expect(
+      screen.getByText(
+        "Rushing plus receiving touchdowns, any position. Passing touchdowns are on the QB board.",
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it("shows no note on a board whose label says it all", async () => {
+    await renderRouteAt("/leaders?season=2024")
+    await cards()
+    expect(screen.queryByTestId("leaders-note")).not.toBeInTheDocument()
+    // ...and the qualifier line is still there, so the absence above is
+    // not the whole footer failing to render.
+    expect(screen.getByText(/QB 14\+ games/)).toBeInTheDocument()
   })
 })
