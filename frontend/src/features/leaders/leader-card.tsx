@@ -144,7 +144,15 @@ export function LeaderCard({
           squeezing the name to zero. It is a BASIS, not a minimum, so the
           name still shrinks the rest of the way on anything narrower. */}
       <div style={{ minWidth: 0, flex: "1 1 220px" }}>
-        <div className="flex items-center" style={{ gap: 10 }}>
+        {/* WRAPS on a phone, so the meta line drops under the name instead
+            of the name being cut to make room for it. The mixed-position
+            boards' meta ("2026 season · OLB · 9 g") left "Will …" of Will
+            Anderson Jr. at 390px; offence boards truncated "Trevor Law…".
+            On desktop everything still fits one line and nothing moves. */}
+        <div
+          className="flex flex-wrap items-center"
+          style={{ columnGap: 10, rowGap: 2 }}
+        >
           {/* No `name`: the leaders payload carries only the abbreviation,
               and passing it as the label would make AT announce "BAL,
               image" over text that already reads "BAL". Left unnamed, the
