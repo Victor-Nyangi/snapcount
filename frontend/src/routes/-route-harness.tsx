@@ -5,6 +5,7 @@ import {
   RouterProvider,
 } from "@tanstack/react-router"
 import { render } from "@testing-library/react"
+import { seasonsQueryOptions } from "@/components/season-week-picker"
 import { routeTree } from "@/routeTree.gen"
 
 /**
@@ -26,8 +27,19 @@ import { routeTree } from "@/routeTree.gen"
  * Callers must `vi.mock("@/hooks/useAuth", …)` — `_layout.beforeLoad`
  * redirects to /login otherwise — and mock whichever service their screen
  * fetches through.
+ *
+ * `/meta/seasons` is SEEDED EMPTY unless `fetchSeasons` is set. The shell
+ * holds every screen until that query settles (it decides the default
+ * season and week), so an unmocked request would stall every route test
+ * on real network. Empty is the API's "no seasons" answer, which keeps the
+ * schema's fallback season and week — what these tests were written
+ * against. Tests ABOUT the seasons (the default, the explorer's range)
+ * mock `MetaService.listSeasons` and pass `fetchSeasons: true`.
  */
-export async function renderRouteAt(url: string) {
+export async function renderRouteAt(
+  url: string,
+  { fetchSeasons = false }: { fetchSeasons?: boolean } = {},
+) {
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [url] }),
@@ -37,6 +49,7 @@ export async function renderRouteAt(url: string) {
     // silent retries that time the test out.
     defaultOptions: { queries: { retry: false } },
   })
+  if (!fetchSeasons) queryClient.setQueryData(seasonsQueryOptions.queryKey, [])
 
   const result = render(
     <QueryClientProvider client={queryClient}>

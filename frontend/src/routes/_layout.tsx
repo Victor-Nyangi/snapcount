@@ -14,6 +14,7 @@ import { Freshness } from "@/components/freshness"
 import {
   SeasonWeekPicker,
   seasonWeekSearchSchema,
+  useSeasonWeekDefaults,
 } from "@/components/season-week-picker"
 import {
   DropdownMenu,
@@ -170,6 +171,11 @@ function Layout() {
   const { pathname } = useLocation()
   const navRef = useRef<HTMLElement>(null)
   const Link = routeApi.Link
+  // Everything that reads season/week waits for it to be resolved — the
+  // screen, the picker and the freshness pill. Until then they would
+  // render the fallback season and visibly correct themselves a moment
+  // later. The nav and the user menu do not read it and render at once.
+  const seasonWeekReady = useSeasonWeekDefaults()
 
   // Below `md`, the nav becomes a horizontally scrollable single row (see
   // the `data-rail`/`md:flex-wrap` split below). Keep the active pill in
@@ -314,16 +320,14 @@ function Layout() {
             className="ml-auto flex min-w-0 flex-wrap items-center justify-end"
             style={{ gap: 14 }}
           >
-            <SeasonWeekPicker />
-            <Freshness />
+            {seasonWeekReady && <SeasonWeekPicker />}
+            {seasonWeekReady && <Freshness />}
             <UserMenu />
           </div>
         </div>
       </header>
       <main className="flex-1 p-6 md:p-8">
-        <div className="mx-auto max-w-7xl">
-          <Outlet />
-        </div>
+        <div className="mx-auto max-w-7xl">{seasonWeekReady && <Outlet />}</div>
       </main>
       <Footer />
     </div>

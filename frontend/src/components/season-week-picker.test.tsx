@@ -9,7 +9,9 @@ import {
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { SeasonSummary } from "@/client"
 import {
+  latestSeasonWeek,
   SeasonWeekPicker,
   seasonWeekSearchSchema,
   useSeasonWeek,
@@ -38,6 +40,7 @@ const SEASONS = [
     current_week: 17,
     week_count: 18,
     max_week: 21,
+    last_played_week: 21,
     last_ingested_at: null,
   })),
   ...[2021, 2022, 2023, 2024, 2025].map((year) => ({
@@ -45,6 +48,7 @@ const SEASONS = [
     current_week: 18,
     week_count: 18,
     max_week: 22,
+    last_played_week: 22,
     last_ingested_at: null,
   })),
 ]
@@ -258,5 +262,66 @@ describe("SeasonWeekPicker", () => {
     expect(labels[16]).toBe("Week 17")
     expect(labels[17]).toBe("Wild card round")
     expect(labels[20]).toBe("Super Bowl")
+  })
+})
+
+describe("latestSeasonWeek", () => {
+  const season = (
+    year: number,
+    last_played_week: number | null,
+  ): SeasonSummary => ({
+    year,
+    current_week: 18,
+    week_count: 18,
+    max_week: 18,
+    last_played_week,
+    last_ingested_at: null,
+  })
+  // 2026 as /meta/seasons really reports it on 19 Nov: the whole schedule
+  // is in (current_week and max_week both 18) but week 10 is the last one
+  // with a final score.
+  const LIVE = [season(2024, 22), season(2026, 10), season(2025, 22)]
+
+  it("opens on the newest season at its last played week", () => {
+    expect(latestSeasonWeek(LIVE, {})).toEqual({ season: 2026, week: 10 })
+  })
+
+  it("lets an explicit season and week in the URL win", () => {
+    expect(latestSeasonWeek(LIVE, { season: 2024, week: 3 })).toEqual({
+      season: 2024,
+      week: 3,
+    })
+  })
+
+  it("fills only what the URL leaves out", () => {
+    // A season with no week opens on THAT season's last played week.
+    expect(latestSeasonWeek(LIVE, { season: 2024 })).toEqual({
+      season: 2024,
+      week: 22,
+    })
+    expect(latestSeasonWeek(LIVE, { week: 4 })).toEqual({
+      season: 2026,
+      week: 4,
+    })
+  })
+
+  it("skips a season whose schedule is out but nothing is played", () => {
+    // Every August: the new season's row exists from the first ingest,
+    // with no final score and no player stats yet. Opening on it would be
+    // seven empty screens.
+    const august = [...LIVE, season(2027, null)]
+    expect(latestSeasonWeek(august, {})).toEqual({ season: 2026, week: 10 })
+  })
+
+  it("falls back to the newest season at week 1 when nothing is played", () => {
+    expect(latestSeasonWeek([season(2027, null)], {})).toEqual({
+      season: 2027,
+      week: 1,
+    })
+  })
+
+  it("has nothing to say without seasons", () => {
+    expect(latestSeasonWeek(undefined, {})).toBeNull()
+    expect(latestSeasonWeek([], {})).toBeNull()
   })
 })

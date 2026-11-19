@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useMemo } from "react"
 import { StandingsService, TeamsService } from "@/client"
 import { QueryError } from "@/components/query-error"
+import { useSeasonWeek } from "@/components/season-week-picker"
 import { StatTable } from "@/components/stat-table"
 import {
   Select,
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/_layout/team/$abbr")({
 
 function TeamScreen() {
   const { abbr } = Route.useParams()
-  const { season } = Route.useSearch()
+  const { season } = useSeasonWeek()
   const navigate = useNavigate()
 
   const { data, isLoading, isError, refetch } = useQuery({

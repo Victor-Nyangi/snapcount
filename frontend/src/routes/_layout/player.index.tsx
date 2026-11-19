@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Navigate } from "@tanstack/react-router"
 import { z } from "zod"
-import { type LeaderPosition, PlayersService } from "@/client"
+import { type PlayerPosition, PlayersService } from "@/client"
+import { useSeasonWeek } from "@/components/season-week-picker"
 
 const POSITIONS = ["QB", "RB", "WR", "TE"] as const
 
@@ -27,7 +28,8 @@ export const Route = createFileRoute("/_layout/player/")({
 })
 
 function PlayerIndex() {
-  const { season, position } = Route.useSearch()
+  const { position } = Route.useSearch()
+  const { season } = useSeasonWeek()
 
   // Same key the player screen itself uses, so the redirect costs no extra
   // request once it lands.
@@ -36,7 +38,7 @@ function PlayerIndex() {
     queryFn: async () =>
       (
         await PlayersService.listPlayers({
-          query: { season, position: position as LeaderPosition },
+          query: { season, position: position as PlayerPosition },
         })
       ).data ?? [],
   })

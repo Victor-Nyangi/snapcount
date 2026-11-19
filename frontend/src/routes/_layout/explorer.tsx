@@ -2,12 +2,13 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMemo } from "react"
 import { z } from "zod"
-import { ExplorerService, MetaService } from "@/client"
+import { ExplorerService } from "@/client"
 import { DifferentialGrid } from "@/components/differential-grid/grid"
 import { orderRows } from "@/components/differential-grid/order"
 import { SelectionPanel } from "@/components/differential-grid/selection-panel"
 import { filterPillStyle } from "@/components/filter-pill"
 import { QueryError } from "@/components/query-error"
+import { seasonsQueryOptions } from "@/components/season-week-picker"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
@@ -48,11 +49,7 @@ function ExplorerScreen() {
 
   // Same query key as the shell's season picker, so this is a cache read
   // rather than a second request on every visit.
-  const seasonsQuery = useQuery({
-    queryKey: ["meta", "seasons"],
-    queryFn: async () => (await MetaService.listSeasons()).data,
-    staleTime: Number.POSITIVE_INFINITY,
-  })
+  const seasonsQuery = useQuery(seasonsQueryOptions)
 
   // Ordering is the endpoint's (`ORDER BY year`), but min/max says so
   // outright rather than trusting it — the range is what the whole screen
