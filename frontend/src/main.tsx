@@ -47,7 +47,7 @@ declare module "@tanstack/react-router" {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ThemeProvider defaultTheme="light" storageKey="snapcount-ui-theme">
+    <ThemeProvider defaultTheme="system" storageKey="snapcount-ui-theme">
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
         <Toaster richColors closeButton />

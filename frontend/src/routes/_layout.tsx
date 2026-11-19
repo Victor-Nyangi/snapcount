@@ -16,6 +16,7 @@ import {
   seasonWeekSearchSchema,
   useSeasonWeekDefaults,
 } from "@/components/season-week-picker"
+import { ThemeToggle } from "@/components/theme-toggle"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -117,7 +118,7 @@ export function UserMenu() {
             padding: "6px 10px",
             borderRadius: 10,
             border: "1px solid var(--gray-200)",
-            background: "var(--white)",
+            background: "var(--card)",
             fontFamily: "var(--font-body)",
             fontSize: 13,
             fontWeight: 600,
@@ -202,9 +203,13 @@ function Layout() {
           position: "sticky",
           top: 0,
           zIndex: 20,
-          background: "rgb(255 255 255 / 0.97)",
+          // §1.15: translucent white in light; translucent navy with a
+          // cyan hairline and a backdrop blur in dark.
+          background: "var(--header-bg)",
+          backdropFilter: "var(--header-backdrop)",
+          WebkitBackdropFilter: "var(--header-backdrop)",
           borderBottom: "1px solid var(--gray-200)",
-          boxShadow: "0 1px 0 rgb(10 10 12 / 0.04)",
+          boxShadow: "var(--header-shadow)",
         }}
       >
         <div
@@ -262,7 +267,11 @@ function Layout() {
                 padding: "9px 15px",
                 borderRadius: 10,
                 border: `1px solid ${isActive ? "transparent" : "var(--gray-200)"}`,
-                background: isActive ? "var(--orchid-900)" : "var(--white)",
+                // `--tab-active-bg` is the design's solid orchid-900 in
+                // light and a glowing cyan gradient in dark (theme.css
+                // §1.15); inactive pills sit on the surface colour.
+                background: isActive ? "var(--tab-active-bg)" : "var(--card)",
+                boxShadow: isActive ? "var(--tab-active-glow)" : "none",
                 color: isActive
                   ? "var(--accent-secondary-ink)"
                   : "var(--gray-600)",
@@ -322,6 +331,7 @@ function Layout() {
           >
             {seasonWeekReady && <SeasonWeekPicker />}
             {seasonWeekReady && <Freshness />}
+            <ThemeToggle />
             <UserMenu />
           </div>
         </div>
