@@ -4,6 +4,7 @@ import sentry_sdk
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 
 from app.api.main import api_router
 from app.core.config import settings
@@ -46,6 +47,14 @@ app.add_middleware(
 # Hashed /assets/* for a year, index.html revalidated every time. The API is
 # left alone. See app/core/static_cache.py.
 app.add_middleware(FrontendCacheControlMiddleware, api_prefix=settings.API_V1_STR)
+
+# Compression lives here rather than in a Traefik `compress` middleware so it
+# travels with the app: one layer, proven by pytest (tests/test_http_delivery.py),
+# identical behind Traefik, on :8000 in dev, and on any other host. Added last
+# so it is outermost and sees every response, the frontend's and the API's.
+# Level 6 rather than Starlette's default 9: near-identical size on minified
+# JS, noticeably less CPU per request on a small shared box.
+app.add_middleware(GZipMiddleware, minimum_size=1000, compresslevel=6)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 app.frontend("/", directory=FRONTEND_DIR)
