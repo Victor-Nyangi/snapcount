@@ -116,69 +116,95 @@ function assertAllPass(
   ).toEqual([])
 }
 
-test("every diverging cell on the standings board clears AA", async ({
-  page,
-}) => {
-  await page.goto("/standings?season=2024")
-  await page.waitForLoadState("networkidle")
+/**
+ * Both themes. The dark navy theme has its own diverging ramp and its own
+ * inks (lib/diverging.ts, theme.css §1.2), so the light measurements say
+ * nothing about it. `colorScheme` drives the default "system" theme, and
+ * every test first asserts the class actually landed on <html> — a
+ * context option that silently failed to reach the page would otherwise
+ * re-measure light twice and pass (keyboard.spec.ts documents exactly that
+ * failure for `reducedMotion`).
+ */
+async function expectTheme(
+  page: import("@playwright/test").Page,
+  theme: "light" | "dark",
+) {
+  await expect(page.locator("html")).toHaveClass(new RegExp(`\\b${theme}\\b`))
+}
 
-  const cells = await measure(page, "span.tabular.inline-block")
-  // Guard against the assertion passing because nothing rendered — this
-  // suite runs against a database that CI has to seed, and an empty board
-  // would make every check below vacuous.
-  expect(cells.length, "no diverging cells rendered").toBeGreaterThan(20)
-  // Both signs must be present, or a one-sided board hides half the scale.
-  expect(
-    cells.some((c) => c.text.startsWith("+")),
-    "no positive cells",
-  ).toBe(true)
-  expect(
-    cells.some((c) => c.text.startsWith("−")),
-    "no negative cells",
-  ).toBe(true)
+for (const colorScheme of ["light", "dark"] as const) {
+  test.describe(`${colorScheme} theme`, () => {
+    test.use({ colorScheme })
 
-  assertAllPass(cells, "diverging cells")
-})
+    test("every diverging cell on the standings board clears AA", async ({
+      page,
+    }) => {
+      await page.goto("/standings?season=2024")
+      await page.waitForLoadState("networkidle")
+      await expectTheme(page, colorScheme)
 
-test("the freshness pill clears AA in all four of its states", async ({
-  page,
-}) => {
-  // Driven through the API rather than whatever the database happens to
-  // report: the emerald states are the failing ones, and on a stale
-  // database they never render at all. This is how the original 4.43:1
-  // reached CI as a RACE — four screens caught the pill mid-"Checking…"
-  // and three did not.
-  for (const [status, label] of [
-    ["live", "Live · updated just now"],
-    ["fresh", "Up to date · Aug 17"],
-    ["stale", "Stale · updated Aug 16"],
-    ["complete", "Season complete"],
-  ]) {
-    await page.route("**/api/v1/meta/freshness*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ status, label, last_ingested_at: null }),
-      }),
-    )
-    await page.goto("/standings?season=2024")
-    await page.waitForLoadState("networkidle")
-    await expect(page.getByText(label)).toBeVisible()
+      const cells = await measure(page, "span.tabular.inline-block")
+      // Guard against the assertion passing because nothing rendered — this
+      // suite runs against a database that CI has to seed, and an empty board
+      // would make every check below vacuous.
+      expect(cells.length, "no diverging cells rendered").toBeGreaterThan(20)
+      // Both signs must be present, or a one-sided board hides half the scale.
+      expect(
+        cells.some((c) => c.text.startsWith("+")),
+        "no positive cells",
+      ).toBe(true)
+      expect(
+        cells.some((c) => c.text.startsWith("−")),
+        "no negative cells",
+      ).toBe(true)
 
-    const pill = await measure(page, '[title="Data freshness"] span')
-    expect(
-      pill.length,
-      `${status} pill did not render its label`,
-    ).toBeGreaterThan(0)
-    assertAllPass(pill, `freshness pill (${status})`)
-  }
-})
+      assertAllPass(cells, "diverging cells")
+    })
 
-test("the active filter pills clear AA", async ({ page }) => {
-  await page.goto("/explorer?season=2024")
-  await page.waitForLoadState("networkidle")
+    test("the freshness pill clears AA in all four of its states", async ({
+      page,
+    }) => {
+      // Driven through the API rather than whatever the database happens to
+      // report: the emerald states are the failing ones, and on a stale
+      // database they never render at all. This is how the original 4.43:1
+      // reached CI as a RACE — four screens caught the pill mid-"Checking…"
+      // and three did not.
+      for (const [status, label] of [
+        ["live", "Live · updated just now"],
+        ["fresh", "Up to date · Aug 17"],
+        ["stale", "Stale · updated Aug 16"],
+        ["complete", "Season complete"],
+      ]) {
+        await page.route("**/api/v1/meta/freshness*", (route) =>
+          route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ status, label, last_ingested_at: null }),
+          }),
+        )
+        await page.goto("/standings?season=2024")
+        await page.waitForLoadState("networkidle")
+        await expectTheme(page, colorScheme)
+        await expectTheme(page, colorScheme)
+        await expect(page.getByText(label)).toBeVisible()
 
-  const pills = await measure(page, 'button[data-state="on"]')
-  expect(pills.length, "no active filter pill rendered").toBeGreaterThan(0)
-  assertAllPass(pills, "active filter pills")
-})
+        const pill = await measure(page, '[title="Data freshness"] span')
+        expect(
+          pill.length,
+          `${status} pill did not render its label`,
+        ).toBeGreaterThan(0)
+        assertAllPass(pill, `freshness pill (${status})`)
+      }
+    })
+
+    test("the active filter pills clear AA", async ({ page }) => {
+      await page.goto("/explorer?season=2024")
+      await page.waitForLoadState("networkidle")
+      await expectTheme(page, colorScheme)
+
+      const pills = await measure(page, 'button[data-state="on"]')
+      expect(pills.length, "no active filter pill rendered").toBeGreaterThan(0)
+      assertAllPass(pills, "active filter pills")
+    })
+  })
+}
