@@ -20,19 +20,58 @@ import { LeaderCard } from "@/features/leaders/leader-card"
 // Same rule as every other screen: the mockup's `s.pos`/`s.metric`/`s.topN`
 // component state is URL search-param state here.
 //
-// NOTE ON THE BRIEF'S FALLBACK. Step 1 asks to reproduce the mockup's
-// "fall back to `epa` when the current metric is not offered for the newly
-// selected position". That branch is DEAD, in the mockup and here: its own
-// `METRICS` table gives all four positions all four metrics, so
-// `METRICS[pos].some(x => x[0] === metric)` is always true, and the API's
-// `_metrics.py::METRIC_LABELS` is the same table with the same four keys
-// per position. Writing the fallback would mean shipping a branch no user
-// can reach and no test can honestly exercise — the same reason the
-// playoff-seed badge was dropped. Every position/metric pair is valid, so
-// switching position keeps the metric, which is also what a user expects.
-const POSITIONS = ["QB", "RB", "WR", "TE"] as const
-const METRICS = ["epa", "yds", "td", "rate"] as const
+// SIX BOARDS, two metric sets. The four offensive positions share the
+// mockup's four metrics; DEF (every defender on one board) and ALL (every
+// position, scrimmage totals) have their own. The server owns which board
+// offers which — `app.analytics.leaders.BOARD_METRICS` — and this is its
+// verbatim copy, needed because the controls must name a board's metrics
+// before any response for it exists.
+//
+// The mockup's "fall back when the current metric is not offered for the
+// newly selected position" branch was dead while every board offered the
+// same four. It is live now (QB EPA has no defensive meaning), so it is
+// implemented — in `metricFor`, used both when a tab is clicked and when a
+// hand-edited URL names a pair the API would 422.
+const POSITIONS = ["QB", "RB", "WR", "TE", "DEF", "ALL"] as const
+type Board = (typeof POSITIONS)[number]
+const METRICS = [
+  "epa",
+  "yds",
+  "td",
+  "rate",
+  "tackles",
+  "sacks",
+  "tfl",
+  "qb_hits",
+  "interceptions",
+  "passes_defended",
+] as const
+type Metric = (typeof METRICS)[number]
 const TOP_OPTIONS = [5, 8, 12] as const
+
+const OFFENCE_METRICS = ["epa", "yds", "td", "rate"] as const
+const BOARD_METRICS: Record<Board, readonly Metric[]> = {
+  QB: OFFENCE_METRICS,
+  RB: OFFENCE_METRICS,
+  WR: OFFENCE_METRICS,
+  TE: OFFENCE_METRICS,
+  DEF: [
+    "tackles",
+    "sacks",
+    "tfl",
+    "qb_hits",
+    "interceptions",
+    "passes_defended",
+  ],
+  ALL: ["td", "yds"],
+}
+
+/** `metric` if `board` offers it, else the board's first metric. */
+function metricFor(board: Board, metric: Metric): Metric {
+  return BOARD_METRICS[board].includes(metric)
+    ? metric
+    : BOARD_METRICS[board][0]
+}
 
 const leadersSearchSchema = z.object({
   position: z.enum(POSITIONS).default("QB"),
@@ -55,16 +94,13 @@ export const Route = createFileRoute("/_layout/leaders")({
   }),
 })
 
-// Metric labels are per POSITION on the server ("EPA per play" for a QB,
+// Metric labels are per BOARD on the server ("EPA per play" for a QB,
 // "EPA per rush" for a back), and the response carries the label for the
-// selected one. The dropdown has to name all four before a response for
-// them exists, so it needs its own copy of the same table — verbatim from
-// `backend/app/api/routes/_metrics.py::METRIC_LABELS`, which is itself
-// verbatim from the mockup's `METRICS`.
-const METRIC_LABELS: Record<
-  (typeof POSITIONS)[number],
-  Record<(typeof METRICS)[number], string>
-> = {
+// selected one. The dropdown has to name every metric before a response for
+// it exists, so it needs its own copy of the same table — verbatim from
+// `backend/app/api/routes/_metrics.py::METRIC_LABELS`, whose offensive half
+// is itself verbatim from the mockup's `METRICS`.
+const METRIC_LABELS: { [B in Board]: Partial<Record<Metric, string>> } = {
   QB: {
     epa: "EPA per play",
     yds: "Passing yards",
@@ -88,6 +124,18 @@ const METRIC_LABELS: Record<
     yds: "Receiving yards",
     td: "Touchdowns",
     rate: "Yards per target",
+  },
+  DEF: {
+    tackles: "Total tackles",
+    sacks: "Sacks",
+    tfl: "Tackles for loss",
+    qb_hits: "QB hits",
+    interceptions: "Interceptions",
+    passes_defended: "Passes defended",
+  },
+  ALL: {
+    td: "Scrimmage touchdowns",
+    yds: "Scrimmage yards",
   },
 }
 
@@ -119,7 +167,10 @@ const selectTriggerStyle: React.CSSProperties = {
 function LeadersScreen() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
-  const { position, metric, top } = search
+  const { position, top } = search
+  // What is actually asked for and shown. A hand-edited URL can name a
+  // pair the board does not offer (DEF + epa); the API would answer 422.
+  const metric = metricFor(position, search.metric)
   const { season } = useSeasonWeek()
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -191,8 +242,11 @@ function LeadersScreen() {
         className="flex flex-wrap items-center"
         style={{ gap: 14, marginBottom: 20 }}
       >
+        {/* `flex-wrap`: six boards no longer fit one row on a phone. At
+            390px the group would hold the page open past the viewport;
+            wrapping keeps every tab reachable without a sideways scroll. */}
         <div
-          className="flex items-center"
+          className="flex flex-wrap items-center"
           style={{
             gap: 4,
             padding: 4,
@@ -207,7 +261,9 @@ function LeadersScreen() {
               type="button"
               aria-pressed={position === id}
               style={positionTabStyle(position === id)}
-              onClick={() => set({ position: id })}
+              onClick={() =>
+                set({ position: id, metric: metricFor(id, metric) })
+              }
             >
               {id}
             </button>
@@ -216,9 +272,7 @@ function LeadersScreen() {
 
         <Select
           value={metric}
-          onValueChange={(value) =>
-            set({ metric: value as (typeof METRICS)[number] })
-          }
+          onValueChange={(value) => set({ metric: value as Metric })}
         >
           <SelectTrigger
             size="sm"
@@ -228,7 +282,7 @@ function LeadersScreen() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {METRICS.map((id) => (
+            {BOARD_METRICS[position].map((id) => (
               <SelectItem key={id} value={id}>
                 {METRIC_LABELS[position][id]}
               </SelectItem>
@@ -271,6 +325,23 @@ function LeadersScreen() {
           </span>
         )}
       </div>
+
+      {/* What the metric counts when its label cannot say it alone — that
+          scrimmage touchdowns leave passing out, that a shared sack is half.
+          Worded by the API, like every other label on this screen. */}
+      {data?.note && (
+        <p
+          data-testid="leaders-note"
+          style={{
+            margin: "0 0 16px",
+            fontSize: 13,
+            lineHeight: 1.5,
+            color: "var(--gray-600)",
+          }}
+        >
+          {data.note}
+        </p>
+      )}
 
       <div style={{ display: "grid", gap: 12 }}>
         {rows.map((row) => (

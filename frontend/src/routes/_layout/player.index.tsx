@@ -20,7 +20,11 @@ const POSITIONS = ["QB", "RB", "WR", "TE"] as const
 export const Route = createFileRoute("/_layout/player/")({
   component: PlayerIndex,
   validateSearch: z.object({
-    position: z.enum(POSITIONS).default("QB"),
+    // `.catch`, not only `.default`: the leaders screen shares the
+    // `position` key and can hold DEF or ALL, and the nav carries search
+    // across screens. A board that is not a player position degrades to
+    // the default instead of failing validation into the error boundary.
+    position: z.enum(POSITIONS).default("QB").catch("QB"),
   }),
   head: () => ({
     meta: [{ title: "Player - Snapcount" }],
@@ -48,7 +52,9 @@ function PlayerIndex() {
       <Navigate
         to="/player/$playerId"
         params={{ playerId: roster[0].id }}
-        search={(prev) => prev}
+        // The VALIDATED position, which a DEF/ALL carried over from the
+        // leaders screen has already been degraded to.
+        search={(prev) => ({ ...prev, position })}
         replace
       />
     )

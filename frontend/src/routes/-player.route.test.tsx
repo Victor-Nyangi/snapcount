@@ -368,6 +368,23 @@ describe("/player index route", () => {
     )
   })
 
+  it("arriving from the Defence board opens the QB list, not an error", async () => {
+    // `position` is a search param on both screens, and the nav carries
+    // search across (`search={(prev) => prev}`). The leaders board can be
+    // DEF or ALL, which are boards, not player positions — the player
+    // schema must degrade them to its default instead of failing route
+    // validation and replacing the page with the error boundary.
+    const { router } = await renderRouteAt("/player?season=2025&position=DEF")
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/player/00-0026158"),
+    )
+    expect(listPlayers).toHaveBeenCalledWith({
+      query: { season: 2025, position: "QB" },
+    })
+    expect(searchOf(router).position).toBe("QB")
+  })
+
   it("says so when the season has no players of that position", async () => {
     listPlayers.mockResolvedValue({ data: [] })
     await renderRouteAt("/player?season=2015&position=TE")

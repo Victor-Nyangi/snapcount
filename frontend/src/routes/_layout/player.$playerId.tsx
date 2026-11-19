@@ -23,7 +23,11 @@ const POSITIONS = ["QB", "RB", "WR", "TE"] as const
 // is about a player, and the position is the lens the picker used to find
 // them. Season comes from `_layout` as everywhere else.
 const playerSearchSchema = z.object({
-  position: z.enum(POSITIONS).default("QB"),
+  // `.catch`, not only `.default`: the leaders screen shares the
+  // `position` key and can hold DEF or ALL, and the nav carries search
+  // across screens. A board that is not a player position degrades to
+  // the default instead of failing validation into the error boundary.
+  position: z.enum(POSITIONS).default("QB").catch("QB"),
 })
 
 export const Route = createFileRoute("/_layout/player/$playerId")({
@@ -91,10 +95,10 @@ function PlayerScreen() {
     navigate({
       to: "/player/$playerId",
       params: { playerId: roster[0].id },
-      search: (prev) => prev,
+      search: (prev) => ({ ...prev, position }),
       replace: true,
     })
-  }, [mismatched, roster, navigate])
+  }, [mismatched, roster, navigate, position])
 
   const columns = useMemo(
     () => getSeasonColumns(data?.player.position ?? position),
@@ -153,7 +157,7 @@ function PlayerScreen() {
             navigate({
               to: "/player/$playerId",
               params: { playerId: next },
-              search: (prev) => prev,
+              search: (prev) => ({ ...prev, position }),
             })
           }
         >
